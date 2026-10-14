@@ -1,0 +1,503 @@
+[
+  {
+    "n": 1,
+    "floor": 0,
+    "index_on_floor": 0,
+    "room_id": "floor0_airlock",
+    "title": "Шлюз",
+    "floor_name": "Поверхность / входной узел",
+    "batch": 1,
+    "origin": "customer-directive (A3/D15): помещение, связывающее поверхность и лифт; лифт спускается только на этаж -1",
+    "floor_truth": "Поверхность: кладбище и домик смотрителя; вход в комплекс через шлюз с газовой обработкой"
+  },
+  {
+    "n": 2,
+    "floor": -1,
+    "index_on_floor": 1,
+    "room_id": "floor-1_lobby",
+    "title": "Светлый холл",
+    "floor_name": "Приёмный покой (Фасад)",
+    "batch": 1,
+    "floor_truth": "Здесь были эксперименты"
+  },
+  {
+    "n": 3,
+    "floor": -1,
+    "index_on_floor": 2,
+    "room_id": "floor-1_reception",
+    "title": "Регистратура",
+    "floor_name": "Приёмный покой (Фасад)",
+    "batch": 1,
+    "floor_truth": "Здесь были эксперименты"
+  },
+  {
+    "n": 4,
+    "floor": -1,
+    "index_on_floor": 3,
+    "room_id": "floor-1_relaxation",
+    "title": "Комната релаксации",
+    "floor_name": "Приёмный покой (Фасад)",
+    "batch": 1,
+    "floor_truth": "Здесь были эксперименты"
+  },
+  {
+    "n": 5,
+    "floor": -1,
+    "index_on_floor": 4,
+    "room_id": "floor-1_exam_a",
+    "title": "Смотровая А (Первичный осмотр)",
+    "floor_name": "Приёмный покой (Фасад)",
+    "batch": 2,
+    "floor_truth": "Здесь были эксперименты"
+  },
+  {
+    "n": 6,
+    "floor": -1,
+    "index_on_floor": 5,
+    "room_id": "floor-1_psychotherapist",
+    "title": "Кабинет психотерапевта",
+    "floor_name": "Приёмный покой (Фасад)",
+    "batch": 2,
+    "floor_truth": "Здесь были эксперименты"
+  },
+  {
+    "n": 7,
+    "floor": -1,
+    "index_on_floor": 6,
+    "room_id": "floor-1_hidden_vestibule",
+    "title": "Скрытый тамбур",
+    "floor_name": "Приёмный покой (Фасад)",
+    "batch": 2,
+    "floor_truth": "Здесь были эксперименты"
+  },
+  {
+    "n": 8,
+    "floor": -1,
+    "index_on_floor": 7,
+    "room_id": "floor-1_locker_room",
+    "title": "Раздевалка",
+    "floor_name": "Приёмный покой (Фасад)",
+    "batch": 1,
+    "floor_truth": "Здесь были эксперименты"
+  },
+  {
+    "n": 9,
+    "floor": -2,
+    "index_on_floor": 1,
+    "room_id": "floor-2_corridor",
+    "title": "Смотровой коридор",
+    "floor_name": "Жилой блок изоляторов",
+    "batch": 3,
+    "floor_truth": "Препарат вызывал психоз"
+  },
+  {
+    "n": 10,
+    "floor": -2,
+    "index_on_floor": 2,
+    "room_id": "floor-2_ward3",
+    "title": "Палата №3 (Комната с мягкими стенами)",
+    "floor_name": "Жилой блок изоляторов",
+    "batch": 3,
+    "floor_truth": "Препарат вызывал психоз"
+  },
+  {
+    "n": 11,
+    "floor": -2,
+    "index_on_floor": 3,
+    "room_id": "floor-2_ward5",
+    "title": "Палата №5 (Зал зеркал)",
+    "floor_name": "Жилой блок изоляторов",
+    "batch": 3,
+    "floor_truth": "Препарат вызывал психоз"
+  },
+  {
+    "n": 12,
+    "floor": -2,
+    "index_on_floor": 4,
+    "room_id": "floor-2_nursery",
+    "title": "Детская игровая",
+    "floor_name": "Жилой блок изоляторов",
+    "batch": 3,
+    "floor_truth": "Препарат вызывал психоз"
+  },
+  {
+    "n": 13,
+    "floor": -2,
+    "index_on_floor": 5,
+    "room_id": "floor-2_canteen",
+    "title": "Столовая персонала",
+    "floor_name": "Жилой блок изоляторов",
+    "batch": 3,
+    "floor_truth": "Препарат вызывал психоз"
+  },
+  {
+    "n": 14,
+    "floor": -2,
+    "index_on_floor": 6,
+    "room_id": "floor-2_pharmacy",
+    "title": "Аптечный склад изолятора",
+    "floor_name": "Жилой блок изоляторов",
+    "batch": 4,
+    "floor_truth": "Препарат вызывал психоз"
+  },
+  {
+    "n": 15,
+    "floor": -2,
+    "index_on_floor": 7,
+    "room_id": "floor-2_watchpost2",
+    "title": "Пост наблюдения №2",
+    "floor_name": "Жилой блок изоляторов",
+    "batch": 4,
+    "floor_truth": "Препарат вызывал психоз"
+  },
+  {
+    "n": 16,
+    "floor": -3,
+    "index_on_floor": 1,
+    "room_id": "floor-3_forklift_garage",
+    "title": "Гараж погрузчиков",
+    "floor_name": "Архив и Технический блок",
+    "batch": 4,
+    "floor_truth": "Водитель был подопытным"
+  },
+  {
+    "n": 17,
+    "floor": -3,
+    "index_on_floor": 2,
+    "room_id": "floor-3_generator",
+    "title": "Дизель-генераторная",
+    "floor_name": "Архив и Технический блок",
+    "batch": 4,
+    "floor_truth": "Водитель был подопытным"
+  },
+  {
+    "n": 18,
+    "floor": -3,
+    "index_on_floor": 3,
+    "room_id": "floor-3_archive_b",
+    "title": "Секретный архив (Сектор В)",
+    "floor_name": "Архив и Технический блок",
+    "batch": 4,
+    "floor_truth": "Водитель был подопытным"
+  },
+  {
+    "n": 19,
+    "floor": -3,
+    "index_on_floor": 4,
+    "room_id": "floor-3_tape_server",
+    "title": "Серверная с магнитными лентами",
+    "floor_name": "Архив и Технический блок",
+    "batch": 5,
+    "floor_truth": "Водитель был подопытным"
+  },
+  {
+    "n": 20,
+    "floor": -3,
+    "index_on_floor": 5,
+    "room_id": "floor-3_workshop",
+    "title": "Инструментальная мастерская",
+    "floor_name": "Архив и Технический блок",
+    "batch": 5,
+    "floor_truth": "Водитель был подопытным"
+  },
+  {
+    "n": 21,
+    "floor": -3,
+    "index_on_floor": 6,
+    "room_id": "floor-3_collector",
+    "title": "Технический коллектор",
+    "floor_name": "Архив и Технический блок",
+    "batch": 5,
+    "floor_truth": "Водитель был подопытным"
+  },
+  {
+    "n": 22,
+    "floor": -3,
+    "index_on_floor": 7,
+    "room_id": "floor-3_freight_lift",
+    "title": "Грузовой подъемник",
+    "floor_name": "Архив и Технический блок",
+    "batch": 6,
+    "floor_truth": "Водитель был подопытным"
+  },
+  {
+    "n": 23,
+    "floor": -4,
+    "index_on_floor": 1,
+    "room_id": "floor-4_exec_reception",
+    "title": "Приемная руководства",
+    "floor_name": "Административный уровень",
+    "batch": 5,
+    "floor_truth": "Семью Коли убила корпорация"
+  },
+  {
+    "n": 24,
+    "floor": -4,
+    "index_on_floor": 2,
+    "room_id": "floor-4_curator_office",
+    "title": "Кабинет Куратора (Андрея)",
+    "floor_name": "Административный уровень",
+    "batch": 6,
+    "floor_truth": "Семью Коли убила корпорация"
+  },
+  {
+    "n": 25,
+    "floor": -4,
+    "index_on_floor": 3,
+    "room_id": "floor-4_conference",
+    "title": "Конференц-зал",
+    "floor_name": "Административный уровень",
+    "batch": 6,
+    "floor_truth": "Семью Коли убила корпорация"
+  },
+  {
+    "n": 26,
+    "floor": -4,
+    "index_on_floor": 4,
+    "room_id": "floor-4_vent_chamber",
+    "title": "Вентиляционная камера (Газовая ловушка)",
+    "floor_name": "Административный уровень",
+    "batch": 6,
+    "floor_truth": "Семью Коли убила корпорация"
+  },
+  {
+    "n": 27,
+    "floor": -4,
+    "index_on_floor": 5,
+    "room_id": "floor-4_vault",
+    "title": "Сейфовая комната",
+    "floor_name": "Административный уровень",
+    "batch": 6,
+    "floor_truth": "Семью Коли убила корпорация"
+  },
+  {
+    "n": 28,
+    "floor": -4,
+    "index_on_floor": 6,
+    "room_id": "floor-4_comms",
+    "title": "Комната связи",
+    "floor_name": "Административный уровень",
+    "batch": 6,
+    "floor_truth": "Семью Коли убила корпорация"
+  },
+  {
+    "n": 29,
+    "floor": -4,
+    "index_on_floor": 7,
+    "room_id": "floor-4_fire_escape",
+    "title": "Пожарный выкат",
+    "floor_name": "Административный уровень",
+    "batch": 6,
+    "floor_truth": "Семью Коли убила корпорация"
+  },
+  {
+    "n": 30,
+    "floor": -5,
+    "index_on_floor": 1,
+    "room_id": "floor-5_reactor_hall",
+    "title": "Химический реакторный зал",
+    "floor_name": "Лаборатория синтеза и Контроль",
+    "batch": 7,
+    "floor_truth": "Коля знал и молчал"
+  },
+  {
+    "n": 31,
+    "floor": -5,
+    "index_on_floor": 2,
+    "room_id": "floor-5_inspector_office",
+    "title": "Кабинет Инспектора безопасности (Коли)",
+    "floor_name": "Лаборатория синтеза и Контроль",
+    "batch": 7,
+    "floor_truth": "Коля знал и молчал"
+  },
+  {
+    "n": 32,
+    "floor": -5,
+    "index_on_floor": 3,
+    "room_id": "floor-5_reagents",
+    "title": "Склад реактивов",
+    "floor_name": "Лаборатория синтеза и Контроль",
+    "batch": 7,
+    "floor_truth": "Коля знал и молчал"
+  },
+  {
+    "n": 33,
+    "floor": -5,
+    "index_on_floor": 4,
+    "room_id": "floor-5_analytics",
+    "title": "Аналитическая лаборатория",
+    "floor_name": "Лаборатория синтеза и Контроль",
+    "batch": 7,
+    "floor_truth": "Коля знал и молчал"
+  },
+  {
+    "n": 34,
+    "floor": -5,
+    "index_on_floor": 5,
+    "room_id": "floor-5_decon",
+    "title": "Дезинфекционный санпропускник",
+    "floor_name": "Лаборатория синтеза и Контроль",
+    "batch": 7,
+    "floor_truth": "Коля знал и молчал"
+  },
+  {
+    "n": 35,
+    "floor": -5,
+    "index_on_floor": 6,
+    "room_id": "floor-5_control_room",
+    "title": "Центральная пультовая",
+    "floor_name": "Лаборатория синтеза и Контроль",
+    "batch": 8,
+    "floor_truth": "Коля знал и молчал"
+  },
+  {
+    "n": 36,
+    "floor": -5,
+    "index_on_floor": 7,
+    "room_id": "floor-5_gas_storage",
+    "title": "Хранилище сжиженного газа",
+    "floor_name": "Лаборатория синтеза и Контроль",
+    "batch": 8,
+    "floor_truth": "Коля знал и молчал"
+  },
+  {
+    "n": 37,
+    "floor": -6,
+    "index_on_floor": 1,
+    "room_id": "floor-6_preop",
+    "title": "Преддооперационный тамбур",
+    "floor_name": "Операционная и Мастерская",
+    "batch": 8,
+    "floor_truth": "Коля подписывал приказы"
+  },
+  {
+    "n": 38,
+    "floor": -6,
+    "index_on_floor": 2,
+    "room_id": "floor-6_operating",
+    "title": "Главный операционный зал",
+    "floor_name": "Операционная и Мастерская",
+    "batch": 8,
+    "floor_truth": "Коля подписывал приказы"
+  },
+  {
+    "n": 39,
+    "floor": -6,
+    "index_on_floor": 3,
+    "room_id": "floor-6_morgue",
+    "title": "Морг / Прозекторская",
+    "floor_name": "Операционная и Мастерская",
+    "batch": 8,
+    "floor_truth": "Коля подписывал приказы"
+  },
+  {
+    "n": 40,
+    "floor": -6,
+    "index_on_floor": 4,
+    "room_id": "floor-6_crematorium",
+    "title": "Комната утилизации (Крематорий)",
+    "floor_name": "Операционная и Мастерская",
+    "batch": 9,
+    "floor_truth": "Коля подписывал приказы"
+  },
+  {
+    "n": 41,
+    "floor": -6,
+    "index_on_floor": 5,
+    "room_id": "floor-6_doll_workshop",
+    "title": "Мастерская Кукол (Гнездо)",
+    "floor_name": "Операционная и Мастерская",
+    "batch": 9,
+    "floor_truth": "Коля подписывал приказы"
+  },
+  {
+    "n": 42,
+    "floor": -6,
+    "index_on_floor": 6,
+    "room_id": "floor-6_scrap_storage",
+    "title": "Склад медицинского утиля",
+    "floor_name": "Операционная и Мастерская",
+    "batch": 9,
+    "floor_truth": "Коля подписывал приказы"
+  },
+  {
+    "n": 43,
+    "floor": -6,
+    "index_on_floor": 7,
+    "room_id": "floor-6_evac_red",
+    "title": "Эвакуационный шлюз «Красный сектор»",
+    "floor_name": "Операционная и Мастерская",
+    "batch": 9,
+    "floor_truth": "Коля подписывал приказы"
+  },
+  {
+    "n": 44,
+    "floor": -7,
+    "index_on_floor": 1,
+    "room_id": "floor-7_sync_anteroom",
+    "title": "Синхронизационный аванзал",
+    "floor_name": "Ядро и Серверная времени",
+    "batch": 9,
+    "floor_truth": "Петлю создал Коля. Неофрон — паразит Петли"
+  },
+  {
+    "n": 45,
+    "floor": -7,
+    "index_on_floor": 2,
+    "room_id": "floor-7_chrono_hall",
+    "title": "Зал Хроно-Прибора",
+    "floor_name": "Ядро и Серверная времени",
+    "batch": 10,
+    "floor_truth": "Петлю создал Коля. Неофрон — паразит Петли"
+  },
+  {
+    "n": 46,
+    "floor": -7,
+    "index_on_floor": 3,
+    "room_id": "floor-7_main_terminal",
+    "title": "Главный Терминал управления",
+    "floor_name": "Ядро и Серверная времени",
+    "batch": 10,
+    "floor_truth": "Петлю создал Коля. Неофрон — паразит Петли"
+  },
+  {
+    "n": 47,
+    "floor": -7,
+    "index_on_floor": 4,
+    "room_id": "floor-7_memory_archive",
+    "title": "Архив Первичных Памятей",
+    "floor_name": "Ядро и Серверная времени",
+    "batch": 10,
+    "floor_truth": "Петлю создал Коля. Неофрон — паразит Петли"
+  },
+  {
+    "n": 48,
+    "floor": -7,
+    "index_on_floor": 5,
+    "room_id": "floor-7_neofron_sanctum",
+    "title": "Святилище Неофрона",
+    "floor_name": "Ядро и Серверная времени",
+    "batch": 10,
+    "floor_truth": "Петлю создал Коля. Неофрон — паразит Петли"
+  },
+  {
+    "n": 49,
+    "floor": -7,
+    "index_on_floor": 6,
+    "room_id": "floor-7_abort_console",
+    "title": "Пульт аварийного сброса",
+    "floor_name": "Ядро и Серверная времени",
+    "batch": 11,
+    "floor_truth": "Петлю создал Коля. Неофрон — паразит Петли"
+  },
+  {
+    "n": 50,
+    "floor": -7,
+    "index_on_floor": 7,
+    "room_id": "floor-7_origin_lock",
+    "title": "Шлюз Исходного Тока",
+    "floor_name": "Ядро и Серверная времени",
+    "batch": 11,
+    "floor_truth": "Петлю создал Коля. Неофрон — паразит Петли"
+  }
+]

@@ -1,0 +1,504 @@
+{
+  "schema_version": "2.0",
+  "room_id": "floor-1_hidden_vestibule",
+  "floor": -1,
+  "title": "Скрытый тамбур",
+  "role": {
+    "type": "story_location",
+    "function": "Граница этапа -1: декорация клиники заканчивается, начинается бетон лаборатории; единственный спуск на этаж -2 требует источника света.",
+    "story_truth": "Служебный тамбур за фальшивой стеной: дорогие обои закрывают бетон, вбитый в него дюбелями, а в полу — проём с металлической лестницей вниз. Здесь не лечили — здесь опускали.",
+    "revelation_level": "early"
+  },
+  "exits": [
+    {
+      "target_room_id": "floor-1_psychotherapist",
+      "direction": "Панель в цвет стены, ведущая обратно в кабинет психотерапевта",
+      "is_locked": false,
+      "lock_type": null,
+      "key_required": null,
+      "requires_flag": null,
+      "hidden": true,
+      "one_way": false,
+      "via": "door"
+    },
+    {
+      "target_room_id": "floor-2_corridor",
+      "direction": "Металлическая лестница вниз, уходящая в темноту; снизу тянет холодом и формалином",
+      "is_locked": false,
+      "lock_type": null,
+      "key_required": null,
+      "requires_flag": null,
+      "hidden": false,
+      "one_way": false,
+      "via": "stairs"
+    }
+  ],
+  "atmosphere": {
+    "lighting": "ровный молочный свет потолочных панелей, редко мигающая лампа",
+    "sounds": "музыка из-за двери, гудение вентиляции, редкие технические щелчки",
+    "smell": "чистящее средство, сухая бумага, слабый химический след",
+    "temperature": "тепло, кондиционированный воздух",
+    "tone": "ложная безопасность: чистая клиника, которая не работает"
+  },
+  "base_description": "",
+  "objects": [],
+  "items": [],
+  "lore": {
+    "public_revelation": {
+      "summary": "Узкое переходное помещение, которого нет на плане клиники: обои с цветочным рисунком обрываются ровной вертикальной линией, дальше голый бетон с потёками и остатками опалубки. По стене идут кабель-каналы и толстая труба вентиляции с конденсатом. В полу — прямоугольный проём с ржавой металлической лестницей, уходящей в темноту; поручень с одной стороны сорван. У проёма лежит аккуратно сложенный белый халат, поверх него — фонарь с севшей батарейкой.",
+      "text_snippet": "Обои с цветочным рисунком заканчиваются идеально ровной линией на середине стены. Если отогнуть край, под ними — бетон и вбитые в него дюбели: стену не штукатурили, её закрыли декорацией.",
+      "revelation_level": "early"
+    },
+    "secret_truth": {
+      "restrictions": [
+        "не объяснять, кто оставил халат и что волокли вниз",
+        "не раскрывать, что вентиляция питается снизу и что по ней подают газ при откате времени",
+        "не называть персонажей по именам",
+        "не вводить угрозу: на этажах 0 и -1 кукол нет"
+      ],
+      "floor_truth": "Здесь были эксперименты"
+    }
+  },
+  "hazards": {
+    "gas_level": "none",
+    "acid": false,
+    "electricity": false,
+    "darkness_requires_light": false,
+    "turret": false,
+    "trap_trigger": null
+  },
+  "actors": {
+    "enemies": [],
+    "npcs": []
+  },
+  "state": {
+    "initial": {
+      "vestibule_entered": false,
+      "boundary_examined": false,
+      "staircase_examined": false,
+      "flashlight_found": false,
+      "flashlight_repaired": false,
+      "coat_examined": false,
+      "vent_examined": false,
+      "drag_marks_examined": false,
+      "light_source_acquired": false,
+      "descended_to_floor_minus_2": false
+    },
+    "persistent_story_flags": [
+      "facade_boundary_crossed",
+      "light_source_acquired",
+      "descent_to_minus_2"
+    ]
+  },
+  "events": [
+    {
+      "id": "VESTIBULE_FIRST_ENTRY",
+      "category": "scene",
+      "trigger": {
+        "type": "enter_room",
+        "first_time": true
+      },
+      "conditions": [],
+      "effects": [
+        {
+          "type": "set_flag",
+          "flag": "vestibule_entered",
+          "value": true
+        }
+      ],
+      "narrative_guidance": {
+        "purpose": "Порог: потеря безопасности. Свет из кабинета падает узкой полосой и кончается; дальше темнота, бетон и запах лаборатории.",
+        "sequence": [
+          "темнота и полоса света от открытой панели",
+          "гул вентиляционной трубы",
+          "капель по металлу",
+          "холод и формалин снизу"
+        ],
+        "must_not_explain": [
+          "почему помещения нет на плане",
+          "куда ведёт лестница"
+        ]
+      },
+      "once": true
+    },
+    {
+      "id": "WALLPAPER_BOUNDARY_EXAMINED",
+      "category": "discovery",
+      "trigger": {
+        "type": "inspect_object",
+        "target": "wallpaper_boundary"
+      },
+      "conditions": [
+        {
+          "type": "state_is",
+          "path": "boundary_examined",
+          "equals": false
+        }
+      ],
+      "effects": [
+        {
+          "type": "set_flag",
+          "flag": "boundary_examined",
+          "value": true
+        },
+        {
+          "type": "set_flag",
+          "flag": "facade_boundary_crossed",
+          "value": true
+        }
+      ],
+      "narrative_guidance": {
+        "allowed_revelation": [
+          "обои заканчиваются идеально ровной линией",
+          "клей под ними свежий на вид, но бумага выцвела",
+          "под обоями бетон и вбитые дюбели",
+          "стену не штукатурили — её закрыли декорацией"
+        ],
+        "forbidden_revelation": [
+          "что декорация построена поверх лаборатории",
+          "кто и когда её монтировал"
+        ]
+      },
+      "once": true
+    },
+    {
+      "id": "STAIRCASE_EXAMINED",
+      "category": "discovery",
+      "trigger": {
+        "type": "inspect_object",
+        "target": "staircase_down"
+      },
+      "conditions": [
+        {
+          "type": "state_is",
+          "path": "staircase_examined",
+          "equals": false
+        }
+      ],
+      "effects": [
+        {
+          "type": "set_flag",
+          "flag": "staircase_examined",
+          "value": true
+        }
+      ],
+      "narrative_guidance": {
+        "allowed_revelation": [
+          "прямоугольный проём в полу",
+          "ступени ржавые",
+          "поручень справа сорван, на его месте гнутые крепления",
+          "ниже третьего пролёта света нет совсем",
+          "на первой ступени отпечаток ботинка в пыли, направленный вниз"
+        ],
+        "forbidden_revelation": [
+          "кто оставил отпечаток",
+          "что находится внизу"
+        ]
+      },
+      "once": true
+    },
+    {
+      "id": "FLASHLIGHT_FOUND",
+      "category": "item",
+      "trigger": {
+        "type": "inspect_object",
+        "target": "dead_flashlight"
+      },
+      "conditions": [
+        {
+          "type": "state_is",
+          "path": "flashlight_found",
+          "equals": false
+        }
+      ],
+      "effects": [
+        {
+          "type": "set_flag",
+          "flag": "flashlight_found",
+          "value": true
+        }
+      ],
+      "narrative_guidance": {
+        "allowed_revelation": [
+          "корпус целый",
+          "кнопка щёлкает",
+          "нить накаливания цела",
+          "батарейный отсек закрыт, внутри окислившиеся контакты и следы потёкшей батарейки"
+        ],
+        "forbidden_revelation": [
+          "где взять рабочую батарейку — это решение игроков"
+        ]
+      },
+      "once": true
+    },
+    {
+      "id": "FLASHLIGHT_REPAIRED",
+      "category": "interaction",
+      "trigger": {
+        "type": "object_changed",
+        "target": "dead_flashlight"
+      },
+      "conditions": [
+        {
+          "type": "state_is",
+          "path": "flashlight_repaired",
+          "equals": false
+        }
+      ],
+      "effects": [
+        {
+          "type": "set_flag",
+          "flag": "flashlight_repaired",
+          "value": true
+        },
+        {
+          "type": "set_flag",
+          "flag": "light_source_acquired",
+          "value": true
+        }
+      ],
+      "narrative_guidance": {
+        "effect": "Фонарь даёт узкий тёплый луч; темнота на лестнице перестаёт быть непреодолимой.",
+        "allowed_revelation": [
+          "луч выхватывает ржавые ступени и бетонную шахту",
+          "внизу видно площадку и начало коридора со стальными дверями"
+        ],
+        "forbidden": [
+          "описывать этаж -2 подробно до спуска",
+          "объяснять, откуда взялась батарейка"
+        ]
+      },
+      "once": true
+    },
+    {
+      "id": "FOLDED_COAT_EXAMINED",
+      "category": "discovery",
+      "trigger": {
+        "type": "inspect_object",
+        "target": "folded_coat"
+      },
+      "conditions": [
+        {
+          "type": "state_is",
+          "path": "coat_examined",
+          "equals": false
+        }
+      ],
+      "effects": [
+        {
+          "type": "set_flag",
+          "flag": "coat_examined",
+          "value": true
+        }
+      ],
+      "narrative_guidance": {
+        "allowed_revelation": [
+          "халат сложен ровно, вчетверо, будто его оставили минуту назад",
+          "ткань чистая",
+          "на манжете засохшее тёмное пятно и мелкие деревянные опилки в шве",
+          "в кармане только обрывок бирки с неразборчивым номером"
+        ],
+        "forbidden_revelation": [
+          "кто сложил халат",
+          "что за пятно",
+          "откуда опилки",
+          "чей номер на бирке"
+        ]
+      },
+      "once": true
+    },
+    {
+      "id": "VENT_PIPE_EXAMINED",
+      "category": "discovery",
+      "trigger": {
+        "type": "inspect_object",
+        "target": "vent_pipe"
+      },
+      "conditions": [
+        {
+          "type": "state_is",
+          "path": "vent_examined",
+          "equals": false
+        }
+      ],
+      "effects": [
+        {
+          "type": "set_flag",
+          "flag": "vent_examined",
+          "value": true
+        }
+      ],
+      "narrative_guidance": {
+        "allowed_revelation": [
+          "труба идёт вдоль стены и уходит в перекрытие",
+          "покрыта конденсатом, на стыках тёмные потёки",
+          "при ладони чувствуется движение воздуха снизу вверх",
+          "система работает, хотя электричества на этаже нет"
+        ],
+        "forbidden_revelation": [
+          "откуда питание",
+          "что по трубе подают газ при откате времени"
+        ]
+      },
+      "once": true
+    },
+    {
+      "id": "DRAG_MARKS_EXAMINED",
+      "category": "discovery",
+      "trigger": {
+        "type": "inspect_object",
+        "target": "drag_marks"
+      },
+      "conditions": [
+        {
+          "type": "state_is",
+          "path": "drag_marks_examined",
+          "equals": false
+        }
+      ],
+      "effects": [
+        {
+          "type": "set_flag",
+          "flag": "drag_marks_examined",
+          "value": true
+        }
+      ],
+      "narrative_guidance": {
+        "allowed_revelation": [
+          "две параллельные полосы на полу ведут к лестнице",
+          "сколы на кромке первой ступени",
+          "бетон внутри царапин не успел запылиться — следы свежие",
+          "что-то тяжёлое волокли вниз, и волокли недавно"
+        ],
+        "forbidden_revelation": [
+          "что именно волокли",
+          "кто это сделал",
+          "что следы повторяются на других этажах"
+        ]
+      },
+      "once": true
+    },
+    {
+      "id": "DESCENT_TO_FLOOR_MINUS_2",
+      "category": "interaction",
+      "trigger": {
+        "type": "interact",
+        "target": "staircase_down"
+      },
+      "conditions": [
+        {
+          "type": "state_is",
+          "path": "descended_to_floor_minus_2",
+          "equals": false
+        }
+      ],
+      "effects": [
+        {
+          "type": "set_flag",
+          "flag": "descended_to_floor_minus_2",
+          "value": true
+        },
+        {
+          "type": "set_flag",
+          "flag": "descent_to_minus_2",
+          "value": true
+        },
+        {
+          "type": "move_group",
+          "target": "floor-2_corridor"
+        }
+      ],
+      "narrative_guidance": {
+        "effect": "Группа спускается по ржавым ступеням; внизу — площадка и тяжёлые стальные двери со смотровыми окошками.",
+        "condition_note": "Без источника света спуск возможен, но описывается как травмоопасный: не видно третьей ступени, поручень сорван; последствия — ушибы, порезы, укатившийся вниз предмет. Не смертельно.",
+        "forbidden": [
+          "описывать этаж -2 до выхода на площадку",
+          "вводить угрозу во время спуска"
+        ]
+      },
+      "once": true
+    },
+    {
+      "id": "VESTIBULE_LOUD_NO_EFFECT",
+      "category": "reaction",
+      "trigger": {
+        "type": "attempt_interaction",
+        "targets": [
+          "staircase_down",
+          "vent_pipe",
+          "wallpaper_boundary"
+        ],
+        "interaction_types": [
+          "force",
+          "bruteforce",
+          "shout"
+        ]
+      },
+      "conditions": [],
+      "effects": [
+        {
+          "type": "narrative_marker",
+          "message": "Шум громкий: в бетонном мешке он уходит вниз по шахте и возвращается эхом."
+        }
+      ],
+      "narrative_guidance": {
+        "effect": "Шум громкий.",
+        "mechanical_consequence": "На этаже -1 последствий нет, но звук уходит вниз: с этажа -2 громкий шум слышат (B13/D33).",
+        "important": "Не вводить угрозу на лестнице; последствие наступит после спуска."
+      },
+      "once": false
+    }
+  ],
+  "ai_guidance": {
+    "role": "Виртуальный режиссёр сцены.",
+    "core_instruction": "Опирайся только на факты этой комнаты и сообщения игроков. Сыграй потерю безопасности: до этого места были свет, ковролин и вежливость, здесь — бетон, темнота и запах лаборатории. Темноту подавай как физическое препятствие, а не как атмосферу.",
+    "revelation_pacing": [
+      "Сначала узкая полоса света из кабинета, которая кончается в полутора метрах.",
+      "Затем граница обоев и дюбели в бетоне.",
+      "Затем проём в полу, ржавые ступени, сорванный поручень, холод и формалин снизу.",
+      "Затем сложенный халат и фонарь с севшей батарейкой.",
+      "В последнюю очередь — свежие царапины на бетоне у проёма и следы волочения.",
+      "Не веди группу вниз, пока не решён вопрос со светом."
+    ],
+    "forbidden_knowledge_reveal": [
+      "не называть персонажей по именам: на старте Цикла 48 они не помнят ни своих имён, ни имён друг друга (D34)",
+      "не раскрывать номер цикла и число 47",
+      "не раскрывать Неофрона по имени",
+      "не раскрывать Андрея и Куратора",
+      "не выдавать сведения других этажей, если они не предоставлены текущим игровым контекстом",
+      "не раскрывать, кто оставил халат",
+      "не раскрывать, что волокли куклу",
+      "не раскрывать, что Коля ходит во сне",
+      "не объяснять устройство вентиляции и подачу газа"
+    ],
+    "supernatural_limit": {
+      "manifestations": "сверхъестественного нет; допускается только низкое гудение снизу, которого не было этажом выше",
+      "use_count": 0
+    }
+  },
+  "meta": {
+    "schema_version": "2.0",
+    "source_files": [
+      "data/lore/complex-structure.txt",
+      "data/lore/narrative.txt",
+      "data/lore/cast.txt",
+      "data/lore/room-design-instructions.md",
+      "data/lore/references/floor-1_reception.reference.room.json",
+      "data/lore/references/trigger_conditions_effects_reference.json",
+      "data/rooms/_adjacency.json",
+      "data/rooms/_registry.json",
+      "data/rooms/_SCHEMA.md",
+      "data/rooms/_REGISTRY.md"
+    ],
+    "notes": [
+      "Сконвертирована из формата v1 в 2.0 по эталону data/lore/references/floor-1_reception.reference.room.json.",
+      "Формы lore / trigger / conditions / effects — по trigger_conditions_effects_reference.json (D54).",
+      "lore.secret_truth.truth и future_connections вынесены в парный .gm.json (D58).",
+      "ai_guidance оставлен в публичном файле целиком (D59).",
+      "exits собраны из data/rooms/_adjacency.json (D44).",
+      "Канон: «Переходная зона за фальшивой стеной. Здесь дорогие обои клиники резко сменяются холодным бетоном».",
+      "Авторские детали: фонарь с севшей батарейкой, сложенный халат с опилками, следы волочения, отпечаток ботинка, работающая вентиляция без питания на этаже.",
+      "Открытый вопрос B17: источник света для спуска — сейчас заложена починка здешнего фонаря (батарейка-кандидат из диктофона в Кабинете психотерапевта)."
+    ]
+  }
+}

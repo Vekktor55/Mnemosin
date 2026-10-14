@@ -1,0 +1,429 @@
+{
+  "schema_version": "2.0",
+  "room_id": "floor-1_relaxation",
+  "floor": -1,
+  "title": "Комната релаксации",
+  "role": {
+    "type": "story_location",
+    "function": "Поддержать ложную безопасность этажа -1 и дать первый звуковой дискомфорт: комната продолжает выполнять процедуру без людей.",
+    "story_truth": "Здесь проводили «сеансы релаксации» как часть протокола: шесть кресел в круг, брошюры о спокойствии с вырезанным разделом о побочках, заевшая пластинка, которую кто-то оставил играть.",
+    "revelation_level": "early"
+  },
+  "exits": [
+    {
+      "target_room_id": "floor-1_lobby",
+      "direction": "Двустворчатая дверь обратно в светлый холл",
+      "is_locked": false,
+      "lock_type": null,
+      "key_required": null,
+      "requires_flag": null,
+      "hidden": false,
+      "one_way": false,
+      "via": "door"
+    },
+    {
+      "target_room_id": "floor-1_locker_room",
+      "direction": "Служебная дверь с матовым стеклом и надписью «Только для персонала»",
+      "is_locked": false,
+      "lock_type": null,
+      "key_required": null,
+      "requires_flag": null,
+      "hidden": false,
+      "one_way": false,
+      "via": "door"
+    }
+  ],
+  "atmosphere": {
+    "lighting": "ровный молочный свет потолочных панелей, редко мигающая лампа",
+    "sounds": "музыка из-за двери, гудение вентиляции, редкие технические щелчки",
+    "smell": "чистящее средство, сухая бумага, слабый химический след",
+    "temperature": "тепло, кондиционированный воздух",
+    "tone": "ложная безопасность: чистая клиника, которая не работает"
+  },
+  "base_description": "",
+  "objects": [],
+  "items": [],
+  "lore": {
+    "public_revelation": {
+      "summary": "Комната для «сеансов релаксации»: шесть кресел-мешков расставлены в круг спинками к стенам, на столике веером разложены пыльные брошюры о «спокойствии», а пластинка дошла до конца дорожки и повторяет четыре ноты. Раздел «Побочные эффекты» вырезан лезвием по линейке в каждом экземпляре.",
+      "text_snippet": "Глянцевый буклет: «Мнемосин возвращает тишину», «Ваше спокойствие — наша работа». Раздел «Побочные эффекты» вырезан лезвием по линейке — во всех экземплярах стопки.",
+      "revelation_level": "early"
+    },
+    "secret_truth": {
+      "restrictions": [
+        "не объяснять, кто оставил пластинку играть",
+        "не раскрывать смысл шести кресел",
+        "не связывать детский рисунок с конкретным подопытным",
+        "не зачитывать текст нацарапанной надписи как факт: его содержание задаёт GM",
+        "не называть персонажей по именам"
+      ],
+      "floor_truth": "Здесь были эксперименты"
+    }
+  },
+  "hazards": {
+    "gas_level": "none",
+    "acid": false,
+    "electricity": false,
+    "darkness_requires_light": false,
+    "turret": false,
+    "trap_trigger": null
+  },
+  "actors": {
+    "enemies": [],
+    "npcs": []
+  },
+  "state": {
+    "initial": {
+      "relaxation_entered": false,
+      "music_playing": true,
+      "music_stopped": false,
+      "brochures_read": false,
+      "armchairs_examined": false,
+      "inscription_found": false,
+      "painting_examined": false,
+      "steps_below_heard": false
+    },
+    "persistent_story_flags": [
+      "floor_-1_side_effects_concealed"
+    ]
+  },
+  "events": [
+    {
+      "id": "RELAXATION_FIRST_ENTRY",
+      "category": "scene",
+      "trigger": {
+        "type": "enter_room",
+        "first_time": true
+      },
+      "conditions": [],
+      "effects": [
+        {
+          "type": "set_flag",
+          "flag": "relaxation_entered",
+          "value": true
+        }
+      ],
+      "narrative_guidance": {
+        "purpose": "Уют, который продолжает работать без людей: тёплый свет, мягкие кресла, музыка, брошюры веером.",
+        "sequence": [
+          "четыре ноты, пауза, щелчок",
+          "тёплый свет за матовыми панелями",
+          "шесть кресел в круг",
+          "пыльные брошюры на столике"
+        ],
+        "must_not_explain": [
+          "почему музыка заела",
+          "зачем кресла стоят спинками к стенам"
+        ]
+      },
+      "once": true
+    },
+    {
+      "id": "RECORD_PLAYER_STOPPED",
+      "category": "interaction",
+      "trigger": {
+        "type": "interact",
+        "target": "record_player"
+      },
+      "conditions": [
+        {
+          "type": "state_is",
+          "path": "music_stopped",
+          "equals": false
+        }
+      ],
+      "effects": [
+        {
+          "type": "set_flag",
+          "flag": "music_stopped",
+          "value": true
+        },
+        {
+          "type": "set_flag",
+          "flag": "music_playing",
+          "value": false
+        }
+      ],
+      "narrative_guidance": {
+        "effect": "Пластинка снята или шнур выдернут: музыка обрывается.",
+        "allowed_revelation": [
+          "механизм автостопа сломан или отключён",
+          "рычажок возврата зафиксирован кусочком изоленты",
+          "конверты с одинаковой этикеткой «Сеанс релаксации»"
+        ],
+        "consequence": "В наступившей тишине слышно низкое гудение вентиляции и один раз — звук шагов этажом ниже."
+      },
+      "once": true
+    },
+    {
+      "id": "BROCHURES_READ",
+      "category": "discovery",
+      "trigger": {
+        "type": "inspect_object",
+        "target": "calm_brochures"
+      },
+      "conditions": [
+        {
+          "type": "state_is",
+          "path": "brochures_read",
+          "equals": false
+        }
+      ],
+      "effects": [
+        {
+          "type": "set_flag",
+          "flag": "brochures_read",
+          "value": true
+        },
+        {
+          "type": "set_flag",
+          "flag": "floor_-1_side_effects_concealed",
+          "value": true
+        }
+      ],
+      "narrative_guidance": {
+        "allowed_revelation": [
+          "название «Мнемосин» в заголовке буклета",
+          "обещание тишины и спокойствия",
+          "раздел «Побочные эффекты» вырезан лезвием по линейке во всех экземплярах",
+          "логотип в виде стилизованной спирали"
+        ],
+        "forbidden_revelation": [
+          "что было в вырезанном разделе",
+          "что «Мнемосин» — препарат, а не только название клиники",
+          "связь спирали с пустой ампулой"
+        ]
+      },
+      "once": true
+    },
+    {
+      "id": "ARMCHAIRS_CIRCLE_EXAMINED",
+      "category": "discovery",
+      "trigger": {
+        "type": "inspect_object",
+        "target": "armchairs_circle"
+      },
+      "conditions": [
+        {
+          "type": "state_is",
+          "path": "armchairs_examined",
+          "equals": false
+        }
+      ],
+      "effects": [
+        {
+          "type": "set_flag",
+          "flag": "armchairs_examined",
+          "value": true
+        }
+      ],
+      "narrative_guidance": {
+        "allowed_revelation": [
+          "кресел шесть",
+          "все расставлены спинками к стенам, лицом к центру",
+          "на подлокотнике глубокие вмятины от ногтей и тёмное пятно",
+          "на ножке другого кресла нацарапана надпись, видимая только с пола"
+        ],
+        "forbidden_revelation": [
+          "смысл числа шесть",
+          "кто оставил вмятины",
+          "содержание надписи — его задаёт GM"
+        ]
+      },
+      "once": true
+    },
+    {
+      "id": "CHAIR_INSCRIPTION_FOUND",
+      "category": "discovery",
+      "trigger": {
+        "type": "compound_player_action",
+        "required_actions": [
+          "inspect_object:armchairs_circle",
+          "change_position:sit_on_floor"
+        ]
+      },
+      "conditions": [
+        {
+          "type": "state_is",
+          "path": "armchairs_examined",
+          "equals": true
+        },
+        {
+          "type": "state_is",
+          "path": "inscription_found",
+          "equals": false
+        }
+      ],
+      "effects": [
+        {
+          "type": "set_flag",
+          "flag": "inscription_found",
+          "value": true
+        }
+      ],
+      "narrative_guidance": {
+        "purpose": "Надпись видна только если сесть на пол или перевернуть кресло.",
+        "allowed_revelation": [
+          "четыре слова, последнее не дописано",
+          "царапаны чем-то твёрдым изнутри"
+        ],
+        "forbidden_revelation": [
+          "кто и когда нацарапал",
+          "точный текст — его назначает GM"
+        ]
+      },
+      "once": true
+    },
+    {
+      "id": "WALL_PAINTING_EXAMINED",
+      "category": "discovery",
+      "trigger": {
+        "type": "inspect_object",
+        "target": "wall_painting"
+      },
+      "conditions": [
+        {
+          "type": "state_is",
+          "path": "painting_examined",
+          "equals": false
+        }
+      ],
+      "effects": [
+        {
+          "type": "set_flag",
+          "flag": "painting_examined",
+          "value": true
+        }
+      ],
+      "narrative_guidance": {
+        "allowed_revelation": [
+          "детский по стилю рисунок: дерево, дом, три фигуры",
+          "краска выцвела и осыпается",
+          "под углом виден контур второй фигуры без лица, проступающий из-под краски"
+        ],
+        "forbidden_revelation": [
+          "кто рисовал",
+          "что взрослые подопытные впадали в детскую регрессию"
+        ]
+      },
+      "once": true
+    },
+    {
+      "id": "STEPS_BELOW_HEARD",
+      "category": "supernatural",
+      "trigger": {
+        "type": "object_changed",
+        "target": "record_player"
+      },
+      "conditions": [
+        {
+          "type": "state_is",
+          "path": "music_stopped",
+          "equals": true
+        },
+        {
+          "type": "state_is",
+          "path": "steps_below_heard",
+          "equals": false
+        }
+      ],
+      "effects": [
+        {
+          "type": "set_flag",
+          "flag": "steps_below_heard",
+          "value": true
+        }
+      ],
+      "narrative_guidance": {
+        "effect": "После остановки музыки один раз слышны шаги этажом ниже.",
+        "frequency": "single_use",
+        "forbidden": [
+          "объяснять, кто идёт",
+          "связывать с Неофроном или Колей",
+          "повторять приём"
+        ]
+      },
+      "once": true
+    },
+    {
+      "id": "RELAXATION_LOUD_NO_EFFECT",
+      "category": "reaction",
+      "trigger": {
+        "type": "attempt_interaction",
+        "targets": [
+          "record_player",
+          "armchairs_circle"
+        ],
+        "interaction_types": [
+          "force",
+          "bruteforce",
+          "shout"
+        ]
+      },
+      "conditions": [],
+      "effects": [
+        {
+          "type": "narrative_marker",
+          "message": "Шум громкий: в маленькой комнате с мягкими стенами он гаснет, но щелчок пластинки сбивается."
+        }
+      ],
+      "narrative_guidance": {
+        "effect": "Шум громкий.",
+        "mechanical_consequence": "На этаже -1 последствий нет: кукол на этаже нет (B13/D33).",
+        "important": "Не придумывать локальную угрозу из громкого шума."
+      },
+      "once": false
+    }
+  ],
+  "ai_guidance": {
+    "role": "Виртуальный режиссёр сцены.",
+    "core_instruction": "Опирайся только на факты этой комнаты и сообщения игроков. Работай со звуком: четыре ноты, пауза, щелчок — ритм сцены, к которому нужно возвращаться, но который нельзя объяснять.",
+    "revelation_pacing": [
+      "Сначала заевшая мелодия и уютный тёплый свет.",
+      "Затем брошюры и вырезанный раздел «Побочные эффекты».",
+      "Затем шесть кресел, расставленных в круг спинками к стенам.",
+      "Затем вмятины от ногтей на подлокотнике и нацарапанная надпись на ножке кресла.",
+      "Затем детский рисунок, под которым проступает вторая фигура без лица.",
+      "Если музыку остановят — дать тишину, в которой слышно гудение вентиляции и один раз шаги этажом ниже."
+    ],
+    "forbidden_knowledge_reveal": [
+      "не называть персонажей по именам: на старте Цикла 48 они не помнят ни своих имён, ни имён друг друга (D34)",
+      "не раскрывать номер цикла и число 47",
+      "не раскрывать Неофрона по имени",
+      "не раскрывать Андрея и Куратора",
+      "не выдавать сведения других этажей, если они не предоставлены текущим игровым контекстом",
+      "не раскрывать, что музыку включает Андрей",
+      "не раскрывать, что кресел шесть потому, что участников шесть",
+      "не раскрывать детскую регрессию подопытных как факт"
+    ],
+    "supernatural_limit": {
+      "manifestations": "после остановки музыки — один раз шаги этажом ниже; других проявлений нет",
+      "use_count": 1
+    }
+  },
+  "meta": {
+    "schema_version": "2.0",
+    "source_files": [
+      "data/lore/complex-structure.txt",
+      "data/lore/narrative.txt",
+      "data/lore/cast.txt",
+      "data/lore/room-design-instructions.md",
+      "data/lore/references/floor-1_reception.reference.room.json",
+      "data/lore/references/trigger_conditions_effects_reference.json",
+      "data/rooms/_adjacency.json",
+      "data/rooms/_registry.json",
+      "data/rooms/_SCHEMA.md",
+      "data/rooms/_REGISTRY.md"
+    ],
+    "notes": [
+      "Сконвертирована из формата v1 в 2.0 по эталону data/lore/references/floor-1_reception.reference.room.json.",
+      "Формы lore / trigger / conditions / effects — по trigger_conditions_effects_reference.json (D54).",
+      "lore.secret_truth.truth и future_connections вынесены в парный .gm.json (D58).",
+      "ai_guidance оставлен в публичном файле целиком (D59).",
+      "exits собраны из data/rooms/_adjacency.json (D44).",
+      "Канон: «Умиротворяющая музыка заела на жутком лупе. На столиках — пыльные брошюры о спокойствии».",
+      "Авторские детали: изолента на рычажке автостопа, шесть кресел в круг, вмятины от ногтей, нацарапанная надпись (текст не задан), детский рисунок поверх второго, шаги этажом ниже.",
+      "Число кресел (шесть) — намеренная перекличка с числом участников Петли; раскрывать смысл запрещено."
+    ]
+  }
+}

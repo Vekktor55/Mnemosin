@@ -1,0 +1,39 @@
+{
+  "name": "@mnemosin/server",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": {
+      "development": {
+        "types": "./src/index.ts",
+        "default": "./src/index.ts"
+      },
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "dev": "tsx watch --conditions=development src/main.ts",
+    "start": "node dist/main.js",
+    "build": "tsc -b",
+    "clean": "tsc -b --clean"
+  },
+  "dependencies": {
+    "@mnemosin/contracts": "*",
+    "@mnemosin/config": "*",
+    "@mnemosin/logging": "*",
+    "@mnemosin/core": "*",
+    "@mnemosin/jobs": "*",
+    "fastify": "^5.12.5",
+    "@fastify/cors": "^11.3.1",
+    "@fastify/rate-limit": "^11.2.1",
+    "@fastify/static": "^10.1.6",
+    "@mnemosin/database": "*"
+  }
+}

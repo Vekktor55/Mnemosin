@@ -1,0 +1,62 @@
+{
+  "files": [],
+  "references": [
+    {
+      "path": "shared/contracts"
+    },
+    {
+      "path": "core"
+    },
+    {
+      "path": "modules/session"
+    },
+    {
+      "path": "modules/turn"
+    },
+    {
+      "path": "modules/chat"
+    },
+    {
+      "path": "modules/story"
+    },
+    {
+      "path": "modules/gm"
+    },
+    {
+      "path": "modules/gm-review"
+    },
+    {
+      "path": "modules/gm-audit"
+    },
+    {
+      "path": "modules/ai-director"
+    },
+    {
+      "path": "infrastructure/config"
+    },
+    {
+      "path": "infrastructure/logging"
+    },
+    {
+      "path": "infrastructure/database"
+    },
+    {
+      "path": "infrastructure/jobs"
+    },
+    {
+      "path": "infrastructure/ai"
+    },
+    {
+      "path": "gateways/http"
+    },
+    {
+      "path": "gateways/ws"
+    },
+    {
+      "path": "apps/server"
+    },
+    {
+      "path": "client"
+    }
+  ]
+}

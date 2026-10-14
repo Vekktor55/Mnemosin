@@ -1,0 +1,423 @@
+{
+  "schema_version": "2.0",
+  "room_id": "floor0_airlock",
+  "floor": 0,
+  "title": "Шлюз",
+  "role": {
+    "type": "story_location",
+    "function": "Пролог Цикла 48: пробуждение шестерых после газовой обработки, полная амнезия и единственный путь — вниз.",
+    "story_truth": "Приёмный шлюз лаборатории: гермодверь запирается за группой, газ стирает память о подходе, лифт спускает только на этаж -1.",
+    "revelation_level": "early"
+  },
+  "exits": [
+    {
+      "target_room_id": "surface_cemetery",
+      "direction": "Внешняя гермодверь, за которой остались кладбище и ночной воздух",
+      "is_locked": true,
+      "lock_type": "condition",
+      "key_required": null,
+      "requires_flag": "surface_door_forced",
+      "hidden": false,
+      "one_way": true,
+      "via": "door"
+    },
+    {
+      "target_room_id": "floor-1_lobby",
+      "direction": "Кабина лифта за внутренней гермодверью — единственная кнопка ведёт вниз",
+      "is_locked": false,
+      "lock_type": null,
+      "key_required": null,
+      "requires_flag": null,
+      "hidden": false,
+      "one_way": true,
+      "via": "elevator"
+    }
+  ],
+  "atmosphere": {
+    "lighting": "тусклый дежурный свет, янтарная аварийная полоса у пола",
+    "sounds": "шипение вентиляции, гул в замкнутом объёме",
+    "smell": "формалин, ржавчина, машинное масло",
+    "temperature": "холодно, около десяти градусов",
+    "tone": "замкнутое помещение без выхода"
+  },
+  "base_description": "",
+  "objects": [],
+  "items": [],
+  "lore": {
+    "public_revelation": {
+      "summary": "Это не вход в больницу, а приёмный узел лаборатории с газовой обработкой. Первая надпись, которую видит группа, — «МНЕМОСИН · ЗОНА ПРИЁМА». Назад дороги нет: внешняя гермодверь захлопнута и не поддаётся, остаётся лифт с единственной кнопкой вниз.",
+      "text_snippet": "Эмалированная табличка на четырёх заклёпках: «МНЕМОСИН · ЗОНА ПРИЁМА». Углы сколоты, эмаль пожелтела, но буквы читаются.",
+      "revelation_level": "early"
+    },
+    "secret_truth": {
+      "restrictions": [
+        "не называть персонажей по именам: они не помнят ни себя, ни друг друга",
+        "не объяснять, что спуск повторялся сорок семь раз",
+        "не раскрывать, кто подавал газ и кто раскладывал якоря у ворот",
+        "не давать внешних голосов и сверхъестественных проявлений в шлюзе",
+        "не описывать кладбище и домик смотрителя как доступную локацию"
+      ],
+      "floor_truth": "Поверхность: кладбище и домик смотрителя; вход в комплекс через шлюз с газовой обработкой"
+    }
+  },
+  "hazards": {
+    "gas_level": "none",
+    "acid": false,
+    "electricity": false,
+    "darkness_requires_light": false,
+    "turret": false,
+    "trap_trigger": null
+  },
+  "actors": {
+    "enemies": [],
+    "npcs": []
+  },
+  "state": {
+    "initial": {
+      "group_awake": true,
+      "gas_vented": false,
+      "outer_door_examined": false,
+      "plaque_read": false,
+      "elevator_panel_examined": false,
+      "vent_nozzles_examined": false,
+      "anchors_noticed": false,
+      "surface_door_forced": false,
+      "elevator_used": false
+    },
+    "persistent_story_flags": [
+      "mnemosin_name_known",
+      "descent_started"
+    ]
+  },
+  "events": [
+    {
+      "id": "AIRLOCK_FIRST_AWAKENING",
+      "category": "scene",
+      "trigger": {
+        "type": "enter_room",
+        "first_time": true
+      },
+      "conditions": [],
+      "effects": [
+        {
+          "type": "set_flag",
+          "flag": "group_awake",
+          "value": true
+        }
+      ],
+      "narrative_guidance": {
+        "purpose": "Задать сцену пробуждения шестерых после газовой обработки: темнота, янтарная полоса у пола, холод, химический привкус, чужая одежда.",
+        "must_not_explain": [
+          "что это сорок восьмой повтор",
+          "кто подал газ",
+          "почему память пуста"
+        ],
+        "sequence": [
+          "физиология пробуждения",
+          "темнота и аварийная полоса",
+          "запах формалина",
+          "шесть тел вповалку"
+        ]
+      },
+      "once": true
+    },
+    {
+      "id": "OUTER_DOOR_EXAMINED",
+      "category": "discovery",
+      "trigger": {
+        "type": "inspect_object",
+        "target": "outer_door"
+      },
+      "conditions": [
+        {
+          "type": "state_is",
+          "path": "outer_door_examined",
+          "equals": false
+        }
+      ],
+      "effects": [
+        {
+          "type": "set_flag",
+          "flag": "outer_door_examined",
+          "value": true
+        }
+      ],
+      "narrative_guidance": {
+        "allowed_revelation": [
+          "дверь захлопнута",
+          "штурвал проворачивается, но дверь не поддаётся",
+          "за ней нет ни света, ни воздуха"
+        ],
+        "forbidden_revelation": [
+          "что за дверью кладбище и домик смотрителя",
+          "что выход существует в принципе"
+        ]
+      },
+      "once": true
+    },
+    {
+      "id": "MNEMOSIN_PLAQUE_READ",
+      "category": "discovery",
+      "trigger": {
+        "type": "inspect_object",
+        "target": "reception_plaque"
+      },
+      "conditions": [
+        {
+          "type": "state_is",
+          "path": "plaque_read",
+          "equals": false
+        }
+      ],
+      "effects": [
+        {
+          "type": "set_flag",
+          "flag": "plaque_read",
+          "value": true
+        },
+        {
+          "type": "set_flag",
+          "flag": "mnemosin_name_known",
+          "value": true
+        }
+      ],
+      "narrative_guidance": {
+        "allowed_revelation": [
+          "название «МНЕМОСИН»",
+          "пометка «ЗОНА ПРИЁМА»",
+          "эмаль сколота, табличка старая"
+        ],
+        "forbidden_revelation": [
+          "что «Мнемосин» — название препарата, а не только лаборатории",
+          "связь с ампулой и брошюрами"
+        ]
+      },
+      "once": true
+    },
+    {
+      "id": "ELEVATOR_PANEL_EXAMINED",
+      "category": "discovery",
+      "trigger": {
+        "type": "inspect_object",
+        "target": "elevator_panel"
+      },
+      "conditions": [
+        {
+          "type": "state_is",
+          "path": "elevator_panel_examined",
+          "equals": false
+        }
+      ],
+      "effects": [
+        {
+          "type": "set_flag",
+          "flag": "elevator_panel_examined",
+          "value": true
+        }
+      ],
+      "narrative_guidance": {
+        "allowed_revelation": [
+          "кнопка одна и подсвечена",
+          "подписи этажа нет",
+          "следы множества одинаковых прикосновений"
+        ],
+        "forbidden_revelation": [
+          "сколько раз кнопка уже была нажата",
+          "что лифт не пойдёт обратно"
+        ]
+      },
+      "once": true
+    },
+    {
+      "id": "VENT_NOZZLES_EXAMINED",
+      "category": "discovery",
+      "trigger": {
+        "type": "inspect_object",
+        "target": "vent_nozzles"
+      },
+      "conditions": [
+        {
+          "type": "state_is",
+          "path": "vent_nozzles_examined",
+          "equals": false
+        }
+      ],
+      "effects": [
+        {
+          "type": "set_flag",
+          "flag": "vent_nozzles_examined",
+          "value": true
+        }
+      ],
+      "narrative_guidance": {
+        "allowed_revelation": [
+          "раструбы повёрнуты в центр помещения",
+          "липкий сладковатый налёт внутри",
+          "пол под ними темнее остального"
+        ],
+        "forbidden_revelation": [
+          "назначение газа",
+          "что газ стирает память",
+          "что обработка повторялась"
+        ]
+      },
+      "once": true
+    },
+    {
+      "id": "ANCHORS_NOTICED",
+      "category": "discovery",
+      "trigger": {
+        "type": "compound_player_action",
+        "required_actions": [
+          "notice:own_belongings",
+          "compare:group_items"
+        ]
+      },
+      "conditions": [
+        {
+          "type": "state_is",
+          "path": "anchors_noticed",
+          "equals": false
+        }
+      ],
+      "effects": [
+        {
+          "type": "set_flag",
+          "flag": "anchors_noticed",
+          "value": true
+        }
+      ],
+      "narrative_guidance": {
+        "purpose": "Дать игрокам обнаружить предметы у себя: у пятерых есть вещь, у одного — ничего.",
+        "allowed_revelation": [
+          "надписи на предметах: «Сергей. До всего этого», инициалы «И.Н.», штамп «7», логотип-спираль",
+          "у одного из шестерых карманы пусты"
+        ],
+        "must_not_explain": [
+          "что это якоря",
+          "что предметы уже сорок семь раз приносили заново",
+          "кому именно принадлежала каждая вещь"
+        ]
+      },
+      "once": true
+    },
+    {
+      "id": "DESCENT_TO_FLOOR_MINUS_1",
+      "category": "interaction",
+      "trigger": {
+        "type": "interact",
+        "target": "elevator_panel"
+      },
+      "conditions": [
+        {
+          "type": "state_is",
+          "path": "elevator_used",
+          "equals": false
+        }
+      ],
+      "effects": [
+        {
+          "type": "set_flag",
+          "flag": "elevator_used",
+          "value": true
+        },
+        {
+          "type": "set_flag",
+          "flag": "descent_started",
+          "value": true
+        },
+        {
+          "type": "move_group",
+          "target": "floor-1_lobby"
+        }
+      ],
+      "narrative_guidance": {
+        "effect": "Кабина уходит вниз; двери открываются в светлый холл.",
+        "forbidden": [
+          "объяснять, что спуск повторялся",
+          "показывать кнопку вверх"
+        ]
+      },
+      "once": true
+    },
+    {
+      "id": "AIRLOCK_LOUD_FORCE_NO_EFFECT",
+      "category": "reaction",
+      "trigger": {
+        "type": "attempt_interaction",
+        "targets": [
+          "outer_door",
+          "vent_nozzles",
+          "elevator_panel"
+        ],
+        "interaction_types": [
+          "force",
+          "bruteforce"
+        ]
+      },
+      "conditions": [],
+      "effects": [
+        {
+          "type": "narrative_marker",
+          "message": "Шум громкий: металл по металлу, гул в замкнутом объёме."
+        }
+      ],
+      "narrative_guidance": {
+        "effect": "Шум громкий.",
+        "mechanical_consequence": "На этаже 0 последствий нет: кукол здесь нет, триггеров шума нет (B13/D33).",
+        "important": "Не придумывать локальную угрозу из громкого шума."
+      },
+      "once": false
+    }
+  ],
+  "ai_guidance": {
+    "role": "Виртуальный режиссёр сцены.",
+    "core_instruction": "Опирайся только на факты этой комнаты, текущее состояние партии и сообщения игроков этого хода. Создавай одно цельное продолжение сцены после завершения хода; не перечисляй действия игроков списком.",
+    "revelation_pacing": [
+      "Сначала физиология пробуждения: холод пола, химический привкус, чужая одежда, темнота с янтарной полосой у пола.",
+      "Затем шипение уходящего газа и раструбы вентиляции.",
+      "Затем захлопнутая гермодверь за спиной и безуспешность попытки выйти.",
+      "Затем табличка «МНЕМОСИН · ЗОНА ПРИЁМА» — первое слово о месте.",
+      "Затем лифт с единственной кнопкой вниз.",
+      "Игроки должны сами сложить, что выхода наверх нет."
+    ],
+    "forbidden_knowledge_reveal": [
+      "не называть персонажей по именам: на старте Цикла 48 они не помнят ни своих имён, ни имён друг друга (D34)",
+      "не раскрывать номер цикла и число 47",
+      "не раскрывать Неофрона по имени",
+      "не раскрывать Андрея и Куратора",
+      "не выдавать сведения других этажей, если они не предоставлены текущим игровым контекстом",
+      "не объяснять назначение газовой обработки",
+      "не раскрывать, что лифт не пойдёт обратно"
+    ],
+    "supernatural_limit": {
+      "manifestations": "в шлюзе сверхъестественное не проявляется: Неофрон слаб сразу после отката",
+      "use_count": 0
+    }
+  },
+  "meta": {
+    "schema_version": "2.0",
+    "source_files": [
+      "data/lore/complex-structure.txt",
+      "data/lore/narrative.txt",
+      "data/lore/cast.txt",
+      "data/lore/room-design-instructions.md",
+      "data/lore/references/floor-1_reception.reference.room.json",
+      "data/lore/references/trigger_conditions_effects_reference.json",
+      "data/rooms/_adjacency.json",
+      "data/rooms/_registry.json",
+      "data/rooms/_SCHEMA.md",
+      "data/rooms/_REGISTRY.md"
+    ],
+    "notes": [
+      "Сконвертирована из формата v1 в 2.0 по эталону data/lore/references/floor-1_reception.reference.room.json.",
+      "Формы lore / trigger / conditions / effects — по trigger_conditions_effects_reference.json (D54).",
+      "lore.secret_truth.truth и future_connections вынесены в парный .gm.json (D58).",
+      "ai_guidance оставлен в публичном файле целиком (D59).",
+      "exits собраны из data/rooms/_adjacency.json (D44).",
+      "Комната создана по прямому указанию заказчика (D15/D18): помещение, связывающее поверхность и лифт, спускающий только на этаж -1.",
+      "Фактура сцены — из эпилога narrative.txt; табличка и раструбы — идеи из index_complex.md (1-01-OBJ02, 1-01-EVN01).",
+      "Авторские детали: янтарная аварийная полоса, следы множества прикосновений на кнопке, тёмный пол под раструбами."
+    ]
+  }
+}

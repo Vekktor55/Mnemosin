@@ -1,0 +1,25 @@
+# зависимости и сборка
+node_modules/
+dist/
+*.tsbuildinfo
+coverage/
+.vite/
+
+# состояние и секреты
+.env
+data/**
+!data/.gitkeep
+*.sqlite
+*.sqlite-shm
+*.sqlite-wal
+
+# отчёты
+playwright-report/
+test-results/
+*.log
+tools/fixtures/_generated/
+
+# OS / IDE
+.DS_Store
+.idea/
+.vscode/

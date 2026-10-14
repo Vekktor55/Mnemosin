@@ -1,0 +1,61 @@
+# Лимиты и настройки (v3 §VI.10, §VIII.6; образец — MNEMOSIN_v3_AUDIT.md §8.9).
+# Все значения валидируются LimitsConfigSchema при старте.
+
+# Партия
+maxPlayersPerSession: 12
+actionsPerPlayerPerTurn: 5
+maxMessageLen: 1000
+chatRingBuffer: 500
+
+# WebSocket
+wsRatePerConnection:
+  ACTION_SUBMIT: 5
+  CHAT_PUBLIC: 10
+  DEFAULT: 20
+wsMaxConnectionsPerIp: 20
+wsMaxConnectionsPerPlayer: 4
+wsMaxPayloadBytes: 65536
+wsAuthTimeoutMs: 5000
+heartbeat:
+  intervalMs: 20000
+  idleTimeoutMs: 45000
+reconnect:
+  baseMs: 500
+  factor: 2
+  capMs: 15000
+  jitter: 0.2
+  maxAttempts: 8
+dedupeTtlMs: 300000
+
+# Идемпотентность и outbox
+idempotencyTtlHours: 24
+idempotencyInFlightTimeoutMs: 120000
+outboxBatchSize: 100
+outboxPollMs: 250
+outboxMaxAttempts: 5
+
+# AI
+aiMaxConcurrentPerSession: 1
+aiMaxRetriesPerTurn: 2
+aiContextMaxTokens: 24000
+
+# Media (этап 2)
+mediaMaxConcurrentPerSession: 2
+mediaMaxRetriesPerJob: 1
+
+# Capability Registry
+capabilityProbeMs: 30000
+
+# Event Engine (этап 2)
+eventCascadeMaxDepth: 3
+
+# Шина событий (промпт 1.5): таймаут одного async-обработчика
+handlerTimeoutMs: 5000
+
+# Бюджет (этап 2: фактическое значение — после замера, D139)
+sessionBudgetUsd: 5
+
+# HTTP rate limit
+httpRatePerIpPerMin: 100
+httpRatePerTokenPerMin: 300
+httpRateAuthPerIpPerMin: 10

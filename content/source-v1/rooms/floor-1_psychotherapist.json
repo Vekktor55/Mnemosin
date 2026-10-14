@@ -1,0 +1,568 @@
+{
+  "schema_version": "2.0",
+  "room_id": "floor-1_psychotherapist",
+  "floor": -1,
+  "title": "Кабинет психотерапевта",
+  "role": {
+    "type": "story_location",
+    "function": "Усилить правду этапа -1 через уничтоженные истории болезни и посеять образ куклы до встречи с ней на этаже -2.",
+    "story_truth": "Кабинет, где с подопытными «говорили»: двенадцать папок с чистыми листами вместо историй болезни, рисунки взрослых в состоянии регрессии, подписанные номерами, и тесты Роршаха, в которых сам врач начал видеть тканевых кукол.",
+    "revelation_level": "early"
+  },
+  "exits": [
+    {
+      "target_room_id": "floor-1_exam_a",
+      "direction": "Дверь обратно в смотровую",
+      "is_locked": false,
+      "lock_type": null,
+      "key_required": null,
+      "requires_flag": null,
+      "hidden": false,
+      "one_way": false,
+      "via": "door"
+    },
+    {
+      "target_room_id": "floor-1_hidden_vestibule",
+      "direction": "Узкая дверь в торце кабинета, закрытая мебельной панелью в цвет стены",
+      "is_locked": false,
+      "lock_type": null,
+      "key_required": null,
+      "requires_flag": null,
+      "hidden": true,
+      "one_way": false,
+      "via": "door"
+    }
+  ],
+  "atmosphere": {
+    "lighting": "ровный молочный свет потолочных панелей, редко мигающая лампа",
+    "sounds": "музыка из-за двери, гудение вентиляции, редкие технические щелчки",
+    "smell": "чистящее средство, сухая бумага, слабый химический след",
+    "temperature": "тепло, кондиционированный воздух",
+    "tone": "ложная безопасность: чистая клиника, которая не работает"
+  },
+  "base_description": "",
+  "objects": [],
+  "items": [],
+  "lore": {
+    "public_revelation": {
+      "summary": "Кабинет с нарочитым спокойствием: полки, ковёр, торшер, кушетка под пледом. На столе в строгом порядке разложены карточки с симметричными чернильными пятнами, и если присмотреться, пятна напоминают силуэты: тело с выступающими по бокам швами, два круглых пятна на месте глаз. Первая карточка в колоде чистая, но номер и штамп клиники на ней стоят. На пробковой доске — два десятка детских рисунков, подписанных не именами, а номерами от 1 до 12.",
+      "text_snippet": "Десять карточек с симметричными чернильными пятнами. У двух — голова и расставленные в стороны руки, у одной — тело с выступающими по бокам швами, у другой — два круглых пятна на месте глаз. Первая карточка чистая: пятна нет, но номер и штамп клиники стоят.",
+      "revelation_level": "early"
+    },
+    "secret_truth": {
+      "restrictions": [
+        "не называть силуэты куклами вслух и не подтверждать догадку игрока прямо",
+        "не объяснять, кто рисовал и почему фигура без лица",
+        "не раскрывать, что истории болезни изъяты намеренно",
+        "не расшифровывать два слога на кассете",
+        "не объяснять, кто оставил тёплый плед",
+        "не называть персонажей по именам"
+      ],
+      "floor_truth": "Здесь были эксперименты"
+    }
+  },
+  "hazards": {
+    "gas_level": "none",
+    "acid": false,
+    "electricity": false,
+    "darkness_requires_light": false,
+    "turret": false,
+    "trap_trigger": null
+  },
+  "actors": {
+    "enemies": [],
+    "npcs": []
+  },
+  "state": {
+    "initial": {
+      "office_entered": false,
+      "cards_examined": false,
+      "first_card_blank_noticed": false,
+      "board_examined": false,
+      "dictaphone_found": false,
+      "tape_played": false,
+      "folders_read": false,
+      "couch_examined": false,
+      "block_found": false,
+      "block_taken": false,
+      "seam_noticed": false,
+      "hidden_door_opened": false
+    },
+    "persistent_story_flags": [
+      "floor_-1_records_destroyed",
+      "doll_image_planted",
+      "hidden_passage_found"
+    ]
+  },
+  "events": [
+    {
+      "id": "PSYCHOTHERAPIST_FIRST_ENTRY",
+      "category": "scene",
+      "trigger": {
+        "type": "enter_room",
+        "first_time": true
+      },
+      "conditions": [],
+      "effects": [
+        {
+          "type": "set_flag",
+          "flag": "office_entered",
+          "value": true
+        }
+      ],
+      "narrative_guidance": {
+        "purpose": "Уют, устроенный профессионально: комната, где человеку должно было стать легче и где ему становилось хуже.",
+        "sequence": [
+          "лампа с зелёным абажуром и торшер у кушетки",
+          "тёплый воздух и запах книжной пыли",
+          "тикканье часов с замирающей секундной стрелкой",
+          "стол, заваленный карточками с пятнами"
+        ],
+        "must_not_explain": [
+          "почему карточки разложены в строгом порядке",
+          "почему стрелка замирает"
+        ]
+      },
+      "once": true
+    },
+    {
+      "id": "RORSCHACH_CARDS_EXAMINED",
+      "category": "discovery",
+      "trigger": {
+        "type": "inspect_object",
+        "target": "rorschach_cards"
+      },
+      "conditions": [
+        {
+          "type": "state_is",
+          "path": "cards_examined",
+          "equals": false
+        }
+      ],
+      "effects": [
+        {
+          "type": "set_flag",
+          "flag": "cards_examined",
+          "value": true
+        },
+        {
+          "type": "set_flag",
+          "flag": "doll_image_planted",
+          "value": true
+        }
+      ],
+      "narrative_guidance": {
+        "allowed_revelation": [
+          "десять карточек, разложены по номерам",
+          "у двух пятен — голова и расставленные в стороны руки",
+          "у одного — тело с выступающими по бокам швами",
+          "у другого — два круглых пятна на месте глаз"
+        ],
+        "forbidden_revelation": [
+          "слово «кукла»",
+          "что силуэты взяты с выкроек",
+          "подтверждение догадки игрока от автора"
+        ],
+        "important": "Если игрок говорит, что видит куклу, — опиши форму пятна ещё раз, нейтрально. Не подтверждай и не опровергай."
+      },
+      "once": true
+    },
+    {
+      "id": "FIRST_CARD_BLANK",
+      "category": "discovery",
+      "trigger": {
+        "type": "compound_player_action",
+        "required_actions": [
+          "inspect_object:rorschach_cards",
+          "notice:first_card"
+        ]
+      },
+      "conditions": [
+        {
+          "type": "state_is",
+          "path": "cards_examined",
+          "equals": true
+        },
+        {
+          "type": "state_is",
+          "path": "first_card_blank_noticed",
+          "equals": false
+        }
+      ],
+      "effects": [
+        {
+          "type": "set_flag",
+          "flag": "first_card_blank_noticed",
+          "value": true
+        }
+      ],
+      "narrative_guidance": {
+        "allowed_revelation": [
+          "первая карточка в колоде чистая",
+          "пятна на ней нет",
+          "номер и штамп клиники стоят"
+        ],
+        "forbidden_revelation": [
+          "что на ней писали и стирали",
+          "кто это делал"
+        ]
+      },
+      "once": true
+    },
+    {
+      "id": "CORK_BOARD_EXAMINED",
+      "category": "discovery",
+      "trigger": {
+        "type": "inspect_object",
+        "target": "cork_board"
+      },
+      "conditions": [
+        {
+          "type": "state_is",
+          "path": "board_examined",
+          "equals": false
+        }
+      ],
+      "effects": [
+        {
+          "type": "set_flag",
+          "flag": "board_examined",
+          "value": true
+        }
+      ],
+      "narrative_guidance": {
+        "allowed_revelation": [
+          "два десятка рисунков в четыре ряда",
+          "сюжеты повторяются: дом, дерево, три фигуры и одна фигура без лица",
+          "подписи — не имена, а номера от 1 до 12",
+          "номера повторяются заново в каждом ряду"
+        ],
+        "forbidden_revelation": [
+          "кто рисовал",
+          "почему фигура без лица",
+          "почему ряды повторяются"
+        ]
+      },
+      "once": true
+    },
+    {
+      "id": "DICTAPHONE_TAPE_PLAYED",
+      "category": "supernatural",
+      "trigger": {
+        "type": "interact",
+        "target": "dictaphone"
+      },
+      "conditions": [
+        {
+          "type": "state_is",
+          "path": "tape_played",
+          "equals": false
+        }
+      ],
+      "effects": [
+        {
+          "type": "set_flag",
+          "flag": "tape_played",
+          "value": true
+        },
+        {
+          "type": "set_flag",
+          "flag": "dictaphone_found",
+          "value": true
+        }
+      ],
+      "narrative_guidance": {
+        "effect": "Слышно тишину комнаты, дыхание и один раз — два слога, не складывающихся в слово. Дальше лента идёт пустая.",
+        "frequency": "single_use",
+        "allowed_revelation": [
+          "кассета подписана от руки: «Сеанс 12»",
+          "лента после двух слогов пуста"
+        ],
+        "forbidden": [
+          "разобрать слоги в слово",
+          "называть Неофрона",
+          "объяснять природу записи"
+        ]
+      },
+      "once": true
+    },
+    {
+      "id": "CASE_FOLDERS_READ",
+      "category": "discovery",
+      "trigger": {
+        "type": "inspect_object",
+        "target": "case_folders"
+      },
+      "conditions": [
+        {
+          "type": "state_is",
+          "path": "folders_read",
+          "equals": false
+        }
+      ],
+      "effects": [
+        {
+          "type": "set_flag",
+          "flag": "folders_read",
+          "value": true
+        },
+        {
+          "type": "set_flag",
+          "flag": "floor_-1_records_destroyed",
+          "value": true
+        }
+      ],
+      "narrative_guidance": {
+        "allowed_revelation": [
+          "двенадцать тонких папок с номерами на корешках, без имён",
+          "внутри каждой один чистый лист",
+          "в каждой папке след от скрепки и вдавленная строка, будто текст был и его вынули"
+        ],
+        "forbidden_revelation": [
+          "кто и зачем изъял истории болезни",
+          "где лежат полные дела"
+        ]
+      },
+      "once": true
+    },
+    {
+      "id": "COUCH_EXAMINED",
+      "category": "discovery",
+      "trigger": {
+        "type": "inspect_object",
+        "target": "therapy_couch"
+      },
+      "conditions": [
+        {
+          "type": "state_is",
+          "path": "couch_examined",
+          "equals": false
+        }
+      ],
+      "effects": [
+        {
+          "type": "set_flag",
+          "flag": "couch_examined",
+          "value": true
+        }
+      ],
+      "narrative_guidance": {
+        "allowed_revelation": [
+          "плед взбит, как будто к следующему пациенту",
+          "плед тёплый на ощупь",
+          "под кушеткой пыль, нетронутая годами, и предмет, закатившийся к стене"
+        ],
+        "forbidden_revelation": [
+          "кто и когда здесь был",
+          "почему плед тёплый в заброшенном кабинете"
+        ]
+      },
+      "once": true
+    },
+    {
+      "id": "WOODEN_BLOCK_FOUND",
+      "category": "item",
+      "trigger": {
+        "type": "take_item",
+        "target": "wooden_block_letter"
+      },
+      "conditions": [
+        {
+          "type": "state_is",
+          "path": "couch_examined",
+          "equals": true
+        },
+        {
+          "type": "state_is",
+          "path": "block_found",
+          "equals": false
+        }
+      ],
+      "effects": [
+        {
+          "type": "set_flag",
+          "flag": "block_found",
+          "value": true
+        },
+        {
+          "type": "set_flag",
+          "flag": "block_taken",
+          "value": true
+        }
+      ],
+      "narrative_guidance": {
+        "allowed_revelation": [
+          "деревянный кубик с выжженной буквой «У»",
+          "угол обгрызен, дерево потемнело от рук",
+          "на обратной стороне мелкая царапина, похожая на след иглы с ниткой"
+        ],
+        "forbidden_revelation": [
+          "откуда кубик",
+          "что значит буква",
+          "кто оставил след иглы"
+        ]
+      },
+      "once": true
+    },
+    {
+      "id": "WALL_SEAM_NOTICED",
+      "category": "discovery",
+      "trigger": {
+        "type": "inspect_object",
+        "target": "wall_panel_seam"
+      },
+      "conditions": [
+        {
+          "type": "state_is",
+          "path": "seam_noticed",
+          "equals": false
+        }
+      ],
+      "effects": [
+        {
+          "type": "set_flag",
+          "flag": "seam_noticed",
+          "value": true
+        }
+      ],
+      "narrative_guidance": {
+        "allowed_revelation": [
+          "дорогие обои заканчиваются ровной вертикальной линией",
+          "за линией другая стена",
+          "под обоями находится дверная коробка",
+          "панель в цвет стены слегка подаётся внутрь"
+        ],
+        "forbidden_revelation": [
+          "что за стеной",
+          "что декорация закрывает бетон лаборатории"
+        ]
+      },
+      "once": true
+    },
+    {
+      "id": "HIDDEN_DOOR_OPENED",
+      "category": "interaction",
+      "trigger": {
+        "type": "interact",
+        "target": "wall_panel_seam"
+      },
+      "conditions": [
+        {
+          "type": "state_is",
+          "path": "seam_noticed",
+          "equals": true
+        },
+        {
+          "type": "state_is",
+          "path": "hidden_door_opened",
+          "equals": false
+        }
+      ],
+      "effects": [
+        {
+          "type": "set_flag",
+          "flag": "hidden_door_opened",
+          "value": true
+        },
+        {
+          "type": "set_flag",
+          "flag": "hidden_passage_found",
+          "value": true
+        },
+        {
+          "type": "reveal_object",
+          "target": "wall_panel_seam"
+        }
+      ],
+      "narrative_guidance": {
+        "effect": "Панель уходит внутрь и открывается узкая дверь в тёмный тамбур; из неё тянет бетоном и холодом.",
+        "forbidden": [
+          "объяснять, кто и зачем её сделал",
+          "требовать код или ключ — замок отсутствует"
+        ]
+      },
+      "once": true
+    },
+    {
+      "id": "PSYCHOTHERAPIST_LOUD_NO_EFFECT",
+      "category": "reaction",
+      "trigger": {
+        "type": "attempt_interaction",
+        "targets": [
+          "dictaphone",
+          "case_folders",
+          "therapy_couch"
+        ],
+        "interaction_types": [
+          "force",
+          "bruteforce"
+        ]
+      },
+      "conditions": [],
+      "effects": [
+        {
+          "type": "narrative_marker",
+          "message": "Шум громкий: в мягкой комнате он глухой, но часы на стене сбиваются на такт."
+        }
+      ],
+      "narrative_guidance": {
+        "effect": "Шум громкий.",
+        "mechanical_consequence": "На этаже -1 последствий нет: кукол на этаже нет (B13/D33).",
+        "important": "Не придумывать локальную угрозу из громкого шума."
+      },
+      "once": false
+    }
+  ],
+  "ai_guidance": {
+    "role": "Виртуальный режиссёр сцены.",
+    "core_instruction": "Опирайся только на факты этой комнаты и сообщения игроков. Работай приёмом «почти увидел»: описывай пятно или рисунок, а не вывод из него; если игрок спрашивает прямо, отвечай описанием формы, а не подтверждением.",
+    "revelation_pacing": [
+      "Сначала уют кабинета: свет лампы с зелёным абажуром, ковёр, кушетка, тиканье часов.",
+      "Затем карточки Роршаха, разложенные в строгом порядке, и чистая первая карточка с номером.",
+      "Затем рисунки на доске: дом, дерево, три фигуры и одна без лица, подписи номерами.",
+      "Затем двенадцать папок с чистыми листами и вдавленными строками.",
+      "Затем кассета «Сеанс 12»: дыхание и два слога, дальше пустая лента.",
+      "В последнюю очередь — кубик под кушеткой и стык обоев в торце."
+    ],
+    "forbidden_knowledge_reveal": [
+      "не называть персонажей по именам: на старте Цикла 48 они не помнят ни своих имён, ни имён друг друга (D34)",
+      "не раскрывать номер цикла и число 47",
+      "не раскрывать Неофрона по имени",
+      "не раскрывать Андрея и Куратора",
+      "не выдавать сведения других этажей, если они не предоставлены текущим игровым контекстом",
+      "не раскрывать, что силуэты взяты с реальных выкроек",
+      "не раскрывать детскую регрессию подопытных как факт",
+      "не называть №12 и не связывать «Сеанс 12» с конкретным человеком",
+      "не раскрывать, что Коля шил кукол"
+    ],
+    "supernatural_limit": {
+      "manifestations": "два слога на кассете «Сеанс 12» и замирающая секундная стрелка часов — единственные детали; слов и просьб нет",
+      "use_count": 1
+    }
+  },
+  "meta": {
+    "schema_version": "2.0",
+    "source_files": [
+      "data/lore/complex-structure.txt",
+      "data/lore/narrative.txt",
+      "data/lore/cast.txt",
+      "data/lore/room-design-instructions.md",
+      "data/lore/references/floor-1_reception.reference.room.json",
+      "data/lore/references/trigger_conditions_effects_reference.json",
+      "data/rooms/_adjacency.json",
+      "data/rooms/_registry.json",
+      "data/rooms/_SCHEMA.md",
+      "data/rooms/_REGISTRY.md"
+    ],
+    "notes": [
+      "Сконвертирована из формата v1 в 2.0 по эталону data/lore/references/floor-1_reception.reference.room.json.",
+      "Формы lore / trigger / conditions / effects — по trigger_conditions_effects_reference.json (D54).",
+      "lore.secret_truth.truth и future_connections вынесены в парный .gm.json (D58).",
+      "ai_guidance оставлен в публичном файле целиком (D59).",
+      "exits собраны из data/rooms/_adjacency.json (D44).",
+      "Канон: «На столе разложены тесты Роршаха. Если присмотреться, пятна напоминают силуэты тканевых кукол».",
+      "Авторские детали: чистая первая карточка, замирающая секундная стрелка, тёплый плед, вдавленные строки в папках, кубик со следом иглы, два слога на кассете.",
+      "Буква на кубике выбрана как «У» — отсылка к слову «У Б Е Г А Й» из эталонного примера Детской игровой; заменяема."
+    ]
+  }
+}

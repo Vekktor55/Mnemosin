@@ -1,0 +1,23 @@
+{
+  "$comment": "Сгенерировано tools/gen-location-fixtures.mjs; не редактировать вручную.",
+  "packId": "stage1-dev",
+  "version": "0.1.0",
+  "startLocationId": "6db81341-81a6-4996-8dd3-90ece139dc5a",
+  "locations": {
+    "floor0_airlock": "6db81341-81a6-4996-8dd3-90ece139dc5a",
+    "floor-1_lobby": "264752bf-b861-4724-8c94-d2fb6d549201",
+    "floor-1_reception": "6e84e17b-0595-4663-8f95-24d6ef52cc20"
+  },
+  "objects": {
+    "floor0_airlock/Наружная дверь": "fd6946e8-ac8a-47d5-8470-fc3a90ea4af8",
+    "floor0_airlock/Панель шлюза": "504a3329-490b-4d6d-85f7-752f2a69a605",
+    "floor0_airlock/Брелок доступа": "f79a9215-0a0a-450b-8880-fdb19be6a847",
+    "floor-1_lobby/Часы на стене": "5f7fc481-e6c4-402e-871c-8dcd52793445",
+    "floor-1_lobby/Кресла": "eec72329-1663-4248-83d4-f7c069aad110",
+    "floor-1_lobby/Жетон": "e64949c6-7f87-464a-8ed9-9c0abaf91c62",
+    "floor-1_reception/Журнал посещений": "41fa5550-d3ad-4d19-8d4a-99e57ce619a3",
+    "floor-1_reception/Ящик с карточками": "788e05cf-3924-4df4-867a-f3da18f1f60d",
+    "floor-1_reception/Ключ от кабинета": "a9fb1bb1-7aea-4b4f-8313-5c28103f9bdb"
+  },
+  "events": {}
+}

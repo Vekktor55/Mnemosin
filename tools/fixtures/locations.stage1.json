@@ -1,0 +1,256 @@
+{
+  "$comment": "Dev-фикстуры Stage 1 (промпт 1.4). НЕ конвертация мира v1 — она в промпте 2.x.",
+  "packId": "stage1-dev",
+  "version": "0.1.0",
+  "generatedBy": "tools/gen-location-fixtures.mjs",
+  "startLocationId": "6db81341-81a6-4996-8dd3-90ece139dc5a",
+  "locations": [
+    {
+      "locationId": "6db81341-81a6-4996-8dd3-90ece139dc5a",
+      "sessionId": null,
+      "templateSlug": "floor0_airlock",
+      "name": "Шлюз",
+      "description": "Тесный тамбур с двумя дверями: наружная ведёт на поверхность, внутренняя — вниз, к этажу минус первому. Лампа над внутренней дверью мигает в такт чьему-то дыханию.",
+      "atmosphere": "Холодный металл, запах озона, гул вентиляции.",
+      "objects": [
+        {
+          "objectId": "fd6946e8-ac8a-47d5-8470-fc3a90ea4af8",
+          "name": "Наружная дверь",
+          "description": "Массивная дверь с ручным запором. Запор не до конца освобождён.",
+          "interactive": true,
+          "takeable": false,
+          "itemMeta": null,
+          "source": "derived"
+        },
+        {
+          "objectId": "504a3329-490b-4d6d-85f7-752f2a69a605",
+          "name": "Панель шлюза",
+          "description": "Панель управления циклом шлюзования. Индикатор цикла горит красным.",
+          "interactive": true,
+          "takeable": false,
+          "itemMeta": null,
+          "source": "derived"
+        },
+        {
+          "objectId": "f79a9215-0a0a-450b-8880-fdb19be6a847",
+          "name": "Брелок доступа",
+          "description": "Пластиковый брелок с трещиной. На обороте выцарапана цифра 4.",
+          "interactive": true,
+          "takeable": true,
+          "itemMeta": null,
+          "source": "derived"
+        }
+      ],
+      "exits": [
+        {
+          "kind": "LOCATION",
+          "toLocationId": "264752bf-b861-4724-8c94-d2fb6d549201",
+          "label": "Лестница на этаж −1",
+          "description": "Узкий лестничный пролёт уходит вниз, в темноту.",
+          "oneWay": false,
+          "hidden": false,
+          "via": "stairs",
+          "locked": false,
+          "lock": {
+            "type": null,
+            "keyRequired": null,
+            "requiresFlag": null,
+            "reason": null
+          }
+        },
+        {
+          "kind": "DESCRIPTIVE",
+          "toLocationId": null,
+          "label": "Наружная дверь",
+          "description": "Ведёт на поверхность. Запор не до конца освобождён.",
+          "oneWay": true,
+          "hidden": false,
+          "via": "hatch",
+          "locked": true,
+          "lock": {
+            "type": "condition",
+            "keyRequired": null,
+            "requiresFlag": "floor0_airlock.hatch_unlocked",
+            "reason": "Запор не освобождён"
+          }
+        }
+      ],
+      "hazards": [
+        {
+          "kind": "DARKNESS",
+          "requiresLight": true
+        }
+      ],
+      "registeredEventIds": [],
+      "narrativeNotes": "Стартовая точка. Группа приходит в себя здесь; наружная дверь закрыта до выполнения условия шлюза. Фикстура Stage 1 — топология соответствует v1, содержимое упрощено.",
+      "aiGuidance": null,
+      "gmSecret": null,
+      "tags": ["start", "floor0"],
+      "meta": {
+        "floor": 0,
+        "indexOnFloor": 0,
+        "floorName": "Этаж 0",
+        "batch": 0,
+        "origin": "v3-fixture",
+        "atmosphereParts": null
+      },
+      "updatedAt": "2026-01-01T00:00:00.000Z"
+    },
+    {
+      "locationId": "264752bf-b861-4724-8c94-d2fb6d549201",
+      "sessionId": null,
+      "templateSlug": "floor-1_lobby",
+      "name": "Холл",
+      "description": "Просторный холл этажа минус один. Стойка с выцветшей табличкой, ряды кресел, из которых убрали мягкую часть. На стене — часы, которые идут.",
+      "atmosphere": "Пыль в лучах аварийного освещения, скрип кресел, тиканье.",
+      "objects": [
+        {
+          "objectId": "5f7fc481-e6c4-402e-871c-8dcd52793445",
+          "name": "Часы на стене",
+          "description": "Круглые часы с треснувшим стеклом. Идут, хотя питания нет.",
+          "interactive": true,
+          "takeable": false,
+          "itemMeta": null,
+          "source": "derived"
+        },
+        {
+          "objectId": "eec72329-1663-4248-83d4-f7c069aad110",
+          "name": "Кресла",
+          "description": "Ряд кресел без обивки. Под одним что-то блеснуло.",
+          "interactive": true,
+          "takeable": false,
+          "itemMeta": null,
+          "source": "derived"
+        },
+        {
+          "objectId": "e64949c6-7f87-464a-8ed9-9c0abaf91c62",
+          "name": "Жетон",
+          "description": "Металлический жетон с номером и логотипом учреждения.",
+          "interactive": true,
+          "takeable": true,
+          "itemMeta": null,
+          "source": "derived"
+        }
+      ],
+      "exits": [
+        {
+          "kind": "LOCATION",
+          "toLocationId": "6db81341-81a6-4996-8dd3-90ece139dc5a",
+          "label": "Лестница наверх",
+          "description": "Пролёт, ведущий к шлюзу.",
+          "oneWay": false,
+          "hidden": false,
+          "via": "stairs",
+          "locked": false,
+          "lock": {
+            "type": null,
+            "keyRequired": null,
+            "requiresFlag": null,
+            "reason": null
+          }
+        },
+        {
+          "kind": "LOCATION",
+          "toLocationId": "6e84e17b-0595-4663-8f95-24d6ef52cc20",
+          "label": "Дверь в регистратуру",
+          "description": "Дверь с матовым стеклом и надписью «Регистратура».",
+          "oneWay": false,
+          "hidden": false,
+          "via": "door",
+          "locked": false,
+          "lock": {
+            "type": null,
+            "keyRequired": null,
+            "requiresFlag": null,
+            "reason": null
+          }
+        }
+      ],
+      "hazards": [],
+      "registeredEventIds": [],
+      "narrativeNotes": "Узел первого этажа: отсюда видны оба направления. Часы — намеренная аномалия для проверки inspect_object. Фикстура Stage 1.",
+      "aiGuidance": null,
+      "gmSecret": null,
+      "tags": ["hub", "floor-1"],
+      "meta": {
+        "floor": -1,
+        "indexOnFloor": 0,
+        "floorName": "Этаж −1",
+        "batch": 0,
+        "origin": "v3-fixture",
+        "atmosphereParts": null
+      },
+      "updatedAt": "2026-01-01T00:00:00.000Z"
+    },
+    {
+      "locationId": "6e84e17b-0595-4663-8f95-24d6ef52cc20",
+      "sessionId": null,
+      "templateSlug": "floor-1_reception",
+      "name": "Регистратура",
+      "description": "Кабинет регистратуры: стойка, ящики с карточками, телефон с обрезанным проводом. На стойке — журнал посещений, открытый на вчерашней дате.",
+      "atmosphere": "Запах бумаги и дезинфектанта, тишина, которую слышно.",
+      "objects": [
+        {
+          "objectId": "41fa5550-d3ad-4d19-8d4a-99e57ce619a3",
+          "name": "Журнал посещений",
+          "description": "Журнал открыт на последней записи. Дата — вчерашняя.",
+          "interactive": true,
+          "takeable": false,
+          "itemMeta": null,
+          "source": "derived"
+        },
+        {
+          "objectId": "788e05cf-3924-4df4-867a-f3da18f1f60d",
+          "name": "Ящик с карточками",
+          "description": "Каталожный ящик. Часть карточек вынута, часть помечена красным.",
+          "interactive": true,
+          "takeable": false,
+          "itemMeta": null,
+          "source": "derived"
+        },
+        {
+          "objectId": "a9fb1bb1-7aea-4b4f-8313-5c28103f9bdb",
+          "name": "Ключ от кабинета",
+          "description": "Тяжёлый ключ с биркой «−1/каб.3».",
+          "interactive": true,
+          "takeable": true,
+          "itemMeta": null,
+          "source": "derived"
+        }
+      ],
+      "exits": [
+        {
+          "kind": "LOCATION",
+          "toLocationId": "264752bf-b861-4724-8c94-d2fb6d549201",
+          "label": "Дверь в холл",
+          "description": "Дверь с матовым стеклом, ведущая обратно в холл.",
+          "oneWay": false,
+          "hidden": false,
+          "via": "door",
+          "locked": false,
+          "lock": {
+            "type": null,
+            "keyRequired": null,
+            "requiresFlag": null,
+            "reason": null
+          }
+        }
+      ],
+      "hazards": [],
+      "registeredEventIds": [],
+      "narrativeNotes": "Комната с «документальными» уликами: журнал и карточки дают знания (GRANT_KNOWLEDGE), а не предметы. Фикстура Stage 1.",
+      "aiGuidance": null,
+      "gmSecret": null,
+      "tags": ["evidence", "floor-1"],
+      "meta": {
+        "floor": -1,
+        "indexOnFloor": 1,
+        "floorName": "Этаж −1",
+        "batch": 0,
+        "origin": "v3-fixture",
+        "atmosphereParts": null
+      },
+      "updatedAt": "2026-01-01T00:00:00.000Z"
+    }
+  ]
+}

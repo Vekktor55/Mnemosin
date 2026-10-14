@@ -1,0 +1,60 @@
+{
+  "name": "mnemosin",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "МНЕМОСИН — мультиплеерная интерактивная игра (GM-in-the-loop). Modular Monolith + Ports & Adapters + Domain Events.",
+  "engines": {
+    "node": ">=22.0.0"
+  },
+  "workspaces": [
+    "shared/*",
+    "core",
+    "modules/*",
+    "infrastructure/*",
+    "gateways/*",
+    "apps/*",
+    "client"
+  ],
+  "scripts": {
+    "dev": "tsx watch --conditions=development apps/server/src/main.ts",
+    "start": "node apps/server/dist/main.js",
+    "build": "tsc -b tsconfig.json",
+    "clean": "tsc -b tsconfig.json --clean",
+    "typecheck": "tsc -b tsconfig.json --pretty",
+    "lint": "eslint . && prettier --check .",
+    "lint:fix": "eslint . --fix && prettier --write .",
+    "format": "prettier --write .",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:unit": "vitest run --project unit",
+    "test:integration": "vitest run --project integration",
+    "test:arch": "vitest run --project arch",
+    "test:contract": "vitest run --project contract",
+    "verify:stage1": "node tools/verify/stage1.mjs",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "npm run db:migrate -w @mnemosin/database",
+    "worldpack:validate": "echo \"worldpack:validate реализуется в промпте 2.3\" && exit 0",
+    "verify:all": "node tools/verify/stage1.mjs",
+    "inspect:content": "node tools/inspect-v1-rooms.mjs",
+    "arch:cruiser": "depcruise --config .dependency-cruiser.cjs --validate shared core modules infrastructure gateways apps client",
+    "arch:manifest": "node tools/arch-manifest.mjs",
+    "arch:all": "npm run arch:cruiser && npm run test:arch",
+    "gen:fixtures": "node tools/gen-location-fixtures.mjs",
+    "db:rollback": "npm run db:rollback -w @mnemosin/database"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.39.5",
+    "@types/better-sqlite3": "^9.6.0",
+    "@types/node": "^20.19.43",
+    "dependency-cruiser": "^16.10.4",
+    "drizzle-kit": "^0.31.11",
+    "eslint": "^9.39.5",
+    "eslint-config-prettier": "^9.1.0",
+    "prettier": "^3.4.2",
+    "tsx": "^4.23.15",
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.71.1",
+    "vitest": "^3.2.7"
+  }
+}

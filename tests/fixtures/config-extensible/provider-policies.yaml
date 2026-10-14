@@ -1,0 +1,20 @@
+# Политика для нового провайдера — единственное, что нужно добавить в конфиг.
+policies:
+  - providerId: xai-probe
+    capability: TEXT_AI
+    timeoutMs: 40000
+    retries: { max: 2, backoffMs: 1000, jitter: true }
+    circuitBreaker: { failureThreshold: 3, cooldownMs: 60000 }
+    costPer1kTokens: { input: null, output: null }
+  - providerId: scripted
+    capability: TEXT_AI
+    timeoutMs: 5000
+    retries: { max: 0, backoffMs: 500, jitter: false }
+    circuitBreaker: { failureThreshold: 3, cooldownMs: 30000 }
+    costPer1kTokens: { input: null, output: null }
+  - providerId: echo
+    capability: TEXT_AI
+    timeoutMs: 5000
+    retries: { max: 0, backoffMs: 500, jitter: false }
+    circuitBreaker: { failureThreshold: 3, cooldownMs: 30000 }
+    costPer1kTokens: { input: null, output: null }

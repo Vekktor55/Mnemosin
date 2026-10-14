@@ -1,0 +1,42 @@
+{
+  "name": "@mnemosin/database",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": {
+      "development": {
+        "types": "./src/index.ts",
+        "default": "./src/index.ts"
+      },
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -b",
+    "clean": "tsc -b --clean",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "tsx src/cli/migrate-cli.ts",
+    "db:rollback": "tsx src/cli/rollback-cli.ts",
+    "db:studio": "drizzle-kit studio"
+  },
+  "dependencies": {
+    "@mnemosin/contracts": "*",
+    "@mnemosin/core": "*",
+    "@libsql/client": "^0.18.0",
+    "drizzle-orm": "^0.45.4",
+    "zod": "^3.25.76",
+    "libsql": "^0.5.18"
+  },
+  "devDependencies": {
+    "drizzle-kit": "^0.31.11",
+    "typescript": "^5.9.3",
+    "@types/node": "^20.19.0"
+  }
+}

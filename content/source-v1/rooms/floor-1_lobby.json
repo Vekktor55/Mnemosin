@@ -1,0 +1,389 @@
+{
+  "schema_version": "2.0",
+  "room_id": "floor-1_lobby",
+  "floor": -1,
+  "title": "Светлый холл",
+  "role": {
+    "type": "story_location",
+    "function": "Хаб этажа -1 и витрина клиники: первое место, где неправильность деталей начинает перевешивать внешний уют.",
+    "story_truth": "Идеально сохранившаяся зона ожидания, устроенная так, чтобы входящий был на виду у регистратуры; здесь провожали людей, которые возвращались в этот холл сорок семь раз.",
+    "revelation_level": "early"
+  },
+  "exits": [
+    {
+      "target_room_id": "floor-1_reception",
+      "direction": "Застеклённый проём регистратуры прямо по курсу, за стойкой — картотечные шкафы",
+      "is_locked": false,
+      "lock_type": null,
+      "key_required": null,
+      "requires_flag": null,
+      "hidden": false,
+      "one_way": false,
+      "via": "door"
+    },
+    {
+      "target_room_id": "floor-1_relaxation",
+      "direction": "Двустворчатая дверь в комнату релаксации, из-под которой слышна музыка",
+      "is_locked": false,
+      "lock_type": null,
+      "key_required": null,
+      "requires_flag": null,
+      "hidden": false,
+      "one_way": false,
+      "via": "door"
+    },
+    {
+      "target_room_id": "floor-1_locker_room",
+      "direction": "Узкая боковая дверь с табличкой «Раздевалка» и крючками для ключей",
+      "is_locked": false,
+      "lock_type": null,
+      "key_required": null,
+      "requires_flag": null,
+      "hidden": false,
+      "one_way": false,
+      "via": "door"
+    },
+    {
+      "target_room_id": "floor-1_exam_a",
+      "direction": "Коридор с матовыми дверями: «Смотровая А» — первая по правой стене",
+      "is_locked": false,
+      "lock_type": null,
+      "key_required": null,
+      "requires_flag": null,
+      "hidden": false,
+      "one_way": false,
+      "via": "door"
+    }
+  ],
+  "atmosphere": {
+    "lighting": "ровный молочный свет потолочных панелей, редко мигающая лампа",
+    "sounds": "музыка из-за двери, гудение вентиляции, редкие технические щелчки",
+    "smell": "чистящее средство, сухая бумага, слабый химический след",
+    "temperature": "тепло, кондиционированный воздух",
+    "tone": "ложная безопасность: чистая клиника, которая не работает"
+  },
+  "base_description": "",
+  "objects": [],
+  "items": [],
+  "lore": {
+    "public_revelation": {
+      "summary": "Светлый холл — единственное по-настоящему светлое и чистое место комплекса, и это неправильное: ковролин без пятен, мёртвые растения политы, увядшие цветы поправлены, а на подлокотниках кресел — следы ногтей. Диваны расставлены полукругом лицом к стойке регистратуры.",
+      "text_snippet": "Стеклянная ваза на журнальном столике: внутри высохшие стебли с осыпающимися головками и ни капли воды; пыль на лепестках лежит ровно, без следов пальцев.",
+      "revelation_level": "early"
+    },
+    "secret_truth": {
+      "restrictions": [
+        "не объяснять, кто ухаживает за мёртвыми цветами и растениями",
+        "не раскрывать смысл бирки с датой, которая ещё не наступила",
+        "не называть персонажей по именам",
+        "не вводить кукол и иные угрозы: на этаже -1 их нет"
+      ],
+      "floor_truth": "Здесь были эксперименты"
+    }
+  },
+  "hazards": {
+    "gas_level": "none",
+    "acid": false,
+    "electricity": false,
+    "darkness_requires_light": false,
+    "turret": false,
+    "trap_trigger": null
+  },
+  "actors": {
+    "enemies": [],
+    "npcs": []
+  },
+  "state": {
+    "initial": {
+      "lobby_entered": false,
+      "vase_examined": false,
+      "plants_examined": false,
+      "sofas_examined": false,
+      "panel_flicker_seen": false,
+      "elevator_restored": false
+    },
+    "persistent_story_flags": [
+      "floor_-1_facade_suspected"
+    ]
+  },
+  "events": [
+    {
+      "id": "LOBBY_FIRST_ENTRY",
+      "category": "scene",
+      "trigger": {
+        "type": "enter_room",
+        "first_time": true
+      },
+      "conditions": [],
+      "effects": [
+        {
+          "type": "set_flag",
+          "flag": "lobby_entered",
+          "value": true
+        }
+      ],
+      "narrative_guidance": {
+        "purpose": "Резкий контраст после шлюза: свет, тепло, ковролин, тишина работающей клиники.",
+        "sequence": [
+          "ровный молочный свет панелей",
+          "мягкое покрытие, глушащее шаги",
+          "застеклённый проём регистратуры прямо по курсу",
+          "музыка из-за двустворчатой двери"
+        ],
+        "must_not_explain": [
+          "почему свет горит в заброшенном месте",
+          "что холл спроектирован как паноптикум"
+        ]
+      },
+      "once": true
+    },
+    {
+      "id": "VASE_FLOWERS_EXAMINED",
+      "category": "discovery",
+      "trigger": {
+        "type": "inspect_object",
+        "target": "vase_flowers"
+      },
+      "conditions": [
+        {
+          "type": "state_is",
+          "path": "vase_examined",
+          "equals": false
+        }
+      ],
+      "effects": [
+        {
+          "type": "set_flag",
+          "flag": "vase_examined",
+          "value": true
+        }
+      ],
+      "narrative_guidance": {
+        "allowed_revelation": [
+          "цветы высохли, воды нет",
+          "пыль лежит ровно, без следов пальцев",
+          "вазу поправляли недавно"
+        ],
+        "forbidden_revelation": [
+          "кто за ними ухаживает"
+        ]
+      },
+      "once": true
+    },
+    {
+      "id": "DEAD_PLANTS_EXAMINED",
+      "category": "discovery",
+      "trigger": {
+        "type": "inspect_object",
+        "target": "dead_plants"
+      },
+      "conditions": [
+        {
+          "type": "state_is",
+          "path": "plants_examined",
+          "equals": false
+        }
+      ],
+      "effects": [
+        {
+          "type": "set_flag",
+          "flag": "plants_examined",
+          "value": true
+        },
+        {
+          "type": "set_flag",
+          "flag": "floor_-1_facade_suspected",
+          "value": true
+        }
+      ],
+      "narrative_guidance": {
+        "allowed_revelation": [
+          "растения мертвы и сухи",
+          "крона подстрижена ровно",
+          "земля выглядит свежей и влажной",
+          "бирка с инвентарным номером и датой, которая ещё не наступила"
+        ],
+        "forbidden_revelation": [
+          "смысл даты",
+          "что дата соответствует следующему откату времени"
+        ]
+      },
+      "once": true
+    },
+    {
+      "id": "WAITING_SOFAS_EXAMINED",
+      "category": "discovery",
+      "trigger": {
+        "type": "inspect_object",
+        "target": "waiting_sofas"
+      },
+      "conditions": [
+        {
+          "type": "state_is",
+          "path": "sofas_examined",
+          "equals": false
+        }
+      ],
+      "effects": [
+        {
+          "type": "set_flag",
+          "flag": "sofas_examined",
+          "value": true
+        }
+      ],
+      "narrative_guidance": {
+        "allowed_revelation": [
+          "диваны расставлены полукругом лицом к регистратуре",
+          "обивка цела",
+          "на подлокотниках потемневшие пятна и вдавленные следы ногтей"
+        ],
+        "forbidden_revelation": [
+          "кто оставлял следы",
+          "связь с номерами 1–12"
+        ]
+      },
+      "once": true
+    },
+    {
+      "id": "LOBBY_PANEL_FLICKER",
+      "category": "supernatural",
+      "trigger": {
+        "type": "attempt_interaction",
+        "targets": [
+          "waiting_sofas",
+          "vase_flowers",
+          "dead_plants"
+        ],
+        "interaction_types": [
+          "force",
+          "shout"
+        ]
+      },
+      "conditions": [
+        {
+          "type": "state_is",
+          "path": "panel_flicker_seen",
+          "equals": false
+        }
+      ],
+      "effects": [
+        {
+          "type": "set_flag",
+          "flag": "panel_flicker_seen",
+          "value": true
+        }
+      ],
+      "narrative_guidance": {
+        "effect": "Одна панель потолка гаснет на секунду и снова разгорается; музыка за стеной сбивается на такт.",
+        "frequency": "single_use",
+        "forbidden": [
+          "объяснять причину",
+          "связывать с Неофроном",
+          "повторять приём во второй раз"
+        ]
+      },
+      "once": true
+    },
+    {
+      "id": "LOBBY_ELEVATOR_DEAD",
+      "category": "scene",
+      "trigger": {
+        "type": "attempt_interaction",
+        "targets": [],
+        "interaction_types": [
+          "call_elevator",
+          "return_to_surface"
+        ]
+      },
+      "conditions": [],
+      "effects": [],
+      "narrative_guidance": {
+        "effect": "Шахта пуста: кабина ушла вниз и не возвращается. Панели вызова на этаже нет, кнопки вверх не существует.",
+        "forbidden": [
+          "давать надежду на возврат",
+          "объяснять устройство лифта"
+        ]
+      },
+      "once": false
+    },
+    {
+      "id": "LOBBY_LOUD_NO_EFFECT",
+      "category": "reaction",
+      "trigger": {
+        "type": "attempt_interaction",
+        "targets": [
+          "vase_flowers",
+          "dead_plants",
+          "waiting_sofas"
+        ],
+        "interaction_types": [
+          "force",
+          "bruteforce",
+          "shout"
+        ]
+      },
+      "conditions": [],
+      "effects": [
+        {
+          "type": "narrative_marker",
+          "message": "Шум громкий: в пустом холле он отражается от панелей и уходит в коридор."
+        }
+      ],
+      "narrative_guidance": {
+        "effect": "Шум громкий.",
+        "mechanical_consequence": "На этаже -1 последствий нет: кукол на этаже нет (B13/D33).",
+        "important": "Не придумывать локальную угрозу из громкого шума."
+      },
+      "once": false
+    }
+  ],
+  "ai_guidance": {
+    "role": "Виртуальный режиссёр сцены.",
+    "core_instruction": "Опирайся только на факты этой комнаты, состояние партии и сообщения игроков. Держи контраст: безупречная чистота и ровный свет — при полном отсутствии признаков жизни.",
+    "revelation_pacing": [
+      "Сначала свет, ковролин и уют: холл выглядит работающей клиникой.",
+      "Затем увядшие цветы, за которыми кто-то ухаживает.",
+      "Затем политые мёртвые растения и бирка с датой, которая ещё не наступила.",
+      "Затем следы ногтей на подлокотниках и расположение диванов лицом к стойке.",
+      "Вывод о том, что место заброшено и при этом обслуживается, игроки делают сами."
+    ],
+    "forbidden_knowledge_reveal": [
+      "не называть персонажей по именам: на старте Цикла 48 они не помнят ни своих имён, ни имён друг друга (D34)",
+      "не раскрывать номер цикла и число 47",
+      "не раскрывать Неофрона по имени",
+      "не раскрывать Андрея и Куратора",
+      "не выдавать сведения других этажей, если они не предоставлены текущим игровым контекстом",
+      "не раскрывать, что Коля ходит во сне и переставляет предметы",
+      "не раскрывать, что бирка содержит дату следующего отката"
+    ],
+    "supernatural_limit": {
+      "manifestations": "допустима одна деталь: на секунду гаснет одна панель потолка, если группа сильно шумит",
+      "use_count": 1
+    }
+  },
+  "meta": {
+    "schema_version": "2.0",
+    "source_files": [
+      "data/lore/complex-structure.txt",
+      "data/lore/narrative.txt",
+      "data/lore/cast.txt",
+      "data/lore/room-design-instructions.md",
+      "data/lore/references/floor-1_reception.reference.room.json",
+      "data/lore/references/trigger_conditions_effects_reference.json",
+      "data/rooms/_adjacency.json",
+      "data/rooms/_registry.json",
+      "data/rooms/_SCHEMA.md",
+      "data/rooms/_REGISTRY.md"
+    ],
+    "notes": [
+      "Сконвертирована из формата v1 в 2.0 по эталону data/lore/references/floor-1_reception.reference.room.json.",
+      "Формы lore / trigger / conditions / effects — по trigger_conditions_effects_reference.json (D54).",
+      "lore.secret_truth.truth и future_connections вынесены в парный .gm.json (D58).",
+      "ai_guidance оставлен в публичном файле целиком (D59).",
+      "exits собраны из data/rooms/_adjacency.json (D44).",
+      "Канон: «Светлый холл: идеально чистая зона ожидания с увядшими цветами» — развито в полноценное описание.",
+      "Брошюры о «спокойствии» из холла удалены решением D40: они находятся только в Комнате релаксации.",
+      "Авторские детали: политые мёртвые растения, бирка с будущей датой, мигание панели, расположение диванов полукругом."
+    ]
+  }
+}

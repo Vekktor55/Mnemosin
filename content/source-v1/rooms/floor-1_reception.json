@@ -1,0 +1,614 @@
+{
+  "schema_version": "2.0",
+  "room_id": "floor-1_reception",
+  "floor": -1,
+  "title": "Регистратура",
+  "role": {
+    "type": "story_location",
+    "function": "Первое место, где группа начинает понимать, что в комплексе проводились эксперименты.",
+    "story_truth": "Здесь принимали не обычных пациентов, а людей, которых в документах обозначали номерами.",
+    "revelation_level": "early"
+  },
+  "exits": [
+    {
+      "target_room_id": "floor-1_lobby",
+      "direction": "Застеклённый проём обратно в светлый холл",
+      "is_locked": false,
+      "lock_type": null,
+      "key_required": null,
+      "requires_flag": null,
+      "hidden": false,
+      "one_way": false,
+      "via": "door"
+    }
+  ],
+  "atmosphere": {
+    "lighting": "Свет из холла падает через стекло стойки; собственная лампа над картотекой мигает с интервалом в несколько секунд, выхватывая из темноты ряды ящиков.",
+    "sounds": "Треск реле в старом мониторе, шорох осыпающейся бумаги, гудение блока питания из-за стойки, которое то появляется, то пропадает.",
+    "smell": "Сухая бумага, картонная пыль, ржавчина и сладковатый химический след, тянущийся из шлюза.",
+    "temperature": "Заметно холоднее холла; отопления нет, чувствуется сквозняк из-под внутренней двери.",
+    "tone": "Архивная тишина: место, где людей превращали в строки журнала."
+  },
+  "base_description": "Помещение за застеклённой стойкой, отгороженное от холла. Всё пространство занимают картотечные шкафы от пола до потолка — стальные ящики с латунными ручками и бумажными бирками. На стойке — раскрытый журнал регистрации, шариковая ручка на цепочке и старый монитор с выцветшей строкой «ДОСТУП: ОТКАЗАНО». На внутренней стене — электрические часы, остановившиеся. Ящики картотеки ходят туго, но не заперты: их открывали много раз и всегда задвигали обратно.",
+  "objects": [
+    {
+      "id": "card_cabinets",
+      "name": "Картотечные шкафы",
+      "description": "Шесть стальных шкафов с ящиками. Внутри — карточки пациентов: плотный картон, графы «Ф.И.О.», «Дата поступления», «Куратор», «Протокол». Графа «Ф.И.О.» пуста в каждой карточке без исключения. Вместо имени — номер от 1 до 12. Остальные графы заполнены убористым почерком.",
+      "properties": {
+        "inspectable": true,
+        "locked": false,
+        "noise_level": "normal"
+      },
+      "story_relevance": "major_clue",
+      "persistent_state": {
+        "searched": false
+      }
+    },
+    {
+      "id": "card_no12",
+      "name": "Карточка №12",
+      "description": "Двенадцатая карточка лежит не в своём ящике, а сверху, поверх стопки, — её вынимали последней и не убрали. Графа «Ф.И.О.» пуста. В графе «Протокол» от руки приписано: «Выпуск по распоряжению куратора». Ниже — дата, та же, что на остановившихся часах.",
+      "properties": {
+        "inspectable": true,
+        "locked": false,
+        "noise_level": "quiet"
+      },
+      "story_relevance": "major_clue",
+      "persistent_state": {
+        "examined": false
+      }
+    },
+    {
+      "id": "card_no7",
+      "name": "Карточка №7",
+      "description": "Карточка из третьего ящика. В графе «Протокол» — штамп «Реакция нестабильная», ниже — приписка другим почерком: «Изолировать. Перевод в операционный блок». Графа с датой выписки не заполнена.",
+      "properties": {
+        "inspectable": true,
+        "locked": false,
+        "noise_level": "quiet"
+      },
+      "story_relevance": "major_clue",
+      "persistent_state": {
+        "examined": false
+      }
+    },
+    {
+      "id": "registration_journal",
+      "name": "Журнал регистрации",
+      "description": "Толстый журнал в дерматиновом переплёте, раскрыт на последней заполненной странице. Строки одинаковые: дата, номер от 1 до 12, подпись принимающего. Страниц много, и даты в них повторяются — одни и те же номера, одни и те же подписи, но разные годы. Последняя запись обрывается на середине строки.",
+      "properties": {
+        "inspectable": true,
+        "locked": false,
+        "noise_level": "quiet"
+      },
+      "story_relevance": "major_clue",
+      "persistent_state": {
+        "examined": false
+      }
+    },
+    {
+      "id": "reception_monitor",
+      "name": "Монитор регистратуры",
+      "description": "ЭЛТ-монитор с выцветшей зелёной строкой «ДОСТУП: ОТКАЗАНО». Клавиатура цела, но на Enter не реагирует. В левом нижнем углу экрана — счётчик, который не двигается: четыре цифры, две из них стёрты.",
+      "properties": {
+        "inspectable": true,
+        "locked": true,
+        "lock_type": "code",
+        "noise_level": "quiet"
+      },
+      "persistent_state": {
+        "unlocked": false,
+        "accessed": false
+      }
+    },
+    {
+      "id": "reception_safe",
+      "name": "Сейф под стойкой",
+      "description": "Небольшой врезной сейф в основании стойки, покрашенный в цвет мебели. Дверца приоткрыта на палец: внутри — связка ключей на кольце и чистый бланк направления. Замок кодовый, диск сбит, но ключи оказались не нужны никому, кто смог его открыть.",
+      "properties": {
+        "inspectable": true,
+        "locked": true,
+        "lock_type": "code",
+        "noise_level": "loud"
+      },
+      "persistent_state": {
+        "unlocked": false,
+        "opened": false
+      }
+    },
+    {
+      "id": "intercom",
+      "name": "Неработающая связь со стойкой",
+      "description": "Пластиковая коробочка интеркома на стойке, обращённая в холл. Динамик забит пылью. Если нажать клавишу вызова, в динамике на мгновение появляется дыхание — и сразу гаснет.",
+      "properties": {
+        "inspectable": true,
+        "locked": false,
+        "noise_level": "normal"
+      },
+      "story_relevance": "supernatural_signal",
+      "persistent_state": {
+        "breath_event_seen": false
+      }
+    }
+  ],
+  "items": [
+    {
+      "id": "reception_keys",
+      "name": "Связка ключей регистратуры",
+      "description": "Три ключа на стальном кольце: от шкафчиков раздевалки, от внутренней двери за картотекой и один без бирки, крупнее остальных, с насечкой в виде буквы «В».",
+      "takeable": true,
+      "unique": true,
+      "story_relevance": "major_clue",
+      "persistent_state": {
+        "taken": false
+      },
+      "hidden_role": "Крупный ключ с насечкой «В» связан с Секретным архивом (Сектор В) на этаже -3; не раскрывать назначение по одному виду ключа."
+    }
+  ],
+  "lore": {
+    "public_revelation": {
+      "fact": "Здесь были эксперименты.",
+      "carrier_objects": [
+        "card_cabinets",
+        "registration_journal",
+        "card_no12",
+        "card_no7"
+      ],
+      "intended_discovery": "Сначала группа воспринимает картотеку как обычную архивную систему, затем замечает отсутствие имён, затем повторяющиеся номера, даты и подписи."
+    },
+    "secret_truth": {
+      "floor_truth": "На этаже принимали и учитывали людей как пронумерованных участников экспериментов.",
+      "do_not_reveal_in_reception": [
+        "кто такой куратор",
+        "почему №12 был выпущен",
+        "что №7 умер",
+        "что журнал соответствует 47 повторам цикла",
+        "что номера 1–12 связаны с кем-либо из шести игроков"
+      ]
+    }
+  },
+  "hazards": {
+    "gas_level": "none",
+    "acid": false,
+    "electricity": false,
+    "darkness_requires_light": true,
+    "turret": false,
+    "trap_trigger": null
+  },
+  "actors": {
+    "enemies": [],
+    "npcs": []
+  },
+  "state": {
+    "initial": {
+      "card_cabinets_searched": false,
+      "card_no12_examined": false,
+      "card_no7_examined": false,
+      "journal_examined": false,
+      "clock_date_connection_noticed": false,
+      "monitor_unlocked": false,
+      "monitor_accessed": false,
+      "safe_unlocked": false,
+      "safe_opened": false,
+      "keys_taken": false,
+      "intercom_breath_seen": false
+    },
+    "persistent_story_flags": [
+      "floor_-1_experiments_suspected",
+      "reception_evidence_found",
+      "reception_keys_found"
+    ]
+  },
+  "events": [
+    {
+      "id": "RECEPTION_FIRST_ENTRY",
+      "category": "scene",
+      "trigger": {
+        "type": "enter_room",
+        "first_time": true
+      },
+      "conditions": [],
+      "effects": [
+        {
+          "type": "set_flag",
+          "flag": "reception_entered"
+        }
+      ],
+      "narrative_guidance": {
+        "purpose": "Задать ощущение архивной тишины и постепенно направить внимание к картотеке, не раскрывая сюжет заранее.",
+        "must_not_explain": [
+          "что здесь проводились эксперименты",
+          "что номера 1–12 являются номерами подопытных"
+        ]
+      },
+      "once": true
+    },
+    {
+      "id": "CARD_CABINETS_DISCOVERY",
+      "category": "discovery",
+      "trigger": {
+        "type": "inspect_object",
+        "object_id": "card_cabinets"
+      },
+      "conditions": [
+        {
+          "type": "state_is",
+          "path": "card_cabinets_searched",
+          "equals": false
+        }
+      ],
+      "effects": [
+        {
+          "type": "set_flag",
+          "flag": "card_cabinets_searched",
+          "value": true
+        },
+        {
+          "type": "set_flag",
+          "flag": "floor_-1_experiments_suspected",
+          "value": true
+        }
+      ],
+      "narrative_guidance": {
+        "sequence": [
+          "Сначала подать шкафы как обычную картотеку.",
+          "Затем дать заметить пустую графу «Ф.И.О.» в карточках.",
+          "Затем — номера 1–12 вместо имён.",
+          "Не называть их подопытными."
+        ]
+      },
+      "once": true
+    },
+    {
+      "id": "CARD_NO12_DISCOVERY",
+      "category": "discovery",
+      "trigger": {
+        "type": "inspect_object",
+        "object_id": "card_no12"
+      },
+      "conditions": [
+        {
+          "type": "state_is",
+          "path": "card_no12_examined",
+          "equals": false
+        }
+      ],
+      "effects": [
+        {
+          "type": "set_flag",
+          "flag": "card_no12_examined",
+          "value": true
+        },
+        {
+          "type": "set_flag",
+          "flag": "reception_evidence_found",
+          "value": true
+        }
+      ],
+      "narrative_guidance": {
+        "allowed_revelation": [
+          "Карточка была вынута последней.",
+          "Графа «Ф.И.О.» пуста.",
+          "Выпуск произведён по распоряжению куратора.",
+          "Дата совпадает с остановившимися часами."
+        ],
+        "forbidden_revelation": [
+          "имя Сергей Соколов",
+          "родство с Димой",
+          "обстоятельства смерти",
+          "смысл номера 12"
+        ]
+      },
+      "once": true
+    },
+    {
+      "id": "CARD_NO7_DISCOVERY",
+      "category": "discovery",
+      "trigger": {
+        "type": "inspect_object",
+        "object_id": "card_no7"
+      },
+      "conditions": [
+        {
+          "type": "state_is",
+          "path": "card_no7_examined",
+          "equals": false
+        }
+      ],
+      "effects": [
+        {
+          "type": "set_flag",
+          "flag": "card_no7_examined",
+          "value": true
+        },
+        {
+          "type": "set_flag",
+          "flag": "reception_evidence_found",
+          "value": true
+        }
+      ],
+      "narrative_guidance": {
+        "allowed_revelation": [
+          "Штамп «Реакция нестабильная».",
+          "Приписка «Изолировать. Перевод в операционный блок»."
+        ],
+        "forbidden_revelation": [
+          "имя и личность родственника Ани",
+          "смерть",
+          "родство с Аней",
+          "смысл номера 7"
+        ]
+      },
+      "once": true
+    },
+    {
+      "id": "JOURNAL_REPEATED_DATES",
+      "category": "discovery",
+      "trigger": {
+        "type": "inspect_object",
+        "object_id": "registration_journal"
+      },
+      "conditions": [
+        {
+          "type": "state_is",
+          "path": "journal_examined",
+          "equals": false
+        }
+      ],
+      "effects": [
+        {
+          "type": "set_flag",
+          "flag": "journal_examined",
+          "value": true
+        },
+        {
+          "type": "set_flag",
+          "flag": "reception_evidence_found",
+          "value": true
+        }
+      ],
+      "narrative_guidance": {
+        "allowed_revelation": [
+          "одни и те же номера повторяются",
+          "одни и те же подписи повторяются",
+          "даты повторяются",
+          "последняя запись оборвана"
+        ],
+        "forbidden_revelation": [
+          "число 47",
+          "прямая формулировка о циклах или откате времени"
+        ]
+      },
+      "once": true
+    },
+    {
+      "id": "CLOCK_DATE_CONNECTION",
+      "category": "discovery",
+      "trigger": {
+        "type": "compound_player_action",
+        "required_actions": [
+          "inspect_object:card_no12",
+          "notice:wall_clock"
+        ]
+      },
+      "conditions": [
+        {
+          "type": "state_is",
+          "path": "card_no12_examined",
+          "equals": true
+        },
+        {
+          "type": "state_is",
+          "path": "clock_date_connection_noticed",
+          "equals": false
+        }
+      ],
+      "effects": [
+        {
+          "type": "set_flag",
+          "flag": "clock_date_connection_noticed",
+          "value": true
+        }
+      ],
+      "narrative_guidance": {
+        "purpose": "Дать игрокам возможность самим заметить совпадение даты карточки №12 и остановившихся часов.",
+        "forbidden": "Не объяснять, почему это совпадение важно."
+      },
+      "once": true
+    },
+    {
+      "id": "INTERCOM_BREATH",
+      "category": "supernatural",
+      "trigger": {
+        "type": "interact",
+        "object_id": "intercom"
+      },
+      "conditions": [
+        {
+          "type": "state_is",
+          "path": "intercom_breath_seen",
+          "equals": false
+        }
+      ],
+      "effects": [
+        {
+          "type": "set_flag",
+          "flag": "intercom_breath_seen",
+          "value": true
+        }
+      ],
+      "narrative_guidance": {
+        "effect": "В динамике на мгновение слышно дыхание, после чего связь гаснет.",
+        "frequency": "single_use",
+        "forbidden": [
+          "имя Неофрон",
+          "какие-либо слова или просьбы",
+          "прямое объяснение сверхъестественной природы"
+        ]
+      },
+      "once": true
+    },
+    {
+      "id": "RECEPTION_SAFE_UNLOCKED",
+      "category": "interaction",
+      "trigger": {
+        "type": "object_unlocked",
+        "object_id": "reception_safe"
+      },
+      "conditions": [
+        {
+          "type": "state_is",
+          "path": "safe_unlocked",
+          "equals": false
+        }
+      ],
+      "effects": [
+        {
+          "type": "set_flag",
+          "flag": "safe_unlocked",
+          "value": true
+        }
+      ],
+      "narrative_guidance": {
+        "allowed_revelation": [
+          "в сейфе находятся связка ключей и чистый бланк направления"
+        ],
+        "secret_role": "Бланк может использоваться как улика того, что приём продолжался после закрытия клиники."
+      },
+      "once": true
+    },
+    {
+      "id": "RECEPTION_KEYS_TAKEN",
+      "category": "item",
+      "trigger": {
+        "type": "take_item",
+        "item_id": "reception_keys"
+      },
+      "conditions": [
+        {
+          "type": "state_is",
+          "path": "keys_taken",
+          "equals": false
+        }
+      ],
+      "effects": [
+        {
+          "type": "set_flag",
+          "flag": "keys_taken",
+          "value": true
+        },
+        {
+          "type": "set_flag",
+          "flag": "reception_keys_found",
+          "value": true
+        }
+      ],
+      "narrative_guidance": {
+        "forbidden": [
+          "объяснять, куда ведёт ключ с насечкой «В»",
+          "называть Секретный архив или Сектор В без отдельного сюжетного основания"
+        ]
+      },
+      "once": true
+    },
+    {
+      "id": "RECEPTION_MONITOR_UNLOCKED",
+      "category": "interaction",
+      "trigger": {
+        "type": "object_unlocked",
+        "object_id": "reception_monitor"
+      },
+      "conditions": [
+        {
+          "type": "state_is",
+          "path": "monitor_unlocked",
+          "equals": false
+        }
+      ],
+      "effects": [
+        {
+          "type": "set_flag",
+          "flag": "monitor_unlocked",
+          "value": true
+        }
+      ],
+      "narrative_guidance": {
+        "allowed_revelation": [
+          "на экране может быть показан список номеров 1–12 со статусами",
+          "монитор связан с той же системой, что и Главный Терминал на этаже -7"
+        ],
+        "default_visibility": "Счётчик цикла не должен читаться из-за стёртых цифр, пока GM явно не решит иначе."
+      },
+      "once": true
+    },
+    {
+      "id": "LOUD_HACK_NO_FLOOR_EFFECT",
+      "category": "reaction",
+      "trigger": {
+        "type": "attempt_interaction",
+        "object_ids": [
+          "reception_monitor",
+          "reception_safe"
+        ],
+        "interaction_types": [
+          "hack",
+          "force",
+          "bruteforce"
+        ]
+      },
+      "conditions": [],
+      "effects": [
+        {
+          "type": "narrative_marker",
+          "value": "loud_noise"
+        }
+      ],
+      "narrative_guidance": {
+        "effect": "Шум громкий.",
+        "mechanical_consequence": "На этаже -1 дополнительных последствий нет; в этой комнате нет кукол и нет связанного триггера B13.",
+        "important": "Не придумывать локальную угрозу из громкого шума."
+      },
+      "once": false
+    }
+  ],
+  "ai_guidance": {
+    "role": "Виртуальный режиссёр сцены.",
+    "core_instruction": "Опирайся только на факты этой комнаты, текущее состояние игры, действия игроков и разрешённые события. Создавай цельное продолжение сцены после завершения хода.",
+    "revelation_pacing": [
+      "Сначала обычная картотека.",
+      "Затем пустые графы «Ф.И.О.» и номера 1–12.",
+      "Затем повторяющиеся даты и подписи в журнале.",
+      "Затем более конкретные зацепки через №12 и №7.",
+      "Игроки должны сами соединять факты."
+    ],
+    "forbidden_knowledge_reveal": [
+      "не раскрывать смысл номеров 1–12 раньше времени",
+      "не называть №12 Сергеем Соколовым в Регистратуре",
+      "не раскрывать связь №12 с Димой",
+      "не раскрывать связь №7 с Аней",
+      "не раскрывать, что №7 умер",
+      "не раскрывать 47 циклов",
+      "не раскрывать куратора",
+      "не раскрывать Неофрона по имени",
+      "не выдавать содержимое Секретного архива или других этажей, если оно не предоставлено текущим игровым контекстом"
+    ],
+    "supernatural_limit": {
+      "intercom": "Дыхание — единственная сверхъестественная деталь этой комнаты.",
+      "use_count": 1
+    }
+  },
+  "meta": {
+    "schema_version": "2.0",
+    "reference_role": "canonical_reference_room",
+    "source_files": [
+      "floor-1_reception.json",
+      "floor-1_reception.gm.json"
+    ],
+    "notes": [
+      "Этот файл объединяет игровую модель комнаты и GM-only сведения.",
+      "GM-раздел и скрытые поля никогда не должны попадать игрокам.",
+      "Для создания других комнат переносится структура, а не сюжетное содержание этой комнаты."
+    ]
+  }
+}

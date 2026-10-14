@@ -1,0 +1,635 @@
+{
+  "schema_version": "2.0",
+  "room_id": "floor-1_locker_room",
+  "floor": -1,
+  "title": "Раздевалка",
+  "role": {
+    "type": "story_location",
+    "function": "Ключевая сцена этапа -1: группа находит изношенные копии предметов, которые лежат у неё в карманах, — первое материальное доказательство повторяемости.",
+    "story_truth": "Раздевалка подопытных №1–№12, где хранятся их личные вещи и дубликаты якорей из предыдущих циклов; журнал учёта записывает одни и те же предметы десятки раз под разными датами.",
+    "revelation_level": "early"
+  },
+  "exits": [
+    {
+      "target_room_id": "floor-1_lobby",
+      "direction": "Дверь обратно в светлый холл",
+      "is_locked": false,
+      "lock_type": null,
+      "key_required": null,
+      "requires_flag": null,
+      "hidden": false,
+      "one_way": false,
+      "via": "door"
+    },
+    {
+      "target_room_id": "floor-1_relaxation",
+      "direction": "Служебная дверь с матовым стеклом в комнату релаксации",
+      "is_locked": false,
+      "lock_type": null,
+      "key_required": null,
+      "requires_flag": null,
+      "hidden": false,
+      "one_way": false,
+      "via": "door"
+    }
+  ],
+  "atmosphere": {
+    "lighting": "ровный молочный свет потолочных панелей, редко мигающая лампа",
+    "sounds": "музыка из-за двери, гудение вентиляции, редкие технические щелчки",
+    "smell": "чистящее средство, сухая бумага, слабый химический след",
+    "temperature": "тепло, кондиционированный воздух",
+    "tone": "ложная безопасность: чистая клиника, которая не работает"
+  },
+  "base_description": "",
+  "objects": [],
+  "items": [],
+  "lore": {
+    "public_revelation": {
+      "summary": "Два ряда шкафчиков с номерами от 1 до 12, одежда с бирками, аккуратные стопки рассортированных вещей и журнал учёта, в котором одна и та же куртка, те же часы и тот же блокнот приняты десятки раз под разными датами. Среди вещей лежат пять предметов, в точности повторяющих те, что группа нашла у себя, — но старше и изношеннее. Один шкафчик пуст, номер на нём стёрт.",
+      "text_snippet": "Журнал учёта личных вещей на крючке у входа: «Принято / Выдано». Один и тот же блокнот записан несколько десятков раз, каждый раз как принятый впервые. Даты разные.",
+      "revelation_level": "early"
+    },
+    "secret_truth": {
+      "restrictions": [
+        "не называть персонажей по именам и не объяснять, кому принадлежит каждый дубликат",
+        "не раскрывать, что группа проходила этот путь сорок семь раз",
+        "не сообщать точное число повторов: журнал не должен читаться как счётчик",
+        "не объяснять, кто рассортировал вещи и откуда свежий халат",
+        "не объяснять, почему один шкафчик пуст и чей это номер"
+      ],
+      "floor_truth": "Здесь были эксперименты"
+    }
+  },
+  "hazards": {
+    "gas_level": "none",
+    "acid": false,
+    "electricity": false,
+    "darkness_requires_light": false,
+    "turret": false,
+    "trap_trigger": null
+  },
+  "actors": {
+    "enemies": [],
+    "npcs": []
+  },
+  "state": {
+    "initial": {
+      "locker_room_entered": false,
+      "lockers_searched": false,
+      "sorted_belongings_examined": false,
+      "inventory_book_read": false,
+      "sink_examined": false,
+      "empty_locker_noticed": false,
+      "duplicate_photo_found": false,
+      "duplicate_letter_found": false,
+      "duplicate_headphones_found": false,
+      "duplicate_notebook_found": false,
+      "duplicate_ampoule_found": false,
+      "photo_taken": false,
+      "letter_taken": false,
+      "headphones_taken": false,
+      "notebook_taken": false,
+      "ampoule_taken": false,
+      "scene_held_breath": false
+    },
+    "persistent_story_flags": [
+      "anchors_duplicated_found",
+      "cycle_evidence_found"
+    ]
+  },
+  "events": [
+    {
+      "id": "LOCKER_ROOM_FIRST_ENTRY",
+      "category": "scene",
+      "trigger": {
+        "type": "enter_room",
+        "first_time": true
+      },
+      "conditions": [],
+      "effects": [
+        {
+          "type": "set_flag",
+          "flag": "locker_room_entered",
+          "value": true
+        }
+      ],
+      "narrative_guidance": {
+        "purpose": "Чужие вещи, оставленные как будто на минуту: комната ждёт владельцев, которые не придут.",
+        "sequence": [
+          "полоса света от одной длинной лампы",
+          "два ряда шкафчиков с номерами",
+          "капель из душевого крана",
+          "сухой стук незакреплённой дверцы"
+        ],
+        "must_not_explain": [
+          "кто оставил вещи",
+          "почему часть шкафчиков пуста"
+        ]
+      },
+      "once": true
+    },
+    {
+      "id": "LOCKERS_ROW_SEARCHED",
+      "category": "exploration",
+      "trigger": {
+        "type": "inspect_object",
+        "target": "lockers_row"
+      },
+      "conditions": [
+        {
+          "type": "state_is",
+          "path": "lockers_searched",
+          "equals": false
+        }
+      ],
+      "effects": [
+        {
+          "type": "set_flag",
+          "flag": "lockers_searched",
+          "value": true
+        }
+      ],
+      "narrative_guidance": {
+        "allowed_revelation": [
+          "номера от 1 до 12",
+          "вещей больше, чем шкафчиков",
+          "на всех вещах бирка с инвентарным номером и одной и той же датой"
+        ],
+        "forbidden_revelation": [
+          "что номера соответствуют карточкам Регистратуры — связь игроки делают сами",
+          "кто владелец вещей"
+        ]
+      },
+      "once": true
+    },
+    {
+      "id": "INVENTORY_BOOK_READ",
+      "category": "discovery",
+      "trigger": {
+        "type": "inspect_object",
+        "target": "inventory_book"
+      },
+      "conditions": [
+        {
+          "type": "state_is",
+          "path": "inventory_book_read",
+          "equals": false
+        }
+      ],
+      "effects": [
+        {
+          "type": "set_flag",
+          "flag": "inventory_book_read",
+          "value": true
+        },
+        {
+          "type": "set_flag",
+          "flag": "cycle_evidence_found",
+          "value": true
+        }
+      ],
+      "narrative_guidance": {
+        "purpose": "Главный носитель правды о повторяемости на этаже -1.",
+        "allowed_revelation": [
+          "одна и та же куртка, часы и блокнот записаны десятки раз",
+          "даты разные",
+          "каждый раз предмет записан как принятый впервые",
+          "последняя запись свежая"
+        ],
+        "forbidden_revelation": [
+          "число повторов",
+          "прямая формулировка о циклах или откате времени",
+          "кто вёл журнал"
+        ]
+      },
+      "once": true
+    },
+    {
+      "id": "SORTED_BELONGINGS_EXAMINED",
+      "category": "discovery",
+      "trigger": {
+        "type": "inspect_object",
+        "target": "sorted_belongings"
+      },
+      "conditions": [
+        {
+          "type": "state_is",
+          "path": "sorted_belongings_examined",
+          "equals": false
+        }
+      ],
+      "effects": [
+        {
+          "type": "set_flag",
+          "flag": "sorted_belongings_examined",
+          "value": true
+        }
+      ],
+      "narrative_guidance": {
+        "allowed_revelation": [
+          "вещи рассортированы по видам аккуратно",
+          "между стопками оставлено свободное место",
+          "сверху лежит сложенный вчетверо больничный халат, свежий, без бирки"
+        ],
+        "forbidden_revelation": [
+          "кто рассортировал вещи",
+          "на седьмого человека рассчитано свободное место или нет",
+          "откуда халат"
+        ]
+      },
+      "once": true
+    },
+    {
+      "id": "SINK_EXAMINED",
+      "category": "discovery",
+      "trigger": {
+        "type": "inspect_object",
+        "target": "sink_dripping"
+      },
+      "conditions": [
+        {
+          "type": "state_is",
+          "path": "sink_examined",
+          "equals": false
+        }
+      ],
+      "effects": [
+        {
+          "type": "set_flag",
+          "flag": "sink_examined",
+          "value": true
+        }
+      ],
+      "narrative_guidance": {
+        "allowed_revelation": [
+          "в сливе мелкие деревянные опилки и обрывки ниток",
+          "зеркала над раковиной нет: четыре крепежа и светлый прямоугольник на стене"
+        ],
+        "forbidden_revelation": [
+          "откуда опилки",
+          "почему снято зеркало"
+        ]
+      },
+      "once": true
+    },
+    {
+      "id": "EMPTY_LOCKER_NOTICED",
+      "category": "supernatural",
+      "trigger": {
+        "type": "inspect_object",
+        "target": "empty_locker"
+      },
+      "conditions": [
+        {
+          "type": "state_is",
+          "path": "empty_locker_noticed",
+          "equals": false
+        }
+      ],
+      "effects": [
+        {
+          "type": "set_flag",
+          "flag": "empty_locker_noticed",
+          "value": true
+        }
+      ],
+      "narrative_guidance": {
+        "allowed_revelation": [
+          "шкафчик пуст: ни одежды, ни бирок",
+          "номер на дверце стёрт до металла",
+          "дверца изнутри чистая, без царапин и вмятин"
+        ],
+        "forbidden_revelation": [
+          "чей это номер",
+          "почему у одного из группы нет вещи"
+        ],
+        "important": "Деталь должна работать тихо: у всех есть предмет из прошлой жизни, у одного нет. Не объяснять."
+      },
+      "once": true
+    },
+    {
+      "id": "DUPLICATE_FATHER_PHOTO_FOUND",
+      "category": "discovery",
+      "trigger": {
+        "type": "inspect_object",
+        "target": "dup_father_photo"
+      },
+      "conditions": [
+        {
+          "type": "state_is",
+          "path": "duplicate_photo_found",
+          "equals": false
+        }
+      ],
+      "effects": [
+        {
+          "type": "set_flag",
+          "flag": "duplicate_photo_found",
+          "value": true
+        },
+        {
+          "type": "set_flag",
+          "flag": "anchors_duplicated_found",
+          "value": true
+        }
+      ],
+      "narrative_guidance": {
+        "allowed_revelation": [
+          "выцветшая фотография молодого человека",
+          "надпись «Сергей. До всего этого»",
+          "внизу вторая надпись тем же почерком, почти неразборчивая",
+          "бумага истёрта на сгибах"
+        ],
+        "forbidden_revelation": [
+          "что это дубликат чьего-то предмета — узнавание за игроком",
+          "имя Сергей Соколов как факт биографии",
+          "родство с кем-либо из группы"
+        ]
+      },
+      "once": true
+    },
+    {
+      "id": "DUPLICATE_GRANDFATHER_LETTER_FOUND",
+      "category": "discovery",
+      "trigger": {
+        "type": "inspect_object",
+        "target": "dup_grandfather_letter"
+      },
+      "conditions": [
+        {
+          "type": "state_is",
+          "path": "duplicate_letter_found",
+          "equals": false
+        }
+      ],
+      "effects": [
+        {
+          "type": "set_flag",
+          "flag": "duplicate_letter_found",
+          "value": true
+        },
+        {
+          "type": "set_flag",
+          "flag": "anchors_duplicated_found",
+          "value": true
+        }
+      ],
+      "narrative_guidance": {
+        "allowed_revelation": [
+          "письмо, сложенное вчетверо",
+          "обрывается на «Не ищи»",
+          "пятно на обороте",
+          "внизу листа едва заметный штамп с номером 7"
+        ],
+        "forbidden_revelation": [
+          "кто автор письма",
+          "связь с карточкой №7 — её игроки делают сами",
+          "смерть автора"
+        ]
+      },
+      "once": true
+    },
+    {
+      "id": "DUPLICATE_HEADPHONES_FOUND",
+      "category": "discovery",
+      "trigger": {
+        "type": "inspect_object",
+        "target": "dup_headphones"
+      },
+      "conditions": [
+        {
+          "type": "state_is",
+          "path": "duplicate_headphones_found",
+          "equals": false
+        }
+      ],
+      "effects": [
+        {
+          "type": "set_flag",
+          "flag": "duplicate_headphones_found",
+          "value": true
+        },
+        {
+          "type": "set_flag",
+          "flag": "anchors_duplicated_found",
+          "value": true
+        }
+      ],
+      "narrative_guidance": {
+        "allowed_revelation": [
+          "наушники с обрезанным проводом",
+          "одно крепление стянуто изолентой",
+          "глубокая царапина на правом наушнике",
+          "внутри чашки засохшие опилки"
+        ],
+        "forbidden_revelation": [
+          "что царапина — метка препарата",
+          "что голоса слышит кто-то из группы",
+          "откуда опилки"
+        ]
+      },
+      "once": true
+    },
+    {
+      "id": "DUPLICATE_BURNT_NOTEBOOK_FOUND",
+      "category": "discovery",
+      "trigger": {
+        "type": "inspect_object",
+        "target": "dup_burnt_notebook"
+      },
+      "conditions": [
+        {
+          "type": "state_is",
+          "path": "duplicate_notebook_found",
+          "equals": false
+        }
+      ],
+      "effects": [
+        {
+          "type": "set_flag",
+          "flag": "duplicate_notebook_found",
+          "value": true
+        },
+        {
+          "type": "set_flag",
+          "flag": "anchors_duplicated_found",
+          "value": true
+        }
+      ],
+      "narrative_guidance": {
+        "allowed_revelation": [
+          "блокнот, переживший огонь",
+          "инициалы «И.Н.» проступают сквозь копоть",
+          "читаются строки о кладбище на окраине города",
+          "фраза «Не ходи туда», обведённая три раза"
+        ],
+        "forbidden_revelation": [
+          "чья мать",
+          "что женщину убили",
+          "что существует второй блокнот с последними записями"
+        ]
+      },
+      "once": true
+    },
+    {
+      "id": "DUPLICATE_EMPTY_AMPOULE_FOUND",
+      "category": "discovery",
+      "trigger": {
+        "type": "inspect_object",
+        "target": "dup_empty_ampoule"
+      },
+      "conditions": [
+        {
+          "type": "state_is",
+          "path": "duplicate_ampoule_found",
+          "equals": false
+        }
+      ],
+      "effects": [
+        {
+          "type": "set_flag",
+          "flag": "duplicate_ampoule_found",
+          "value": true
+        },
+        {
+          "type": "set_flag",
+          "flag": "anchors_duplicated_found",
+          "value": true
+        }
+      ],
+      "narrative_guidance": {
+        "allowed_revelation": [
+          "ампула с отбитым носиком, абсолютно пустая",
+          "этикетка потёрта, но логотип-спираль уцелел",
+          "царапина от многолетнего ношения в одном кармане"
+        ],
+        "forbidden_revelation": [
+          "что внутри был препарат",
+          "связь со школой №47",
+          "что спираль совпадает с логотипом на брошюрах — игроки сравнивают сами"
+        ]
+      },
+      "once": true
+    },
+    {
+      "id": "DUPLICATE_RECOGNIZED_BY_OWNER",
+      "category": "supernatural",
+      "trigger": {
+        "type": "compound_player_action",
+        "required_actions": [
+          "compare:own_anchor",
+          "inspect_object:duplicate"
+        ]
+      },
+      "conditions": [
+        {
+          "type": "state_is",
+          "path": "scene_held_breath",
+          "equals": false
+        }
+      ],
+      "effects": [
+        {
+          "type": "set_flag",
+          "flag": "scene_held_breath",
+          "value": true
+        }
+      ],
+      "narrative_guidance": {
+        "purpose": "Момент узнавания: игрок сравнивает дубликат с предметом у себя и понимает, что вещь та же самая, но старее.",
+        "effect": "Стук незакреплённой дверцы прекращается; капель обрывается на одну секунду и возобновляется.",
+        "frequency": "single_use",
+        "forbidden": [
+          "объяснять причину",
+          "подтверждать от автора, что предметы идентичны",
+          "называть число повторов"
+        ]
+      },
+      "once": true
+    },
+    {
+      "id": "LOCKER_ROOM_LOUD_NO_EFFECT",
+      "category": "reaction",
+      "trigger": {
+        "type": "attempt_interaction",
+        "targets": [
+          "lockers_row",
+          "empty_locker",
+          "sink_dripping"
+        ],
+        "interaction_types": [
+          "force",
+          "bruteforce",
+          "shout"
+        ]
+      },
+      "conditions": [],
+      "effects": [
+        {
+          "type": "narrative_marker",
+          "message": "Шум громкий: металл по металлу, дверцы хлопают, эхо уходит в коридор."
+        }
+      ],
+      "narrative_guidance": {
+        "effect": "Шум громкий.",
+        "mechanical_consequence": "На этаже -1 последствий нет: кукол на этаже нет (B13/D33).",
+        "important": "Не придумывать локальную угрозу из громкого шума; с этажа -2 это правило начнёт работать."
+      },
+      "once": false
+    }
+  ],
+  "ai_guidance": {
+    "role": "Виртуальный режиссёр сцены.",
+    "core_instruction": "Опирайся только на факты этой комнаты и сообщения игроков. Веди сцену в три шага и не комментируй совпадения от автора: описывай дубликат нейтрально, узнавание — работа игрока.",
+    "revelation_pacing": [
+      "Сначала обычные чужие вещи: шкафчики, бирки, одежда, рассортированные стопки.",
+      "Затем журнал учёта с повторяющимися предметами и разными датами.",
+      "Затем один из дубликатов — описанный нейтрально, без имени владельца.",
+      "Если игрок сравнивает дубликат со своим предметом — позволить сцене «прогнуться»: стук дверцы прекращается, вода перестаёт капать на одну секунду.",
+      "В последнюю очередь — пустой шкафчик со стёртым номером.",
+      "Число повторов не называть."
+    ],
+    "forbidden_knowledge_reveal": [
+      "не называть персонажей по именам: на старте Цикла 48 они не помнят ни своих имён, ни имён друг друга (D34)",
+      "не раскрывать номер цикла и число 47",
+      "не раскрывать Неофрона по имени",
+      "не раскрывать Андрея и Куратора",
+      "не выдавать сведения других этажей, если они не предоставлены текущим игровым контекстом",
+      "не называть владельца дубликата",
+      "не раскрывать число 47 и саму идею циклов",
+      "не раскрывать, что вещи перекладывал Коля ночью",
+      "не раскрывать, что халат оставил Андрей",
+      "не объяснять, почему шестой шкафчик пуст"
+    ],
+    "supernatural_limit": {
+      "manifestations": "одна деталь на сцену узнавания: стук дверцы прекращается, капель обрывается на секунду",
+      "use_count": 1
+    }
+  },
+  "meta": {
+    "schema_version": "2.0",
+    "source_files": [
+      "data/lore/complex-structure.txt",
+      "data/lore/narrative.txt",
+      "data/lore/cast.txt",
+      "data/lore/room-design-instructions.md",
+      "data/lore/references/floor-1_reception.reference.room.json",
+      "data/lore/references/trigger_conditions_effects_reference.json",
+      "data/rooms/_adjacency.json",
+      "data/rooms/_registry.json",
+      "data/rooms/_SCHEMA.md",
+      "data/rooms/_REGISTRY.md"
+    ],
+    "notes": [
+      "Сконвертирована из формата v1 в 2.0 по эталону data/lore/references/floor-1_reception.reference.room.json.",
+      "Формы lore / trigger / conditions / effects — по trigger_conditions_effects_reference.json (D54).",
+      "lore.secret_truth.truth и future_connections вынесены в парный .gm.json (D58).",
+      "ai_guidance оставлен в публичном файле целиком (D59).",
+      "exits собраны из data/rooms/_adjacency.json (D44).",
+      "Канон: «Шкафчики с оставленными личными вещами подопытных. Отличное место, чтобы спрятать чью-то улику или якорь».",
+      "Дубликаты якорей (D31) и пустой шкафчик (D37) — авторское решение на основе канона «копии копий» (narrative.txt, Часть V).",
+      "Шкафчики №7 и №12 удалены из комнаты решением D40: №12 переносится в Преддооперационный тамбур на этаже -6.",
+      "Авторские детали: рассортированные стопки, свежий халат без бирки, опилки в сливе, отсутствие зеркала, стук дверцы и капель как реакция на узнавание."
+    ]
+  }
+}

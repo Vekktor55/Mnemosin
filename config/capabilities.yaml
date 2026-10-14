@@ -1,0 +1,29 @@
+# Capability Registry: какие возможности нужны и в каком порядке пробовать провайдеров.
+# v3 §IV.2, §V.11; образец — MNEMOSIN_v3_AUDIT.md §8.9.
+#
+# required: true  → при недоступности сессия не стартует (CAPABILITY_UNAVAILABLE).
+# chain           → упорядоченный fallback; каждый providerId обязан иметь
+#                   запись в provider-policies.yaml (проверяется при старте).
+#
+# ЭТАП 1: TEXT_AI обслуживается офлайн-стендами (scripted/echo).
+#         Боевые провайдеры добавляются в промптах 2.6 (openrouter) и 2.7 (lmstudio);
+#         IMAGE_GENERATION — в промптах 2.10–2.12; AUDIO_GENERATION — в 3.7.
+capabilities:
+  TEXT_AI:
+    required: true
+    chain: [scripted, echo]
+  VISUAL_PROMPT:
+    required: false
+    chain: []
+  IMAGE_GENERATION:
+    required: false
+    chain: []
+  IMAGE_EDITING:
+    required: false
+    chain: []
+  AUDIO_GENERATION:
+    required: false
+    chain: []
+  VIDEO:
+    required: false
+    chain: []

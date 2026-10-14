@@ -1,0 +1,9 @@
+node_modules
+dist
+coverage
+data
+package-lock.json
+# намеренно битый YAML для теста CONFIG_PARSE_ERROR
+tests/fixtures/config-broken-yaml/
+# исходные данные мира от заказчика — хранятся побайтово как получены (D164)
+content/source-v1/

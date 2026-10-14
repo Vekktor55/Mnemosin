@@ -1,0 +1,470 @@
+{
+  "schema_version": "2.0",
+  "room_id": "floor-1_exam_a",
+  "floor": -1,
+  "title": "Смотровая А (Первичный осмотр)",
+  "role": {
+    "type": "story_location",
+    "function": "Второй носитель правды этапа -1: «первичный осмотр» оказывается процедурой фиксации.",
+    "story_truth": "Смотровая, где подопытных №1–№12 фиксировали в креслах и вводили препарат; журнал осмотра не содержит ни одной жалобы, зато содержит число применений фиксации.",
+    "revelation_level": "early"
+  },
+  "exits": [
+    {
+      "target_room_id": "floor-1_lobby",
+      "direction": "Дверь с матовым стеклом обратно в светлый холл",
+      "is_locked": false,
+      "lock_type": null,
+      "key_required": null,
+      "requires_flag": null,
+      "hidden": false,
+      "one_way": false,
+      "via": "door"
+    },
+    {
+      "target_room_id": "floor-1_psychotherapist",
+      "direction": "Внутренняя дверь с табличкой «Кабинет психотерапевта»",
+      "is_locked": false,
+      "lock_type": null,
+      "key_required": null,
+      "requires_flag": null,
+      "hidden": false,
+      "one_way": false,
+      "via": "door"
+    }
+  ],
+  "atmosphere": {
+    "lighting": "ровный молочный свет потолочных панелей, редко мигающая лампа",
+    "sounds": "музыка из-за двери, гудение вентиляции, редкие технические щелчки",
+    "smell": "чистящее средство, сухая бумага, слабый химический след",
+    "temperature": "тепло, кондиционированный воздух",
+    "tone": "ложная безопасность: чистая клиника, которая не работает"
+  },
+  "base_description": "",
+  "objects": [],
+  "items": [],
+  "lore": {
+    "public_revelation": {
+      "summary": "Кабинет первичного осмотра, обставленный как операционная: три кресла на прикрученных к полу рамах, ремни, прошитые в несколько рядов, с пряжками, которые открываются только снаружи. В журнале осмотра графа «Жалобы» пуста во всех записях, а в графе «Фиксация» стоит число от одного до четырёх; номера от 1 до 12 повторяются в одном и том же порядке.",
+      "text_snippet": "Журнал первичного осмотра, прикованный цепочкой к креслу. Графы: «Номер», «Дата», «Жалобы», «Назначено», «Фиксация». Жалобы во всех записях — прочерк. В графе «Фиксация» — количество: от одного до четырёх.",
+      "revelation_level": "early"
+    },
+    "secret_truth": {
+      "restrictions": [
+        "не называть номера 1–12 подопытными",
+        "не раскрывать, что в ампулах находится препарат",
+        "не объяснять повторяющийся порядок номеров",
+        "не связывать опилки в сливе с каким-либо помещением комплекса",
+        "не называть персонажей по именам"
+      ],
+      "floor_truth": "Здесь были эксперименты"
+    }
+  },
+  "hazards": {
+    "gas_level": "none",
+    "acid": false,
+    "electricity": false,
+    "darkness_requires_light": false,
+    "turret": false,
+    "trap_trigger": null
+  },
+  "actors": {
+    "enemies": [],
+    "npcs": []
+  },
+  "state": {
+    "initial": {
+      "exam_room_entered": false,
+      "restraints_examined": false,
+      "instrument_table_examined": false,
+      "cabinet_locked": true,
+      "cabinet_opened": false,
+      "lamp_examined": false,
+      "lamp_switched_off": false,
+      "exam_log_read": false,
+      "sink_examined": false,
+      "keys_taken": false,
+      "ampoule_taken": false,
+      "someone_in_chair": false
+    },
+    "persistent_story_flags": [
+      "floor_-1_fixation_proven",
+      "reception_keys_found",
+      "ampoule_found"
+    ]
+  },
+  "events": [
+    {
+      "id": "EXAM_ROOM_FIRST_ENTRY",
+      "category": "scene",
+      "trigger": {
+        "type": "enter_room",
+        "first_time": true
+      },
+      "conditions": [],
+      "effects": [
+        {
+          "type": "set_flag",
+          "flag": "exam_room_entered",
+          "value": true
+        }
+      ],
+      "narrative_guidance": {
+        "purpose": "Приёмная, обставленная как операционная: круг белого света на потёртой коже, остальные кресла в серых сумерках.",
+        "sequence": [
+          "бестеневая лампа горит над средним креслом",
+          "три кресла развёрнуты к центру",
+          "столик с вымытыми инструментами",
+          "капель за ширмой"
+        ],
+        "must_not_explain": [
+          "почему лампа не выключена",
+          "зачем ремни такой конструкции"
+        ]
+      },
+      "once": true
+    },
+    {
+      "id": "FIXATION_CHAIRS_EXAMINED",
+      "category": "discovery",
+      "trigger": {
+        "type": "inspect_object",
+        "target": "fixation_chairs"
+      },
+      "conditions": [
+        {
+          "type": "state_is",
+          "path": "restraints_examined",
+          "equals": false
+        }
+      ],
+      "effects": [
+        {
+          "type": "set_flag",
+          "flag": "restraints_examined",
+          "value": true
+        },
+        {
+          "type": "set_flag",
+          "flag": "floor_-1_fixation_proven",
+          "value": true
+        }
+      ],
+      "narrative_guidance": {
+        "allowed_revelation": [
+          "рамы прикручены к полу",
+          "ремни широкие, прошиты в несколько рядов",
+          "пряжка с фиксатором, который открывается только снаружи",
+          "на подлокотниках царапины и вмятины от пальцев",
+          "кожа на подголовниках потёрта до основы"
+        ],
+        "forbidden_revelation": [
+          "сколько людей оставляло царапины",
+          "что фиксация применялась к номерам 1–12"
+        ]
+      },
+      "once": true
+    },
+    {
+      "id": "EXAM_LOG_READ",
+      "category": "discovery",
+      "trigger": {
+        "type": "inspect_object",
+        "target": "exam_log"
+      },
+      "conditions": [
+        {
+          "type": "state_is",
+          "path": "exam_log_read",
+          "equals": false
+        }
+      ],
+      "effects": [
+        {
+          "type": "set_flag",
+          "flag": "exam_log_read",
+          "value": true
+        },
+        {
+          "type": "set_flag",
+          "flag": "floor_-1_fixation_proven",
+          "value": true
+        }
+      ],
+      "narrative_guidance": {
+        "purpose": "Документальное подтверждение правды этажа -1.",
+        "allowed_revelation": [
+          "журнал прикован цепочкой к креслу",
+          "графа «Жалобы» пуста во всех записях",
+          "в графе «Фиксация» стоит количество от одного до четырёх",
+          "номера от 1 до 12 повторяются в одном и том же порядке"
+        ],
+        "forbidden_revelation": [
+          "что порядок повторяется из-за отката времени",
+          "что номера — это люди"
+        ]
+      },
+      "once": true
+    },
+    {
+      "id": "MEDICINE_CABINET_UNLOCKED",
+      "category": "interaction",
+      "trigger": {
+        "type": "object_unlocked",
+        "target": "medicine_cabinet"
+      },
+      "conditions": [
+        {
+          "type": "state_is",
+          "path": "cabinet_opened",
+          "equals": false
+        }
+      ],
+      "effects": [
+        {
+          "type": "set_flag",
+          "flag": "cabinet_opened",
+          "value": true
+        },
+        {
+          "type": "set_flag",
+          "flag": "cabinet_locked",
+          "value": false
+        }
+      ],
+      "narrative_guidance": {
+        "allowed_revelation": [
+          "ряды одинаковых ампул без этикеток",
+          "упаковка ваты, жгуты",
+          "запечатанный конверт с бланком",
+          "полка пуста, на ней контур от этикетки и след, где её отдирали"
+        ],
+        "forbidden_revelation": [
+          "содержимое ампул",
+          "кто содрал этикетки",
+          "содержание конверта — его задаёт GM"
+        ]
+      },
+      "once": true
+    },
+    {
+      "id": "AMPOULE_TAKEN",
+      "category": "item",
+      "trigger": {
+        "type": "take_item",
+        "target": "ampoule_unlabeled"
+      },
+      "conditions": [
+        {
+          "type": "state_is",
+          "path": "ampoule_taken",
+          "equals": false
+        }
+      ],
+      "effects": [
+        {
+          "type": "set_flag",
+          "flag": "ampoule_taken",
+          "value": true
+        },
+        {
+          "type": "set_flag",
+          "flag": "ampoule_found",
+          "value": true
+        }
+      ],
+      "narrative_guidance": {
+        "allowed_revelation": [
+          "прозрачная жидкость",
+          "этикетки нет",
+          "на стекле выдавлен номер партии и стилизованная спираль"
+        ],
+        "forbidden": [
+          "объяснять, что спираль — логотип «Мнемосин»",
+          "связывать ампулу с чьим-либо якорем от автора"
+        ]
+      },
+      "once": true
+    },
+    {
+      "id": "EXAM_LAMP_EXAMINED",
+      "category": "discovery",
+      "trigger": {
+        "type": "inspect_object",
+        "target": "exam_lamp"
+      },
+      "conditions": [
+        {
+          "type": "state_is",
+          "path": "lamp_examined",
+          "equals": false
+        }
+      ],
+      "effects": [
+        {
+          "type": "set_flag",
+          "flag": "lamp_examined",
+          "value": true
+        }
+      ],
+      "narrative_guidance": {
+        "allowed_revelation": [
+          "клавиша на стене нажата и зафиксирована изолентой",
+          "внутри отражателя потёки",
+          "лампа горит, хотя помещение заброшено"
+        ],
+        "forbidden_revelation": [
+          "кто зафиксировал клавишу",
+          "природа потёков"
+        ]
+      },
+      "once": true
+    },
+    {
+      "id": "SINK_BEHIND_SCREEN_EXAMINED",
+      "category": "discovery",
+      "trigger": {
+        "type": "inspect_object",
+        "target": "sink_behind_screen"
+      },
+      "conditions": [
+        {
+          "type": "state_is",
+          "path": "sink_examined",
+          "equals": false
+        }
+      ],
+      "effects": [
+        {
+          "type": "set_flag",
+          "flag": "sink_examined",
+          "value": true
+        }
+      ],
+      "narrative_guidance": {
+        "allowed_revelation": [
+          "слив забит мелкими деревянными опилками, а не волосами",
+          "ширма сдвинута так, что закрывает угол стены, а не раковину",
+          "за ней розетка, к которой что-то было подключено постоянно"
+        ],
+        "forbidden_revelation": [
+          "откуда опилки",
+          "что питала розетка"
+        ]
+      },
+      "once": true
+    },
+    {
+      "id": "SOMEONE_SITS_IN_CHAIR",
+      "category": "interaction",
+      "trigger": {
+        "type": "interact",
+        "target": "fixation_chairs"
+      },
+      "conditions": [
+        {
+          "type": "state_is",
+          "path": "someone_in_chair",
+          "equals": false
+        }
+      ],
+      "effects": [
+        {
+          "type": "set_flag",
+          "flag": "someone_in_chair",
+          "value": true
+        }
+      ],
+      "narrative_guidance": {
+        "purpose": "Если игрок садится в кресло — не запрещать и не наказывать.",
+        "effect": "Холод кожи сквозь одежду, запах спирта и химии, ремень ложится в руку сам; фиксатор снаружи не дотянуться.",
+        "forbidden": [
+          "описывать это как атаку или ловушку",
+          "вводить угрозу на этаже -1"
+        ]
+      },
+      "once": true
+    },
+    {
+      "id": "EXAM_ROOM_LOUD_NO_EFFECT",
+      "category": "reaction",
+      "trigger": {
+        "type": "attempt_interaction",
+        "targets": [
+          "medicine_cabinet",
+          "fixation_chairs",
+          "instrument_table"
+        ],
+        "interaction_types": [
+          "force",
+          "bruteforce",
+          "hack"
+        ]
+      },
+      "conditions": [],
+      "effects": [
+        {
+          "type": "narrative_marker",
+          "message": "Шум громкий: стекло, металл и цепочка журнала."
+        }
+      ],
+      "narrative_guidance": {
+        "effect": "Шум громкий.",
+        "mechanical_consequence": "На этаже -1 последствий нет: кукол на этаже нет (B13/D33).",
+        "important": "Не придумывать локальную угрозу из громкого шума."
+      },
+      "once": false
+    }
+  ],
+  "ai_guidance": {
+    "role": "Виртуальный режиссёр сцены.",
+    "core_instruction": "Опирайся только на факты этой комнаты и сообщения игроков. Не объясняй конструкцию словами — показывай её: прикрученные рамы, пряжка только снаружи, пустая графа «Жалобы».",
+    "revelation_pacing": [
+      "Сначала кабинет как кабинет: свет, кресла, столик с инструментами.",
+      "Затем ремни — ширина, прошивка в несколько рядов, фиксатор, открываемый только снаружи.",
+      "Затем рамы, прикрученные к полу, и царапины на подлокотниках.",
+      "Затем журнал: пустые «Жалобы» и число в графе «Фиксация».",
+      "Затем шкаф с ампулами без этикеток и контур от сорванной этикетки на пустой полке.",
+      "Если игрок садится в кресло — описать холод кожи, запах, то, как ремень ложится в руку; не запрещать и не наказывать."
+    ],
+    "forbidden_knowledge_reveal": [
+      "не называть персонажей по именам: на старте Цикла 48 они не помнят ни своих имён, ни имён друг друга (D34)",
+      "не раскрывать номер цикла и число 47",
+      "не раскрывать Неофрона по имени",
+      "не раскрывать Андрея и Куратора",
+      "не выдавать сведения других этажей, если они не предоставлены текущим игровым контекстом",
+      "не раскрывать, что фиксация применялась к двенадцати конкретным людям",
+      "не раскрывать, что лампу оставил включённой Андрей",
+      "не называть препарат по имени"
+    ],
+    "supernatural_limit": {
+      "manifestations": "в смотровой сверхъестественное не проявляется",
+      "use_count": 0
+    }
+  },
+  "meta": {
+    "schema_version": "2.0",
+    "source_files": [
+      "data/lore/complex-structure.txt",
+      "data/lore/narrative.txt",
+      "data/lore/cast.txt",
+      "data/lore/room-design-instructions.md",
+      "data/lore/references/floor-1_reception.reference.room.json",
+      "data/lore/references/trigger_conditions_effects_reference.json",
+      "data/rooms/_adjacency.json",
+      "data/rooms/_registry.json",
+      "data/rooms/_SCHEMA.md",
+      "data/rooms/_REGISTRY.md"
+    ],
+    "notes": [
+      "Сконвертирована из формата v1 в 2.0 по эталону data/lore/references/floor-1_reception.reference.room.json.",
+      "Формы lore / trigger / conditions / effects — по trigger_conditions_effects_reference.json (D54).",
+      "lore.secret_truth.truth и future_connections вынесены в парный .gm.json (D58).",
+      "ai_guidance оставлен в публичном файле целиком (D59).",
+      "exits собраны из data/rooms/_adjacency.json (D44).",
+      "Канон: «Медицинские кресла, на которых установлены подозрительно прочные ремни для фиксации».",
+      "Ключи из сейфа Регистратуры появляются здесь только если группа уже взяла их в Регистратуре; связка «сейф → шкаф» авторская и требует подтверждения (B18).",
+      "Авторские детали: изолента на клавише лампы, розетка за ширмой, опилки в сливе, контур от сорванной этикетки, пустая полка."
+    ]
+  }
+}
