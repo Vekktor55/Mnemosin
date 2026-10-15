@@ -179,7 +179,9 @@ export const LAYER_RULES: readonly LayerRule[] = [
     dirs: ['gateways/http', 'gateways/ws'],
     internal: ['@mnemosin/contracts', '@mnemosin/core/domain/ports'],
     refs: ['@mnemosin/contracts', '@mnemosin/core', '@mnemosin/module-*'],
-    external: ['fastify', '@fastify/*', 'zod', 'node:crypto', 'node:fs', 'node:path', 'node:url'],
+    // jose — промпт 1.10: JWT HS256 (v3 §VI.1, B-12); собственная реализация
+    // подписи отклонена как security-риск (D252).
+    external: ['fastify', '@fastify/*', 'zod', 'jose', 'node:crypto', 'node:fs', 'node:path', 'node:url'],
     forbiddenNote:
       'транспорт не содержит игровой логики (инвариант 14): core и БД не импортируются, только контракты и команды модулей',
   },

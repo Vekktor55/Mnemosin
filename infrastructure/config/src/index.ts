@@ -246,5 +246,6 @@ export {
   type ProviderPolicy,
 } from './files.js';
 export { ProviderPolicySchema, LimitsConfigSchema, CapabilitiesConfigSchema } from './files.js';
+export { DEFAULT_AI_DIRECTOR_INSTRUCTIONS } from './files.js';
 export { REDACT_PATHS, PLAYER_TEXT_FIELDS, collectSecretValues, maskSecrets } from './redact.js';
 export { readPackageVersion } from './version.js';

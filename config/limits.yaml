@@ -38,6 +38,18 @@ outboxMaxAttempts: 5
 aiMaxConcurrentPerSession: 1
 aiMaxRetriesPerTurn: 2
 aiContextMaxTokens: 24000
+# Базовые указания AI-Директору (промпт 1.7): попадают в DirectorContext.directorInstructions.
+# Многострочный YAML-блок; лимит схемы — 6000 символов.
+aiDirectorInstructions: |-
+  Ты — AI-Директор настольной ролевой игры МНЕМОСИН (ведущий-соавтор, GM-in-the-loop).
+  По действиям игроков за ход верни ОДИН объект AIResponse, строго соответствующий схеме:
+  narrative — художественное разрешение хода на русском (без имён персонажей, если они не представлены в фактах);
+  privateMessages — только тем игрокам, которым персонально положено приватное знание;
+  proposedEvents — ТОЛЬКО eventId из allowedEventIds (пустой массив, если список пуст);
+  proposedObjectChanges — только объекты текущей локации из objectStates, минимальные правки состояния;
+  visualSceneDescription — одна короткая сцена для будущего медиа-контура либо null.
+  Запрещено: выдумывать несуществующие объекты и выходы, раскрывать gmSecret, менять локацию группы, завершать сессию.
+  Тон: сдержанная тревога, бытовые детали, никакого всеведения — персонажи знают только storyFacts и свои знания.
 
 # Media (этап 2)
 mediaMaxConcurrentPerSession: 2
@@ -51,6 +63,11 @@ eventCascadeMaxDepth: 3
 
 # Шина событий (промпт 1.5): таймаут одного async-обработчика
 handlerTimeoutMs: 5000
+
+# Чат (промпт 1.9): token bucket публичных сообщений на игрока
+chat:
+  publicPerSecond: 10
+  burstSeconds: 1
 
 # Бюджет (этап 2: фактическое значение — после замера, D139)
 sessionBudgetUsd: 5

@@ -1,11 +1,19 @@
 import { CONTRACTS_VERSION } from '@mnemosin/contracts';
+import { mkdirSync } from 'node:fs';
+import { resolve as resolvePath } from 'node:path';
 import { loadConfigOrExit, readPackageVersion } from '@mnemosin/config';
 import { createLogger } from '@mnemosin/logging';
 import { bootstrapDatabase, OutboxPublisher } from '@mnemosin/database';
 import { InMemoryMetricsSink, InProcessEventBus } from '@mnemosin/core';
 import { registerStandardJobs, Scheduler } from '@mnemosin/jobs';
+import { JwtService, type HttpGatewayDeps } from '@mnemosin/gateway-http';
+import type { WsGatewayDeps, WsGatewayHandle } from '@mnemosin/gateway-ws';
+import { buildAIStack } from './ai.js';
 import { buildApp } from './app.js';
 import { buildCoreServices } from './core-services.js';
+import { buildModules } from './modules.js';
+import { attachModulesRegistry, validateModulesRegistry } from './modules-registry.js';
+import { buildProjectionProvider } from './projections.js';
 import { resolveProjectRoot } from './project-root.js';
 
 /**
@@ -35,7 +43,8 @@ async function main(): Promise<void> {
     url: config.env.DATABASE_URL,
     logger: logger.child({ component: 'database' }),
     // Посев dev-сессии только вне production: в проде сессию создаёт GM через лобби (промпт 1.10).
-    seed: !config.isProduction,
+    // DB_SEED=false отключает посев явно — для HTTP-приёмки/E2E (чистая база, D108).
+    seed: config.env.DB_SEED ?? !config.isProduction,
   });
   logger.info(
     {
@@ -66,6 +75,27 @@ async function main(): Promise<void> {
   });
 
   const scheduler = new Scheduler({ logger: logger.child({ component: 'jobs' }), metrics });
+  // Handle WS-шлюза появляется после buildApp; presenceSweep-джоб ссылается лениво.
+  const wsGatewayRef: { current: WsGatewayHandle | undefined } = { current: undefined };
+
+  // Промпт 1.7: AI-контур — CapabilityRegistry (цепочки fallback, breaker,
+  // политики провайдеров) + AiDirectorService. Провайдер выбирается СТРОГО
+  // через env/config (A1.12/D226): apps/server/src/ai.ts — единственная точка,
+  // знающая конкретные адаптеры; core/ и modules/ от выбора не зависят.
+  const ai = buildAIStack({
+    config,
+    uow: persistence.uow,
+    bus,
+    metrics,
+    logger,
+    root,
+  });
+  // Базовая линия доступности сразу (A1.13: /health честен со старта),
+  // далее — джоб capabilityProbe каждые limits.capabilityProbeMs.
+  ai.registry.probeOnce().catch((cause: unknown) => {
+    logger.error({ err: cause, event: 'capability_probe_failed' }, 'capability_probe_failed');
+  });
+
   registerStandardJobs(
     scheduler,
     {
@@ -82,10 +112,16 @@ async function main(): Promise<void> {
           logger.info({ ...report, event: 'outbox_poll' }, 'outbox_poll');
         }
       },
-      // Промпт 1.11: sweep зависших WS-presence записей. До 1.11 — честный no-op.
-      presenceSweep: async () => {},
+      // Промпт 1.11: sweep зависших WS-presence записей (мёртвые сокеты без
+      // close-события) + чистка истёкшего dedupe-кэша requestId.
+      presenceSweep: async () => {
+        wsGatewayRef.current?.sweep();
+      },
+      // Промпт 1.7: healthProbe CapabilityRegistry — isAvailable() у провайдеров,
+      // при изменении доступности регистр эмитит CAPABILITY_CHANGED (A1.13).
+      capabilityProbe: async () => ai.registry.probeOnce(),
     },
-    { outboxPollMs: config.limits.outboxPollMs },
+    { outboxPollMs: config.limits.outboxPollMs, capabilityProbeMs: config.limits.capabilityProbeMs },
   );
   scheduler.start();
   logger.info(
@@ -103,7 +139,108 @@ async function main(): Promise<void> {
   const services = buildCoreServices(persistence, config);
   logger.info({ event: 'core_services_ready', services: Object.keys(services) }, 'core_services_ready');
 
-  const app = await buildApp({ config, logger, cwd: root, persistence });
+  // Промпт 1.8: прикладные модули — Turn Engine (resolveTurn/commitTurn/
+  // rejectTurn/retryTurn) и gm-review (approve/reject/editAndApprove/retry).
+  // Промпт 1.9: chat, story, gm, gm-audit + реестр всех 9 модулей (F-8.3).
+  // Связи модуль→модуль — структурные порты, сборка здесь (D161/D227).
+  const modules = buildModules({ config, persistence, services, ai, logger });
+  validateModulesRegistry(modules.registrations); // fail-fast: невалидный реестр не стартует
+  const detachModules = attachModulesRegistry(
+    modules.registrations,
+    bus,
+    logger.child({ component: 'modules-registry' }),
+  );
+  logger.info(
+    {
+      event: 'modules_ready',
+      modules: modules.registrations.map((registration) => registration.contract.moduleId),
+    },
+    'modules_ready',
+  );
+
+  // Промпт 1.10: зависимости HTTP-шлюза. JWT — jose HS256 (D252); players-репо
+  // — корневой (чтение вне транзакций: auth-hook проверяет revoked_before, B-12.3).
+  const mediaDir = resolvePath(config.stateDir, 'media');
+  mkdirSync(mediaDir, { recursive: true });
+  const buildHttpGateway = (): HttpGatewayDeps => ({
+    jwt: new JwtService({
+      secret: config.env.JWT_SECRET,
+      accessTtlSeconds: config.env.JWT_TTL_SECONDS,
+      refreshTtlSeconds: config.env.JWT_REFRESH_TTL_SECONDS,
+    }),
+    players: persistence.uow.repos().players,
+    isProduction: config.isProduction,
+    sessions: services.sessions,
+    turns: services.turns,
+    chat: modules.chat,
+    gm: modules.gm,
+    gmReview: modules.gmReview,
+    projections: buildProjectionProvider(persistence.uow),
+    // Этап 1: срез in-memory метрик текстом (prom-client — этап 3, D146).
+    getMetricsText: () => `${JSON.stringify(metrics.snapshot(), null, 2)}\n`,
+    mediaDir,
+    limits: {
+      authPerIpPerMin: config.limits.httpRateAuthPerIpPerMin,
+      tokenPerMinute: config.limits.httpRatePerTokenPerMin,
+      mutatingTurnPerMinute: config.limits.httpRateMutatingPerTokenPerMin,
+    },
+    logger: logger.child({ component: 'http-gateway' }),
+  });
+
+  // Промпт 1.11: зависимости WS-шлюза. Тот же JwtService/PlayerRepository,
+  // что и в HTTP (D252/B-12.3); сервисы модулей — структурные порты (D227);
+  // приватность — только projections.ts + WS_PRIVACY_POLICY (B-10).
+  const jwtService = new JwtService({
+    secret: config.env.JWT_SECRET,
+    accessTtlSeconds: config.env.JWT_TTL_SECONDS,
+    refreshTtlSeconds: config.env.JWT_REFRESH_TTL_SECONDS,
+  });
+  const buildWsGateway = (): WsGatewayDeps => ({
+    jwt: jwtService,
+    players: persistence.uow.repos().players,
+    bus,
+    serverVersion: config.version,
+    getCapabilities: () => Object.values(ai.registry.snapshot().capabilities),
+    sessions: services.sessions,
+    turns: services.turns,
+    chat: modules.chat,
+    gm: modules.gm,
+    gmReview: modules.gmReview,
+    story: modules.story,
+    projections: buildProjectionProvider(persistence.uow),
+    limits: {
+      wsAuthTimeoutMs: config.limits.wsAuthTimeoutMs,
+      wsMaxConnectionsPerIp: config.limits.wsMaxConnectionsPerIp,
+      wsMaxConnectionsPerPlayer: config.limits.wsMaxConnectionsPerPlayer,
+      wsMaxPayloadBytes: config.limits.wsMaxPayloadBytes,
+      heartbeat: {
+        intervalMs: config.limits.heartbeat.intervalMs,
+        idleTimeoutMs: config.limits.heartbeat.idleTimeoutMs,
+      },
+      wsRatePerConnection: {
+        ACTION_SUBMIT: config.limits.wsRatePerConnection.ACTION_SUBMIT,
+        CHAT_PUBLIC: config.limits.wsRatePerConnection.CHAT_PUBLIC,
+        DEFAULT: config.limits.wsRatePerConnection.DEFAULT,
+      },
+      dedupeTtlMs: config.limits.dedupeTtlMs,
+    },
+    logger: logger.child({ component: 'ws-gateway' }),
+  });
+
+  const app = await buildApp({
+    config,
+    logger,
+    cwd: root,
+    persistence,
+    // Промпт 1.7 (A1.13): /health.capabilities = срез CapabilityRegistry.
+    getCapabilities: () => ai.registry.snapshot(),
+    // Промпт 1.10: HTTP-шлюз — JWT-auth, все маршруты HTTP_ROUTES, единый
+    // error handler, rate-limit. Сервисы модулей — структурные порты (D227).
+    httpGateway: buildHttpGateway(),
+    // Промпт 1.11: WS-шлюз — /ws, проекции, приватность, реконнект-контракт.
+    wsGateway: buildWsGateway(),
+  });
+  wsGatewayRef.current = app.wsGateway;
 
   await app.listen({ host: '0.0.0.0', port: config.env.PORT });
 
@@ -132,6 +269,12 @@ async function main(): Promise<void> {
     }, 10_000);
     timer.unref();
     try {
+      // Промпт 1.11: сначала WS — отписка broadcast'а от шины и закрытие
+      // соединений (1001), чтобы клиенты reconnect'ились уже на свежий процесс.
+      app.wsGateway?.detach();
+      app.wsGateway?.closeAll();
+      // Промпт 1.9: отписка модулей от шины — обработчики больше не вызываются.
+      for (const detach of detachModules) detach();
       // Промпт 1.5: порядок остановки — сначала прекращаем ЗАПУСКАТЬ новое
       // (scheduler.stop дожидается текущих джобов), затем принудительно
       // публикуем остаток outbox (drain), и только потом закрываем HTTP и БД.

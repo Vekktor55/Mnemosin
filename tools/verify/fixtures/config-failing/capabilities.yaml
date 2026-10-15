@@ -1,0 +1,23 @@
+# Фикстура приёмки 1.7 (tools/verify/switch-provider.mjs): сценарий деградации.
+# TEXT_AI обслуживает ОДИН стенд failing — цепочка намеренно исчерпывается,
+# чтобы проверить breaker OPEN и CAPABILITY_CHANGED{available:false} (A1.13).
+# Переключение провайдера — ТОЛЬКО env/config: core/ и modules/ не меняются.
+capabilities:
+  TEXT_AI:
+    required: true
+    chain: [failing]
+  VISUAL_PROMPT:
+    required: false
+    chain: []
+  IMAGE_GENERATION:
+    required: false
+    chain: []
+  IMAGE_EDITING:
+    required: false
+    chain: []
+  AUDIO_GENERATION:
+    required: false
+    chain: []
+  VIDEO:
+    required: false
+    chain: []

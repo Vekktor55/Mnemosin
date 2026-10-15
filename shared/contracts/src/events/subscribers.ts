@@ -71,7 +71,9 @@ export const EVENT_SUBSCRIBERS: Readonly<Record<EventName, readonly ModuleId[]>>
   TURN_UNLOCKED: [],
   TURN_PROCESSING_STARTED: [],
   TURN_DRAFT_READY: ['gm', 'gm-review'],
-  TURN_COMMITTED: ['media-director', 'chat', 'gm-audit', 'audio-director'],
+  // contracts 0.5.0 (промпт 1.9, D245): 'gm' добавлен — заметки
+  // PUBLIC_AFTER_COMMIT публикуются в чат после коммита хода (F-3.8).
+  TURN_COMMITTED: ['media-director', 'chat', 'gm-audit', 'audio-director', 'gm'],
   TURN_FAILED: ['gm'],
   ACTION_SUBMITTED: [],
   LOCATION_CHANGED: ['media-director'],

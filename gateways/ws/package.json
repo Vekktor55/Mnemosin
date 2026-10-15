@@ -23,6 +23,10 @@
     "clean": "tsc -b --clean"
   },
   "dependencies": {
-    "@mnemosin/contracts": "*"
+    "@fastify/websocket": "^11.3.4",
+    "@mnemosin/contracts": "*",
+    "@mnemosin/core": "*",
+    "fastify": "^5.12.5",
+    "zod": "^3.25.76"
   }
 }

@@ -16,6 +16,8 @@ export const JOB_NAMES = {
   outboxPublisher: 'outboxPublisher',
   /** Очистка зависших presence-записей WS (каждые 10 с; реализация — промпт 1.11). */
   presenceSweep: 'presenceSweep',
+  /** Зонд доступности провайдеров CapabilityRegistry (каждые limits.capabilityProbeMs; промпт 1.7). */
+  capabilityProbe: 'capabilityProbe',
 } as const;
 
 export type StandardJobName = (typeof JOB_NAMES)[keyof typeof JOB_NAMES];
@@ -30,14 +32,24 @@ export interface StandardJobHandlers {
   cleanupIdempotency(): Promise<void> | void;
   outboxPublisher(): Promise<void> | void;
   presenceSweep(): Promise<void> | void;
+  /**
+   * Промпт 1.7: healthProbe CapabilityRegistry (probeOnce → CAPABILITY_CHANGED
+   * при изменении доступности). Опционален: без обработчика джоб не регистрируется
+   * (словарь Stage 1 в тестах остаётся из трёх джобов).
+   */
+  capabilityProbe?(): Promise<void> | void;
 }
 
 export interface RegisterStandardJobsOptions {
   /** Интервал опроса outbox (limits.outboxPollMs). */
   readonly outboxPollMs: number;
+  /** Интервал зонда провайдеров (limits.capabilityProbeMs, default 30000). */
+  readonly capabilityProbeMs?: number;
 }
 
-/** Регистрирует три стандартных джоба Stage 1 на планировщике. */
+const DEFAULT_CAPABILITY_PROBE_MS = 30_000;
+
+/** Регистрирует стандартные джобы Stage 1 на планировщике. */
 export function registerStandardJobs(
   scheduler: Scheduler,
   handlers: StandardJobHandlers,
@@ -46,4 +58,11 @@ export function registerStandardJobs(
   scheduler.register(JOB_NAMES.cleanupIdempotency, JOB_INTERVALS_MS.cleanupIdempotency, handlers.cleanupIdempotency);
   scheduler.register(JOB_NAMES.outboxPublisher, options.outboxPollMs, handlers.outboxPublisher);
   scheduler.register(JOB_NAMES.presenceSweep, JOB_INTERVALS_MS.presenceSweep, handlers.presenceSweep);
+  if (handlers.capabilityProbe !== undefined) {
+    scheduler.register(
+      JOB_NAMES.capabilityProbe,
+      options.capabilityProbeMs ?? DEFAULT_CAPABILITY_PROBE_MS,
+      handlers.capabilityProbe,
+    );
+  }
 }

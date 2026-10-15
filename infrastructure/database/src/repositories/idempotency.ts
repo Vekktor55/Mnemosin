@@ -92,6 +92,16 @@ export class SqlIdempotencyRepository implements IdempotencyRepository {
     return parseBody(IdempotencyRecordSchema, row, 'idempotency_records');
   }
 
+  /**
+   * Освобождение (инвалидация) ключа — DELETE записи ЛЮБОГО статуса (D234/D235):
+   * временный отказ resolveTurn (IN_FLIGHT) и намеренная инвалидация кэша
+   * resolve при retryTurn из REVIEW (DONE). Перманентные отказы фиксируются
+   * fail() и через release не удаляются вызывающим кодом.
+   */
+  async release(key: IdempotencyKey): Promise<void> {
+    await this.q.delete(idempotencyRecords).where(eq(idempotencyRecords.key, key)).run();
+  }
+
   async cleanupExpired(nowIso: string): Promise<number> {
     const res = await this.q.run(sql`DELETE FROM idempotency_records WHERE expires_at <= ${nowIso}`);
     return rowsAffectedOf(res);

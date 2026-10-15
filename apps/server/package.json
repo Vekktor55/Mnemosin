@@ -30,10 +30,21 @@
     "@mnemosin/logging": "*",
     "@mnemosin/core": "*",
     "@mnemosin/jobs": "*",
+    "@mnemosin/ai": "*",
+    "@mnemosin/module-ai-director": "*",
     "fastify": "^5.12.5",
     "@fastify/cors": "^11.3.1",
     "@fastify/rate-limit": "^11.2.1",
     "@fastify/static": "^10.1.6",
-    "@mnemosin/database": "*"
+    "@mnemosin/database": "*",
+    "@mnemosin/module-turn": "*",
+    "@mnemosin/module-gm-review": "*",
+    "@mnemosin/module-chat": "*",
+    "@mnemosin/module-story": "*",
+    "@mnemosin/module-gm": "*",
+    "@mnemosin/module-gm-audit": "*",
+    "@mnemosin/module-session": "*",
+    "@mnemosin/gateway-http": "*",
+    "@mnemosin/gateway-ws": "*"
   }
 }

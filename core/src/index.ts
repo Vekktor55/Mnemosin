@@ -23,6 +23,8 @@ export const IMPLEMENTED_IN_PROMPT = '1.4 (порты) → 1.5 (события, 
 export * from './domain/ports/index.js';
 export * from './domain/transition.js';
 export * from './domain/command.js';
+export * from './domain/resolution-hash.js';
+export * from './views/location-views.js';
 export * from './events/index.js';
 export * from './turns/index.js';
 export * from './session/index.js';

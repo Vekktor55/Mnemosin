@@ -9,6 +9,9 @@
   "references": [
     {
       "path": "../../shared/contracts"
+    },
+    {
+      "path": "../../core"
     }
   ]
 }

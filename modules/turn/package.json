@@ -24,6 +24,7 @@
   },
   "dependencies": {
     "@mnemosin/contracts": "*",
-    "@mnemosin/core": "*"
+    "@mnemosin/core": "*",
+    "zod": "^3.25.76"
   }
 }

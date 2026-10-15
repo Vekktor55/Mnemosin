@@ -16,11 +16,12 @@ import { importsOf, listSourceFiles, ROOT } from './helpers.js';
  *     значит StateService для них недостижим типами;
  *  3. модули могут импортировать barrel, поэтому здесь проверяется whitelist:
  *     ссылки на StateService разрешены только в modules/turn (владелец commitTurn,
- *     промпт 1.8). Остальные модули получают изменения состояния событиями
- *     или командами core-сервисов через wiring.
+ *     промпт 1.8) и modules/story (D120/F-8.4, промпт 1.9: setFlag/grantKnowledge
+ *     пишут состояние ТОЛЬКО через StateService.apply). Остальные модули получают
+ *     изменения состояния событиями или командами core-сервисов через wiring.
  */
 
-const MODULE_ALLOWLIST = ['modules/turn/'];
+const MODULE_ALLOWLIST = ['modules/turn/', 'modules/story/'];
 
 /**
  * Упоминания в JSDoc/комментариях (например, «заполнится в 1.9 через StateService»

@@ -13,6 +13,7 @@
  */
 
 import { spawn, spawnSync } from 'node:child_process';
+import WebSocket from 'ws';
 import { createHash, randomBytes } from 'node:crypto';
 import { existsSync, readFileSync, readdirSync, rmSync, statSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
@@ -86,7 +87,12 @@ async function a1_1_serverStarts() {
       ['ok === true', health.ok === true],
       ['version present', typeof version.version === 'string' && version.version.length > 0],
       ['contractsVersion present', typeof version.contractsVersion === 'string'],
-      ['capabilities stub = {}', JSON.stringify(health.capabilities) === '{}'],
+      // промпт 1.7: capabilities = срез CapabilityRegistry (A1.13); env приёмки — AI_PROVIDER=scripted
+      [
+        'capabilities: TEXT_AI available (промпт 1.7)',
+        health.capabilities?.capabilities?.TEXT_AI?.available === true &&
+          (health.capabilities?.capabilities?.TEXT_AI?.providers ?? []).includes('scripted'),
+      ],
       // промпт 1.4: БД подключена — /health показывает db и номер применённых миграций
       ['db = ok (промпт 1.4)', health.db === 'ok'],
       ['schemaVersion >= 1', typeof health.schemaVersion === 'number' && health.schemaVersion >= 1],
@@ -101,6 +107,163 @@ async function a1_1_serverStarts() {
     }
   } catch (cause) {
     record('A1.1', 'Сервер стартует, /health отвечает', 'FAIL', cause.message);
+  } finally {
+    child.kill('SIGTERM');
+    await new Promise((r) => child.on('exit', r));
+    if (getStderr().length > 0) process.stderr.write(getStderr());
+  }
+}
+
+/**
+ * A1.1/A1.4/A1.7 (промпт 1.10): HTTP-транспорт на ЖИВОМ сервере (fetch —
+ * аналог curl-прогона из п.10 промта): создать сессию, join 2 игроками,
+ * submit action, lock, дождаться REVIEW (scripted AI, auto-resolve D253),
+ * commit → {version}; повтор commit → тот же version; view=ai под игроком → 403.
+ */
+async function a1_http_transport() {
+  const dbFile = resolve(ROOT, 'data/verify-http.sqlite');
+  try {
+    rmSync(dbFile, { force: true });
+    rmSync(`${dbFile}-shm`, { force: true });
+    rmSync(`${dbFile}-wal`, { force: true });
+  } catch {
+    /* игнорируем */
+  }
+  // DB_SEED=false: посевная dev-сессия заблокировала бы POST /auth/session (D108).
+  const { child, getStderr } = startServer({ DATABASE_URL: `file:${dbFile}`, DB_SEED: 'false' });
+  const checks = [];
+  const note = [];
+  try {
+    await waitForHealth();
+
+    const post = async (url, body, token) => {
+      const res = await fetch(`${BASE}${url}`, {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          ...(token ? { authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify(body ?? {}),
+      });
+      return { status: res.status, body: await res.json().catch(() => null) };
+    };
+    const get = async (url, token) => {
+      const res = await fetch(`${BASE}${url}`, {
+        headers: token ? { authorization: `Bearer ${token}` } : {},
+      });
+      return { status: res.status, body: await res.json().catch(() => null) };
+    };
+
+    // 1. POST /auth/session — создание сессии и GM-игрока (D122).
+    const created = await post('/auth/session', {
+      displayName: 'Ведущий приёмки',
+      characterName: 'Архивариус',
+      title: 'Приёмочная партия 1.10',
+    });
+    checks.push([
+      'POST /auth/session → 200 + токены',
+      created.status === 200 && !!created.body?.token && !!created.body?.refreshToken,
+    ]);
+    const sessionId = created.body?.sessionId;
+    const gmToken = created.body?.token;
+
+    // 2. join ×2.
+    const joinA = await post(`/sessions/${sessionId}/join`, { displayName: 'Ирма', characterName: 'Ирма Векторова' });
+    const joinB = await post(`/sessions/${sessionId}/join`, { displayName: 'Каймен', characterName: 'Каймен' });
+    checks.push([
+      'join ×2 → 200 + playerId/token',
+      joinA.status === 200 && joinB.status === 200 && !!joinA.body?.playerId,
+    ]);
+    const playerAToken = joinA.body?.token;
+
+    // 3. start → turnId; action; lock; ждём REVIEW (scripted AI).
+    const started = await post(
+      `/sessions/${sessionId}/start`,
+      { idempotencyKey: `verify-http-start-${Date.now()}-000000` },
+      gmToken,
+    );
+    const turnId = started.body?.turnId;
+    checks.push(['POST /sessions/:id/start → 200 + turnId', started.status === 200 && typeof turnId === 'string']);
+    const action = await post(
+      `/turns/${turnId}/action`,
+      { rawText: 'Осматриваю шлюз', idempotencyKey: `verify-http-act-${Date.now()}-000000` },
+      playerAToken,
+    );
+    checks.push(['POST /turns/:id/action → 200', action.status === 200 && !!action.body?.actionId]);
+    const lock = await post(
+      `/turns/${turnId}/lock`,
+      { idempotencyKey: `verify-http-lock-${Date.now()}-00000` },
+      gmToken,
+    );
+    checks.push(['POST /turns/:id/lock → 200', lock.status === 200]);
+
+    let status = 'UNKNOWN';
+    const deadline = Date.now() + 20_000;
+    while (Date.now() < deadline) {
+      const view = await get(`/turns/${turnId}`, gmToken);
+      status = view.body?.status ?? status;
+      if (status === 'REVIEW' || status === 'FAILED') break;
+      await new Promise((r) => setTimeout(r, 500));
+    }
+    checks.push(['lock → auto-resolve → REVIEW (scripted AI, D253)', status === 'REVIEW']);
+
+    // 4. commit → version; повтор с тем же ключом → тот же version (A1.4).
+    const commitKey = `verify-http-commit-${Date.now()}-00000`;
+    const commit1 = await post(`/turns/${turnId}/commit`, { idempotencyKey: commitKey }, gmToken);
+    const commit2 = await post(`/turns/${turnId}/commit`, { idempotencyKey: commitKey }, gmToken);
+    const sameVersion =
+      commit1.status === 200 &&
+      commit2.status === 200 &&
+      typeof commit1.body?.version === 'number' &&
+      commit1.body.version === commit2.body?.version;
+    checks.push(['commit → {version}; повтор → тот же version (A1.4 через HTTP)', sameVersion]);
+
+    // 5. Приватность (A1.7): ai/gm-виды под игроком → 403; под GM → 200.
+    const aiAsPlayer = await get(`/state/projection/gm?sessionId=${sessionId}&view=ai`, playerAToken);
+    const gmAsPlayer = await get(`/state/projection/gm?sessionId=${sessionId}&view=gm`, playerAToken);
+    const aiAsGm = await get(`/state/projection/gm?sessionId=${sessionId}&view=ai`, gmToken);
+    const publicAsPlayer = await get(`/state/projection?sessionId=${sessionId}&view=public`, playerAToken);
+    checks.push(['view=ai|gm под игроком → 403 (A1.7)', aiAsPlayer.status === 403 && gmAsPlayer.status === 403]);
+    checks.push([
+      'view=ai под GM → 200; public под игроком → 200',
+      aiAsGm.status === 200 && publicAsPlayer.status === 200,
+    ]);
+
+    // 6. player-токен на GM-маршруте → 403; без токена → 401 (B-11/B-12).
+    const gmRouteAsPlayer = await post('/gm/inspect/state', { sessionId }, playerAToken);
+    const noToken = await get(`/sessions/${sessionId}`);
+    checks.push([
+      'GM-маршрут под игроком → 403; без токена → 401',
+      gmRouteAsPlayer.status === 403 && noToken.status === 401,
+    ]);
+
+    const failed = checks.filter(([, ok]) => !ok).map(([name]) => name);
+    note.push(`${checks.length - failed.length}/${checks.length} HTTP-проверок`);
+    record(
+      'A1.1b2',
+      'HTTP-транспорт: сессия/join/action/lock/commit через реальный HTTP',
+      failed.length === 0 ? 'PASS' : 'FAIL',
+      failed.length === 0 ? note.join('; ') : `не выполнено: ${failed.join(', ')}`,
+    );
+    record(
+      'A1.4',
+      'Идемпотентность через HTTP: повтор commit → тот же version (промпт 1.10)',
+      sameVersion ? 'PASS' : 'FAIL',
+      `version=${commit1.body?.version}`,
+    );
+    const privacyOk = aiAsPlayer.status === 403 && gmAsPlayer.status === 403 && aiAsGm.status === 200;
+    record(
+      'A1.7',
+      'Приватность через HTTP: view=ai|gm под игроком → 403 (промпт 1.10)',
+      privacyOk ? 'PASS' : 'FAIL',
+      privacyOk
+        ? 'WS-часть A1.7 — отдельная запись (ws-probe + property-тесты, промпт 1.11)'
+        : `ai=${aiAsPlayer.status} gm=${gmAsPlayer.status} aiGm=${aiAsGm.status}`,
+    );
+  } catch (cause) {
+    record('A1.1b2', 'HTTP-транспорт: сессия/join/action/lock/commit через реальный HTTP', 'FAIL', cause.message);
+    record('A1.4', 'Идемпотентность через HTTP: повтор commit → тот же version (промпт 1.10)', 'FAIL', cause.message);
+    record('A1.7', 'Приватность через HTTP: view=ai|gm под игроком → 403 (промпт 1.10)', 'FAIL', cause.message);
   } finally {
     child.kill('SIGTERM');
     await new Promise((r) => child.on('exit', r));
@@ -233,6 +396,156 @@ async function a1_14_extensibility() {
     failed.length === 0
       ? `${checks.length} проверки, core: ${Object.keys(coreNow).length} файл(ов) по манифесту`
       : failed.join('; '),
+  );
+}
+
+/** A1.10: чат — видимости, история, sanitize, rate limit, доставка черновика (промпт 1.9). */
+async function a1_10_chat() {
+  let report;
+  try {
+    report = await runProbe(['tools/verify/chat-probe.ts'], 180000);
+  } catch (cause) {
+    record('A1.10', 'Чат: публичные/приватные/системные, порядок, history', 'FAIL', cause.message);
+    return;
+  }
+  const checks = report.checks ?? {};
+  const required = [
+    'visibility',
+    'history',
+    'sanitizeAndLimits',
+    'storySetFlag',
+    'commitDelivery',
+    'redeliveryNoDuplicates',
+    'gmAudit',
+    'registry',
+  ];
+  const failed = required.filter((k) => checks[k] !== true);
+  record(
+    'A1.10',
+    'Чат: публичные/приватные/системные, порядок, history',
+    failed.length === 0 ? 'PASS' : 'FAIL',
+    failed.length === 0
+      ? 'видимости (private — только адресат, GM — только GM), history-фильтры, sanitize+RATE_LIMIT, TURN_COMMITTED→доставка (ровно один раз), аудит append-only, реестр 9 модулей; транспорт — 1.11'
+      : `не выполнено: ${failed.join(', ')}`,
+  );
+}
+
+/** A1.12/A1.13: стенды переключаются env/config'ом; breaker, CAPABILITY_CHANGED, /health. */
+async function a1_12_a1_13_switchProvider() {
+  const child = spawn(process.execPath, ['tools/verify/switch-provider.mjs'], {
+    cwd: ROOT,
+    env: { ...process.env, VERIFY_AI_PORT: String(PORT + 2) },
+    stdio: ['ignore', 'pipe', 'pipe'],
+  });
+  let stdout = '';
+  let stderr = '';
+  child.stdout.setEncoding('utf8');
+  child.stderr.setEncoding('utf8');
+  child.stdout.on('data', (c) => {
+    stdout += c;
+  });
+  child.stderr.on('data', (c) => {
+    stderr += c;
+  });
+  const code = await new Promise((r) => {
+    const timer = setTimeout(() => {
+      child.kill('SIGKILL');
+      r(-1);
+    }, 240000);
+    child.on('exit', (c) => {
+      clearTimeout(timer);
+      r(c ?? -1);
+    });
+  });
+
+  let report = null;
+  try {
+    report = JSON.parse(stdout.trim().split('\n').filter(Boolean).pop() ?? 'null');
+  } catch {
+    report = null;
+  }
+  if (report === null || typeof report !== 'object') {
+    record(
+      'A1.12',
+      'AI-стенды переключаются через env без правки кода',
+      'FAIL',
+      `switch-provider не вернул отчёт (exit ${code})`,
+    );
+    record(
+      'A1.13',
+      'Capability Registry: breaker + CAPABILITY_CHANGED + /health',
+      'FAIL',
+      'switch-provider не вернул отчёт',
+    );
+    if (stderr) process.stderr.write(stderr.slice(-800));
+    return;
+  }
+  record(
+    'A1.12',
+    'AI-стенды переключаются через env без правки кода',
+    report.A1_12 === 'PASS' ? 'PASS' : 'FAIL',
+    'switch-provider: scripted→REVIEW, echo→нарратив действий, failing→FAILED{PROVIDER_TIMEOUT}',
+  );
+  record(
+    'A1.13',
+    'Capability Registry: breaker + CAPABILITY_CHANGED + /health',
+    report.A1_13 === 'PASS' ? 'PASS' : 'FAIL',
+    'switch-provider: breaker OPEN, CAPABILITY_CHANGED{TEXT_AI,false}, /health деградирует/восстанавливается',
+  );
+  // A1.14 switch-provider проверяет инвариантность core/modules ВО ВРЕМЯ сценариев;
+  // сверка манифеста — в a1_14_extensibility (отдельный Record).
+  if (report.A1_14 !== 'PASS') {
+    record(
+      'A1.14',
+      'Расширяемость: core/ и modules/ не менялись при переключении',
+      'FAIL',
+      'switch-provider: код изменился во время сценариев',
+    );
+  }
+}
+
+/** A1.6 (движок, промпт 1.8) и A1.8 (GM-ревью на сервисном слое): turn-probe. */
+async function a1_6_engine_a1_8_review() {
+  let report;
+  try {
+    report = await runProbe(['tools/verify/turn-probe.ts'], 180000);
+  } catch (cause) {
+    record('A1.6', 'Turn Engine: resolveTurn/commitTurn — полный цикл (промпт 1.8)', 'FAIL', cause.message);
+    record('A1.8', 'GM Review: edit&approve (hash→409), reject, retry (сервисный слой)', 'FAIL', cause.message);
+    return;
+  }
+  const checks = report.checks ?? {};
+  const engineKeys = [
+    'resolveToReview',
+    'resolveReplay',
+    'commitVersion',
+    'commitStatus',
+    'objectChangeApplied',
+    'd117NoAutoOpen',
+    'approveReplay',
+    'outboxEvents',
+    'journalKinds',
+    'providerFailure',
+    'retryAfterProviderFailure',
+  ];
+  const reviewKeys = ['editHashConflict', 'editAndApprove', 'staleVersionConflict', 'rejectFlow', 'retryFromFailed'];
+  const engineFailed = engineKeys.filter((k) => checks[k] !== true);
+  const reviewFailed = reviewKeys.filter((k) => checks[k] !== true);
+  record(
+    'A1.6',
+    'Turn Engine: resolveTurn/commitTurn — полный цикл (промпт 1.8)',
+    engineFailed.length === 0 ? 'PASS' : 'FAIL',
+    engineFailed.length === 0
+      ? 'OPEN→…→COMMITTED движком: replay (B-08.4), версия+1, outbox/journal, D117 (без авто-open), FAILED{PROVIDER_TIMEOUT}→retry'
+      : `не выполнено: ${engineFailed.join(', ')}`,
+  );
+  record(
+    'A1.8',
+    'GM Review: edit&approve (hash→409), reject, retry (сервисный слой)',
+    reviewFailed.length === 0 ? 'PASS' : 'FAIL',
+    reviewFailed.length === 0
+      ? 'чужой hash → VERSION_CONFLICT c resolution в meta; правка AI_THEN_GM_EDIT применяется; stale version → 409; reject → FAILED; транспорт (draft только GM) — 1.10/1.12'
+      : `не выполнено: ${reviewFailed.join(', ')}`,
   );
 }
 
@@ -499,20 +812,246 @@ async function a1_6_a1_15_core() {
   );
 }
 
-const NOT_IMPLEMENTED = [
-  [
+/**
+ * A1.7 (+ WS-часть A1.3): приватность WS-broadcast на живом транспорте —
+ * проба ws-probe.ts (GM + 3 игрока, полный цикл хода, сниффер envelope'ов,
+ * инварианты WS_PRIVACY_POLICY / FORBIDDEN_IN_BROADCAST / GM_ONLY / TARGETED).
+ * Property-based тесты (fast-check) — tests/integration/ws-privacy.property.test.ts.
+ */
+async function a1_7_ws_privacy() {
+  let report;
+  try {
+    report = await runProbe(['tools/verify/ws-probe.ts']);
+  } catch (cause) {
+    record('A1.7', 'Приватность WS-broadcast: property-тесты «приватное не уходит в broadcast»', 'FAIL', cause.message);
+    record('A1.3', 'Все WS/HTTP payload проходят Zod; неизвестный тип → VALIDATION', 'FAIL', cause.message);
+    return;
+  }
+  const checks = report.checks ?? {};
+  const names = Object.keys(checks);
+  const failed = names.filter((name) => checks[name] !== true);
+  const wsPrivacyOk =
+    checks['broadcast_no_forbidden_fields'] === true &&
+    checks['no_gm_only_to_players'] === true &&
+    checks['targeted_matches_addressee'] === true &&
+    checks['private_chat_only_to_addressee'] === true &&
+    checks['gm_note_not_leaked'] === true &&
+    checks['gm_got_full_resolution'] === true &&
+    checks['turn_committed_shape'] === true;
+  record(
+    'A1.7',
+    'Приватность WS-broadcast: property-тесты «приватное не уходит в broadcast»',
+    wsPrivacyOk ? 'PASS' : 'FAIL',
+    wsPrivacyOk
+      ? `live-проба ws-probe (${names.length - failed.length}/${names.length}); fast-check: tests/integration/ws-privacy.property.test.ts; HTTP-часть (view=ai|gm → 403) — 1.10`
+      : `не выполнено: ${failed.join(', ')}; ${JSON.stringify(report.details ?? {}).slice(0, 200)}`,
+  );
+  const a13Ok = checks['a13_ws_unknown_type_validation_alive'] === true;
+  record(
     'A1.3',
     'Все WS/HTTP payload проходят Zod; неизвестный тип → VALIDATION',
-    'схемы готовы (1.2, 71 contract-тест); enforcement в транспорте — промпты 1.10, 1.11',
-  ],
-  ['A1.7', 'Приватность: нет приватных данных в broadcast; view=ai|gm → 403', 'промпты 1.10, 1.11'],
-  ['A1.8', 'GM Review: draft только GM, edit&approve, reject', 'промпты 1.8, 1.12'],
-  ['A1.9', 'Реконнект после kill -9: полная проекция, offline-queue один раз', 'промпты 1.11, 1.12'],
-  ['A1.10', 'Чат: публичные/приватные/системные, порядок, history', 'промпт 1.9'],
-  ['A1.12', 'AI-стенды переключаются через env без правки кода', 'промпт 1.7'],
-  ['A1.13', 'Capability Registry: breaker + CAPABILITY_CHANGED + /health', 'промпт 1.7'],
-  ['A1.16', 'E2E «Стол»: 6 игроков + GM, полный цикл хода', 'промпт 1.13'],
-];
+    a13Ok ? 'PASS' : 'FAIL',
+    a13Ok
+      ? 'HTTP закрыт в 1.10 (Zod вход+ответ каждого маршрута); WS в 1.11: входящие — WSClientMessageSchema (неизвестный тип → ERROR VALIDATION без разрыва), исходящие — WSServerMessageSchema.parse перед send (инвариант 16)'
+      : 'WS: неизвестный тип не дал VALIDATION или соединение разорвано',
+  );
+}
+
+/** Мини-клиент WS для приёмки (A1.9). */
+function wsClient(url, token, label) {
+  const ws = new WebSocket(url, [`mnemosin.v1.${token}`]);
+  const client = {
+    label,
+    ws,
+    messages: [],
+    closed: null,
+    send(type, payload, extra = {}) {
+      ws.send(JSON.stringify({ type, payload, ts: new Date().toISOString(), ...extra }));
+    },
+    async waitFor(pred, timeoutMs = 20000) {
+      const deadline = Date.now() + timeoutMs;
+      for (;;) {
+        const found = client.messages.find(pred);
+        if (found) return found;
+        if (Date.now() > deadline) {
+          throw new Error(`${label}: timeout (${client.messages.map((m) => m.type).join(',')})`);
+        }
+        await new Promise((r) => setTimeout(r, 25));
+      }
+    },
+  };
+  ws.on('message', (data) => {
+    try {
+      const parsed = JSON.parse(data.toString('utf8'));
+      client.messages.push({
+        type: String(parsed.type ?? ''),
+        payload: parsed.payload ?? {},
+        requestId: parsed.requestId,
+      });
+    } catch {
+      /* игнор */
+    }
+  });
+  ws.on('close', (code, reason) => {
+    client.closed = { code, reason: reason.toString('utf8') };
+  });
+  return new Promise((resolveConn, rejectConn) => {
+    ws.on('open', () => resolveConn(client));
+    ws.on('error', rejectConn);
+  });
+}
+
+/**
+ * A1.9: реконнект после kill -9 — живой сервер, WS-клиент, SIGKILL процесса,
+ * подъём нового процесса на той же БД/порту, реконнект: полная проекция
+ * (фиксированный порядок п.7 промта 1.11), переотправленное действие
+ * применяется РОВНО один раз (F-6.7 + durable-идемпотентность модулей).
+ */
+async function a1_9_ws_reconnect() {
+  const dbFile = resolve(ROOT, 'data/verify-ws9.sqlite');
+  for (const suffix of ['', '-shm', '-wal']) {
+    try {
+      rmSync(`${dbFile}${suffix}`, { force: true });
+    } catch {
+      /* игнорируем */
+    }
+  }
+  const env = { DATABASE_URL: `file:${dbFile}`, DB_SEED: 'false' };
+  let server = startServer(env);
+  const checks = [];
+  let client = null;
+  try {
+    await waitForHealth();
+    const post = async (url, body, token) => {
+      const res = await fetch(`${BASE}${url}`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', ...(token ? { authorization: `Bearer ${token}` } : {}) },
+        body: JSON.stringify(body ?? {}),
+      });
+      return { status: res.status, body: await res.json().catch(() => null) };
+    };
+    const get = async (url, token) => {
+      const res = await fetch(`${BASE}${url}`, { headers: token ? { authorization: `Bearer ${token}` } : {} });
+      return { status: res.status, body: await res.json().catch(() => null) };
+    };
+
+    const created = await post('/auth/session', {
+      displayName: 'Ведущий A1.9',
+      characterName: 'Ведущий',
+      title: 'Реконнект',
+    });
+    const sessionId = created.body?.sessionId;
+    const gmToken = created.body?.token;
+    const joined = await post(`/sessions/${sessionId}/join`, { displayName: 'Ирма', characterName: 'Ирма' });
+    const playerToken = joined.body?.token;
+    const started = await post(
+      `/sessions/${sessionId}/start`,
+      { idempotencyKey: `verify-ws9-start-${Date.now()}-0000` },
+      gmToken,
+    );
+    const turnId = started.body?.turnId;
+    checks.push(['сессия+игрок+ход созданы', Boolean(sessionId && playerToken && turnId)]);
+
+    // 1. Подключение, действие с ack.
+    const wsUrl = `ws://127.0.0.1:${PORT}/ws`;
+    client = await wsClient(wsUrl, playerToken, 'p1');
+    await client.waitFor((m) => m.type === 'AUTH_OK');
+    const requestId = `req-${randomBytes(8).toString('hex')}`;
+    const key = `verify-ws9-act-${Date.now()}-0000`;
+    client.send(
+      'ACTION_SUBMIT',
+      { turnId, rawText: 'Держу дверь шлюза', idempotencyKey: key, requestId },
+      { requestId },
+    );
+    const firstAck = await client.waitFor((m) => m.type === 'ACTION_ACK' && m.requestId === requestId);
+    checks.push(['действие до kill → ACTION_ACK', Boolean(firstAck.payload?.actionId)]);
+
+    // 2. kill -9 → подъём нового процесса на той же БД/порту.
+    client.ws.removeAllListeners('error');
+    client.ws.on('error', () => {});
+    server.child.kill('SIGKILL');
+    await new Promise((r) => server.child.on('exit', r));
+    server = startServer(env);
+    await waitForHealth(30_000);
+    checks.push(['сервер убит (SIGKILL) и поднят заново', true]);
+
+    // 3. Реконнект: фиксированный порядок reconnect-контракта (п.7).
+    client = await wsClient(wsUrl, playerToken, 'p1-re');
+    await client.waitFor((m) => m.type === 'PLAYER_PRESENCE');
+    const sequence = client.messages.map((m) => m.type).slice(0, 7);
+    const expected = [
+      'HELLO',
+      'AUTH_OK',
+      'STATE_PROJECTION',
+      'STATE_PROJECTION_PRIVATE',
+      'TURN_UPDATE',
+      'SESSION_STATUS',
+      'PLAYER_PRESENCE',
+    ];
+    checks.push([
+      `reconnect-последовательность ${expected.join('→')}`,
+      JSON.stringify(sequence) === JSON.stringify(expected),
+    ]);
+    const turnUpdate = client.messages.find((m) => m.type === 'TURN_UPDATE');
+    checks.push([
+      'TURN_UPDATE реконнекта содержит свои действия (offline-queue reconcile)',
+      Array.isArray(turnUpdate?.payload?.myActions) &&
+        turnUpdate.payload.myActions.some((a) => a.actionId === firstAck.payload?.actionId),
+    ]);
+
+    // 4. Переотправка НЕполучившего ack действия (тот же requestId+ключ) — ровно один раз.
+    client.send(
+      'ACTION_SUBMIT',
+      { turnId, rawText: 'Держу дверь шлюза', idempotencyKey: key, requestId },
+      { requestId },
+    );
+    const replayAck = await client.waitFor((m) => m.type === 'ACTION_ACK' && m.requestId === requestId);
+    checks.push([
+      'переотправка → тот же actionId (ровно один раз)',
+      replayAck.payload?.actionId === firstAck.payload?.actionId,
+    ]);
+    const req2 = `req-${randomBytes(8).toString('hex')}`;
+    client.send(
+      'ACTION_SUBMIT',
+      { turnId, rawText: 'Смотрю на панель', idempotencyKey: `verify-ws9-act2-${Date.now()}-000`, requestId: req2 },
+      { requestId: req2 },
+    );
+    await client.waitFor((m) => m.type === 'ACTION_ACK' && m.requestId === req2);
+    const view = await get(`/turns/${turnId}`, gmToken);
+    checks.push(['в ходе ровно 2 действия (дубль не применён)', view.body?.actionCount === 2]);
+
+    const failed = checks.filter(([, ok]) => !ok).map(([name]) => name);
+    record(
+      'A1.9',
+      'Реконнект после kill -9: полная проекция, offline-queue один раз',
+      failed.length === 0 ? 'PASS' : 'FAIL',
+      failed.length === 0
+        ? `${checks.length}/${checks.length}: kill -9 → restart → фиксированная reconnect-последовательность, TURN_UPDATE.myActions для reconcile, переотправка requestId+idempotencyKey применена один раз (actionCount=2)`
+        : `не выполнено: ${failed.join(', ')}`,
+    );
+  } catch (cause) {
+    record('A1.9', 'Реконнект после kill -9: полная проекция, offline-queue один раз', 'FAIL', cause.message);
+  } finally {
+    if (client) {
+      try {
+        client.ws.terminate();
+      } catch {
+        /* игнорируем */
+      }
+    }
+    server.child.kill('SIGKILL');
+    await new Promise((r) => server.child.on('exit', r));
+    for (const suffix of ['', '-shm', '-wal']) {
+      try {
+        rmSync(`${dbFile}${suffix}`, { force: true });
+      } catch {
+        /* игнорируем */
+      }
+    }
+  }
+}
+
+const NOT_IMPLEMENTED = [['A1.16', 'E2E «Стол»: 6 игроков + GM, полный цикл хода', 'промпт 1.13']];
 
 function printTable() {
   const width = Math.max(...results.map((r) => r.title.length), 40);
@@ -538,13 +1077,19 @@ async function main() {
   }
 
   await a1_1_serverStarts();
+  await a1_http_transport();
   await a1_1_failFast();
   await a1_2_boundaries();
   await a1_4_a1_5_persistenceGuarantees();
   await a1_6_a1_15_core();
   await a1_11_persistence();
   await a1_11b_outbox();
+  await a1_6_engine_a1_8_review();
+  await a1_10_chat();
+  await a1_7_ws_privacy();
+  await a1_9_ws_reconnect();
   await a1_14_extensibility();
+  await a1_12_a1_13_switchProvider();
   for (const [id, title, where] of NOT_IMPLEMENTED) {
     record(id, title, 'NOT_IMPLEMENTED', where);
   }

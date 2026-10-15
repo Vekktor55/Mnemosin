@@ -1,0 +1,11 @@
+# Фикстура приёмки 1.7: политика стенда failing.
+# timeoutMs намеренно мал (800 мс) — сценарий timeout-отказа должен проходить
+# быстро; стенд ждёт deadline.timeoutMs+1s, поэтому первым срабатывает
+# принудительный таймаут регистра (F-7.2: источник истины — политика).
+policies:
+  - providerId: failing
+    capability: TEXT_AI
+    timeoutMs: 800
+    retries: { max: 0, backoffMs: 100, jitter: false }
+    circuitBreaker: { failureThreshold: 3, cooldownMs: 30000 }
+    costPer1kTokens: { input: null, output: null }

@@ -36,8 +36,11 @@ module.exports = {
       name: 'modules-no-each-other',
       comment: 'модуль не импортирует другой модуль: wiring только в apps/server (D161)',
       severity: 'error',
+      // Промпт 1.7: добавлен to.path '^modules/' — без него pathNot '^$1/' запрещал
+      // ЛЮБЫЕ внешние зависимости модулей (включая разрешённые contracts/core из
+      // матрицы §3). До 1.7 все модули были заглушками без импортов — дефект не проявлялся.
       from: { path: '^(modules/[^/]+)/' },
-      to: { pathNot: '^$1/' },
+      to: { path: '^modules/', pathNot: '^$1/' },
     },
     {
       name: 'infrastructure-no-modules',
@@ -48,10 +51,13 @@ module.exports = {
     },
     {
       name: 'gateways-no-domain',
-      comment: 'инвариант 14: транспорт не содержит игровой логики и не ходит в core/БД',
+      comment:
+        'инвариант 14: транспорт не содержит игровой логики и не ходит в core/БД. ' +
+        'Исключение (промпт 1.10, D254): core/src/domain/ports — type-only интерфейсы DI ' +
+        "(инъекции wiring'а), согласовано с LAYER_RULES (tests/arch/helpers.ts)",
       severity: 'error',
       from: { path: '^gateways/' },
-      to: { path: '^(core/src|infrastructure/database|client)/' },
+      to: { path: '^(core/src|infrastructure/database|client)/', pathNot: '^core/src/domain/ports/' },
     },
     {
       name: 'client-contracts-only',

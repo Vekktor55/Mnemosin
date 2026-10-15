@@ -115,7 +115,13 @@ describe('Границы зависимостей (A1.2)', () => {
       for (const file of listSourceFiles(dir)) {
         for (const specifier of importsOf(file)) {
           if (specifier.startsWith('@mnemosin/database')) offenders.push(`${file} → ${specifier}`);
-          if (specifier === '@mnemosin/core' || specifier.startsWith('@mnemosin/core/domain/')) {
+          // @mnemosin/core/domain/ports РАЗРЕШЁН: это type-only интерфейсы DI
+          // (инъекции wiring'а), а не доменная логика — согласовано с
+          // LAYER_RULES (helpers.ts) и eslint (запрещены только services/state).
+          if (
+            (specifier === '@mnemosin/core' || specifier.startsWith('@mnemosin/core/')) &&
+            specifier !== '@mnemosin/core/domain/ports'
+          ) {
             offenders.push(`${file} → ${specifier} (домен в транспорте)`);
           }
         }

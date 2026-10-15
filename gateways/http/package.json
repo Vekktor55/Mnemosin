@@ -23,6 +23,10 @@
     "clean": "tsc -b --clean"
   },
   "dependencies": {
-    "@mnemosin/contracts": "*"
+    "@mnemosin/contracts": "*",
+    "@mnemosin/core": "*",
+    "fastify": "^5.12.5",
+    "jose": "^5.10.0",
+    "zod": "^3.25.76"
   }
 }

@@ -21,6 +21,13 @@ export const EnvSchema = z.object({
   /** Обязательно. file:./data/mnemosin.sqlite */
   DATABASE_URL: z.string().min(1),
 
+  /**
+   * Посев dev-сессии при старте (промпт 1.10): по умолчанию — вне production.
+   * Явный DB_SEED=false нужен приёмке/E2E: HTTP-поток создаёт сессию сам
+   * (POST /auth/session), а посевная сессия блокировала бы его (D108).
+   */
+  DB_SEED: z.preprocess((v) => (v === '' ? undefined : v), boolFromEnv.optional()),
+
   /** Обязательно, >= 32 символов. В сообщениях об ошибках не выводится. */
   JWT_SECRET: z.string().min(32),
   JWT_TTL_SECONDS: intFromEnv(43_200),

@@ -21,6 +21,23 @@ import {
 export { CapabilitySchema, ProviderPolicySchema };
 export type { Capability, ProviderPolicy };
 
+/**
+ * Указания AI-Директору по умолчанию (этап 1, промпт 1.7). Заказчик правит
+ * текст в config/limits.yaml без изменения кода; боевой промпт-инжиниринг —
+ * этап 2 (2.5: токен-бюджет, тримминг, few-shot).
+ */
+export const DEFAULT_AI_DIRECTOR_INSTRUCTIONS = [
+  'Ты — AI-Директор настольной ролевой игры МНЕМОСИН (ведущий-соавтор, GM-in-the-loop).',
+  'По действиям игроков за ход верни ОДИН объект AIResponse, строго соответствующий схеме:',
+  'narrative — художественное разрешение хода на русском (без имён персонажей, если они не представлены в фактах);',
+  'privateMessages — только тем игрокам, которым персонально положено приватное знание;',
+  'proposedEvents — ТОЛЬКО eventId из allowedEventIds (пустой массив, если список пуст);',
+  'proposedObjectChanges — только объекты текущей локации из objectStates, минимальные правки состояния;',
+  'visualSceneDescription — одна короткая сцена для будущего медиа-контура либо null.',
+  'Запрещено: выдумывать несуществующие объекты и выходы, раскрывать gmSecret, менять локацию группы, завершать сессию.',
+  'Тон: сдержанная тревога, бытовые детали, никакого всеведения — персонажи знают только storyFacts и свои знания.',
+].join('\n');
+
 export const RetriesSchema = RetriesPolicySchema;
 export const CircuitBreakerSchema = CircuitBreakerPolicySchema;
 export type RetriesPolicy = z.infer<typeof RetriesPolicySchema>;
@@ -92,6 +109,12 @@ export const LimitsConfigSchema = z.object({
   aiMaxRetriesPerTurn: z.number().int().min(0).default(2),
   aiContextMaxTokens: z.number().int().positive().default(24_000),
   aiSchemaRepairAttempts: z.number().int().min(0).default(1),
+  /**
+   * Базовые указания AI-Директору (промпт 1.7: directorInstructions из config).
+   * Пополняются контекстом локации (aiGuidance) и repair-строкой при нарушении
+   * схемы. Лимит — 6000 по DirectorContextSchema.
+   */
+  aiDirectorInstructions: z.string().max(6000).default(DEFAULT_AI_DIRECTOR_INSTRUCTIONS),
 
   // --- media / audio
   mediaMaxConcurrentPerSession: z.number().int().positive().default(2),
@@ -111,6 +134,16 @@ export const LimitsConfigSchema = z.object({
   // --- бюджеты (этап 2; фактическое значение — после замера, D139)
   sessionBudgetUsd: z.number().nonnegative().default(5),
   budgetWarningRatio: z.number().min(0).max(1).default(0.8),
+
+  // --- чат (промпт 1.9)
+  chat: z
+    .object({
+      /** Token bucket для публичных сообщений: N сообщений/сек на игрока (RATE_LIMIT при превышении). */
+      publicPerSecond: z.number().int().positive().default(10),
+      /** Ёмкость ведра (burst); default = publicPerSecond (одна секунда запаса). */
+      burstSeconds: z.number().min(0.1).max(10).default(1),
+    })
+    .default({}),
 
   // --- HTTP rate limit
   httpRatePerIpPerMin: z.number().int().positive().default(100),

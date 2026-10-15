@@ -31,6 +31,9 @@ export const JournalKind = z.enum([
   'effects_deferred',
   'committed',
   'failed',
+  // contracts 0.5.0 (промпт 1.8): финал достигнут применением REACH_ENDING —
+  // в этапе 1 только журнал, endSession — этап 3 (промпт 1.8, п.4).
+  'ending_reached',
   'snapshot_taken',
   'reconciled_on_boot',
 ]);

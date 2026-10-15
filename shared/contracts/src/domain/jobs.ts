@@ -45,6 +45,15 @@ export const CommandName = z.enum([
   'joinSession',
   'leaveSession',
   'createCharacter',
+  // contracts 0.5.0 (промпт 1.9, D246): команды chat/story/gm — каталог покрывает
+  // все мутирующие команды модулей этапа 1 (send* принимают ключ опционально:
+  // WS-транспорт дедуплицирует по requestId, сервис — по детерминированным messageId).
+  'sendPublicMessage',
+  'sendPrivateMessage',
+  'sendSystemMessage',
+  'sendGMMessage',
+  'addNote',
+  'grantKnowledge',
 ]);
 export type CommandName = z.infer<typeof CommandName>;
 

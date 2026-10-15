@@ -22,6 +22,16 @@ export interface IdempotencyRepository {
   tryAcquire(record: IdempotencyRecord): Promise<IdempotencyAcquire>;
   finish(input: IdempotencyFinishInput): Promise<void>;
   fail(input: IdempotencyFailInput): Promise<void>;
+  /**
+   * Освобождение (инвалидация) ключа — запись ЛЮБОГО статуса удаляется
+   * (промпт 1.8, D234/D235). Два легальных вызывающих:
+   *  1. resolveTurn при ВРЕМЕННОМ отказе — запись IN_FLIGHT удаляется, повтор
+   *     разрешён (D201: перманентные отказы фиксируются fail(), не release);
+   *  2. retryTurn из REVIEW — DONE-запись `resolve:{turnId}` удаляется НАМЕРЕННО:
+   *     retry означает «перегенерировать черновик», прежний кэш результата
+   *     больше не действителен.
+   */
+  release(key: IdempotencyKey): Promise<void>;
   findByKey(key: IdempotencyKey): Promise<IdempotencyRecord | null>;
   /** Удаление записей с истёкшим expiresAt; возвращает число удалённых строк. */
   cleanupExpired(nowIso: string): Promise<number>;

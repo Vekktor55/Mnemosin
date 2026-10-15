@@ -3,6 +3,8 @@
  * из core — связь только через эти интерфейсы (правила dependency-cruiser, промпт 1.3).
  */
 export type { TxToken, TxOutcome, TxScope, UnitOfWork, RepositoryRegistry } from './unit-of-work.js';
+export type { AIPort, AIGenerateInput, AIGenerateResult, AIDeadline } from './ai-port.js';
+export type { RulesPort, RulesEvaluationContext } from './rules-port.js';
 export type { SessionRepository, SessionPhasePatch } from './session-repository.js';
 export type { PlayerRepository } from './player-repository.js';
 export type { CharacterRepository } from './character-repository.js';

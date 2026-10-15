@@ -126,6 +126,8 @@ export class SessionService {
   async createSession(input: {
     title: string;
     gmDisplayName: string;
+    /** D157: имя персонажа GM задаёт сам; по умолчанию — displayName. */
+    characterName?: string;
     idempotencyKey: string;
     traceId?: string;
   }): Promise<CreateSessionResult> {
@@ -157,7 +159,8 @@ export class SessionService {
         const gmCharacter = CharacterSchema.parse({
           characterId: gmCharacterId,
           sessionId,
-          name: input.gmDisplayName,
+          // D157: имя персонажа задаёт игрок (HTTP /auth/session принимает characterName).
+          name: (input.characterName ?? input.gmDisplayName).trim(),
           archetype: 'gm',
           stats: {},
           createdAt: at,
@@ -237,6 +240,8 @@ export class SessionService {
   async joinSession(input: {
     sessionId: SessionId;
     displayName: string;
+    /** D157: имя персонажа задаёт игрок; по умолчанию — displayName. */
+    characterName?: string;
     characterId?: CharacterId | null;
     idempotencyKey: string;
     traceId?: string;
@@ -284,10 +289,20 @@ export class SessionService {
           }
         } else {
           characterId = randomUUID() as CharacterId;
+          // D157: имя персонажа задаёт игрок (characterName), уникальность в пределах
+          // сессии проверяется среди персонажей НЕ покинувших игроков.
+          const wantedName = (input.characterName ?? input.displayName).trim();
+          const characters = await scope.repos.characters.listBySession(input.sessionId);
+          const activeCharacterIds = new Set(players.filter((p) => p.status !== 'LEFT').map((p) => p.characterId));
+          if (characters.some((c) => c.name === wantedName && activeCharacterIds.has(c.characterId))) {
+            throw new AppError('CONFLICT', `имя персонажа «${wantedName}» уже занято в сессии`, {
+              reason: 'character_name_taken',
+            });
+          }
           const character = CharacterSchema.parse({
             characterId,
             sessionId: input.sessionId,
-            name: input.displayName, // D157: имя персонажа задаёт игрок (здесь — совпадает с displayName)
+            name: wantedName,
             archetype: null,
             stats: {},
             createdAt: at,
@@ -553,7 +568,9 @@ export class SessionService {
           return { playerId: input.playerId, status: 'LEFT' as const, alreadyLeft: true };
         }
         const at = nowIso();
-        await scope.repos.players.setStatus(input.playerId, 'LEFT', at);
+        // B-12.3: отзыв токенов — revokedBefore=now делает недействительными все
+        // access/refresh-токены игрока, выданные до этого момента (проверка iat).
+        await scope.repos.players.update({ ...player, status: 'LEFT', leftAt: at, revokedBefore: at });
         await scope.repos.sessions.update({
           ...session,
           playerIds: session.playerIds.filter((id) => id !== input.playerId),

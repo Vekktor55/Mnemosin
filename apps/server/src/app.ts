@@ -1,6 +1,6 @@
 import { existsSync } from 'node:fs';
 import { resolve } from 'node:path';
-import Fastify, { type FastifyError } from 'fastify';
+import Fastify, { type FastifyInstance } from 'fastify';
 import cors from '@fastify/cors';
 import rateLimit from '@fastify/rate-limit';
 import fastifyStatic from '@fastify/static';
@@ -10,6 +10,8 @@ import { CONTRACTS_VERSION } from '@mnemosin/contracts';
 import { ping, type BootstrapResult } from '@mnemosin/database';
 import type { AppConfig } from '@mnemosin/config';
 import { newTraceId } from '@mnemosin/logging';
+import { createHttpErrorHandler, registerHttpRoutes, type HttpGatewayDeps } from '@mnemosin/gateway-http';
+import { registerWsGateway, type WsGatewayDeps, type WsGatewayHandle } from '@mnemosin/gateway-ws';
 
 import { buildHealthPayload, buildVersionPayload } from './health.js';
 
@@ -29,9 +31,40 @@ export interface BuildAppOptions {
   readonly cwd?: string;
   /** Подключение к БД (промпт 1.4). Без него /health отдаёт db:'unknown' — сервер всё равно жив (A1.1). */
   readonly persistence?: BootstrapResult;
+  /**
+   * Срез Capability Registry для GET /health (промпт 1.7, A1.13).
+   * Без него capabilities = {} (сервер без AI-контура — unit-тесты каркаса).
+   */
+  readonly getCapabilities?: () => Record<string, unknown>;
+  /**
+   * Зависимости HTTP-шлюза (промпт 1.10): с ними регистрируются ВСЕ маршруты
+   * каталога HTTP_ROUTES + JWT-auth + единый error handler. Без них сервер
+   * отдаёт только /health и /version (каркас 1.1, unit-тесты).
+   */
+  readonly httpGateway?: HttpGatewayDeps;
+  /**
+   * Зависимости WS-шлюза (промпт 1.11): /ws — handshake-auth, heartbeat,
+   * router, проекции и доставка по WS_PRIVACY_POLICY. Handle доступен как
+   * app.wsGateway (shutdown: closeAll до outbox drain).
+   */
+  readonly wsGateway?: WsGatewayDeps;
 }
 
-export async function buildApp({ config, logger, cwd = process.cwd(), persistence }: BuildAppOptions) {
+declare module 'fastify' {
+  interface FastifyInstance {
+    wsGateway?: WsGatewayHandle;
+  }
+}
+
+export async function buildApp({
+  config,
+  logger,
+  cwd = process.cwd(),
+  persistence,
+  getCapabilities,
+  httpGateway,
+  wsGateway,
+}: BuildAppOptions) {
   const app = Fastify({
     loggerInstance: logger.child({ component: 'http' }),
     // traceId = x-request-id от клиента (если прислан) либо новый uuid.
@@ -75,17 +108,9 @@ export async function buildApp({ config, logger, cwd = process.cwd(), persistenc
     await app.register(fastifyStatic, { root: clientDist, prefix: '/' });
   }
 
-  app.setErrorHandler((error: FastifyError, req, reply) => {
-    const status = typeof error.statusCode === 'number' && error.statusCode >= 400 ? error.statusCode : 500;
-    req.log.error({ err: error, traceId: req.id }, 'request_failed');
-    void reply.status(status).send({
-      error: {
-        code: status === 500 ? 'INTERNAL' : 'VALIDATION',
-        message: status === 500 ? 'Internal error' : error.message,
-        requestId: req.id,
-      },
-    });
-  });
+  // Единый обработчик ошибок (промпт 1.10, п.3): AppError/ZodError →
+  // HttpErrorBody по ERROR_TABLE, requestId всегда.
+  app.setErrorHandler(createHttpErrorHandler(app.log));
 
   app.setNotFoundHandler((req, reply) => {
     void reply.status(404).send({
@@ -94,12 +119,14 @@ export async function buildApp({ config, logger, cwd = process.cwd(), persistenc
   });
 
   app.get('/health', async () => {
-    // db + schemaVersion — промпт 1.4; capabilities — промпт 1.7.
+    // db + schemaVersion — промпт 1.4; capabilities — registry.snapshot() (промпт 1.7, A1.13).
+    const capabilities = getCapabilities ? getCapabilities() : {};
     if (!persistence) {
-      return buildHealthPayload(config, CONTRACTS_VERSION, { db: 'unknown', phase: 'no-db' });
+      return buildHealthPayload(config, CONTRACTS_VERSION, { capabilities, db: 'unknown', phase: 'no-db' });
     }
     const alive = await ping(persistence.handle.db);
     return buildHealthPayload(config, CONTRACTS_VERSION, {
+      capabilities,
       db: alive ? 'ok' : 'degraded',
       schemaVersion: persistence.version.applied,
       phase: persistence.seed.created ? 'seeded' : 'ready',
@@ -107,6 +134,21 @@ export async function buildApp({ config, logger, cwd = process.cwd(), persistenc
   });
 
   app.get('/version', async () => buildVersionPayload(config, CONTRACTS_VERSION));
+
+  // Промпт 1.10: ВСЕ маршруты каталога HTTP_ROUTES (gateway), включая stage 2/3
+  // заглушки (501) и /media/files/*. /health и /version остаются выше — они
+  // владеют wiring-данными (db-ping, capabilities, версия пакета).
+  if (httpGateway !== undefined) {
+    // Каст типов: экземпляр создан с loggerInstance (pino) — его generic
+    // логгера уже дефолтного FastifyBaseLogger; рантайм идентичен.
+    await registerHttpRoutes(app as unknown as FastifyInstance, httpGateway);
+  }
+
+  // Промпт 1.11: WS-транспорт — /ws (auth-handshake, heartbeat, router,
+  // broadcast по WS_PRIVACY_POLICY). Handle — для graceful shutdown (closeAll).
+  if (wsGateway !== undefined) {
+    app.wsGateway = await registerWsGateway(app as unknown as FastifyInstance, wsGateway);
+  }
 
   return app;
 }

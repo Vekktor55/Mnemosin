@@ -1,0 +1,12 @@
+# Фикстура приёмки 1.7: лимиты сцены деградации.
+# capabilityProbeMs уменьшён (300 мс), чтобы healthProbe быстро публиковал
+# CAPABILITY_CHANGED на живом сервере; остальные значения — как в config/limits.yaml.
+maxPlayersPerSession: 12
+actionsPerPlayerPerTurn: 5
+maxMessageLen: 1000
+chatRingBuffer: 500
+capabilityProbeMs: 300
+handlerTimeoutMs: 5000
+outboxPollMs: 250
+outboxMaxAttempts: 5
+idempotencyTtlHours: 24
