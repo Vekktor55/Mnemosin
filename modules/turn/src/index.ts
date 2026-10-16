@@ -66,3 +66,6 @@ export { rulesStub, RULES_STUB_CHECK_ID } from './rules-stub.js';
 
 export const PACKAGE_ID = '@mnemosin/module-turn';
 export const IMPLEMENTED_IN_PROMPT = '1.8';
+
+// Промпт 1.13 (A1.11, D127): восстановление согласованности при старте.
+export { reconcileOnBoot, type ReconcileOnBootDeps, type ReconcileOnBootReport } from './reconcile-boot.js';

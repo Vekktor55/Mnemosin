@@ -1,10 +1,14 @@
 import js from '@eslint/js';
 import tseslint from 'typescript-eslint';
 import prettier from 'eslint-config-prettier';
+import svelteParser from 'svelte-eslint-parser';
 
 /**
  * ESLint (flat config). Промпт 1.3: границы зависимостей продублированы
  * на уровне линтера, чтобы нарушение ловилось в редакторе до CI.
+ * Промпт 1.12: .svelte-файлы клиента парсятся svelte-eslint-parser (вложенный
+ * <script lang="ts"> — typescript-eslint parser); правило no-restricted-imports
+ * продолжает ловить нарушения инварианта 15 и в компонентах.
  *
  * Три уровня контроля границ (v3 §IX.6):
  *   1. eslint no-restricted-imports  — мгновенная обратная связь;
@@ -40,7 +44,7 @@ function restricted(patterns, message) {
 
 export default tseslint.config(
   {
-    ignores: ['**/dist/**', '**/node_modules/**', '**/coverage/**', 'data/**', 'client/dist/**'],
+    ignores: ['**/dist/**', '**/dist-types/**', '**/node_modules/**', '**/coverage/**', 'data/**', 'client/dist/**'],
   },
   js.configs.recommended,
   ...tseslint.configs.recommended,
@@ -154,10 +158,26 @@ export default tseslint.config(
       ),
     },
   },
+  {
+    // Промпт 1.12: Svelte-компоненты клиента. Парсер — svelte-eslint-parser
+    // (TS внутри <script lang="ts">); no-undef выключен — неопределённые
+    // идентификаторы ловят TypeScript и svelte-check (как в остальных *.ts).
+    files: ['client/**/*.svelte'],
+    languageOptions: {
+      parser: svelteParser,
+      parserOptions: {
+        parser: tseslint.parser,
+        extraFileExtensions: ['.svelte'],
+      },
+    },
+    rules: {
+      'no-undef': 'off',
+    },
+  },
 
   // --- тесты и инструменты
   {
-    files: ['tools/**/*.mjs', 'tests/**/*.ts', '**/*.test.ts'],
+    files: ['tools/**/*.mjs', 'tests/**/*.ts', '**/*.test.ts', 'e2e/**/*.ts'],
     rules: { 'no-console': 'off' },
   },
   {

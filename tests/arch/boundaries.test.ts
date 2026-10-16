@@ -131,10 +131,19 @@ describe('Границы зависимостей (A1.2)', () => {
   });
 
   it('клиент импортирует только контракты', () => {
+    // Промпт 1.12: build-инструментарий (vite, плагин svelte, node:url) разрешён
+    // ТОЛЬКО в конфигурации сборки client/vite.config.ts — рантайм-код клиента
+    // (src/) по-прежнему импортирует лишь @mnemosin/contracts + svelte* + zod
+    // (инвариант 15).
+    const TOOLING_ALLOWLIST: Readonly<Record<string, readonly string[]>> = Object.freeze({
+      'client/vite.config.ts': ['vite', '@sveltejs/vite-plugin-svelte', 'node:url'],
+    });
     const offenders: string[] = [];
     for (const file of listSourceFiles('client')) {
+      const tooling = TOOLING_ALLOWLIST[file] ?? [];
       for (const specifier of importsOf(file)) {
         if (specifier.startsWith('.')) continue;
+        if (tooling.includes(specifier)) continue;
         if (specifier !== '@mnemosin/contracts' && !specifier.startsWith('svelte') && specifier !== 'zod') {
           offenders.push(`${file} → ${specifier}`);
         }

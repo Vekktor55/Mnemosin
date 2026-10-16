@@ -1,5 +1,6 @@
 node_modules
 dist
+dist-types
 coverage
 data
 package-lock.json
@@ -7,3 +8,6 @@ package-lock.json
 tests/fixtures/config-broken-yaml/
 # исходные данные мира от заказчика — хранятся побайтово как получены (D164)
 content/source-v1/
+# артефакты Playwright (промпт 1.12)
+playwright-report/
+test-results/

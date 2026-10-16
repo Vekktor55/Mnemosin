@@ -45,6 +45,19 @@ export interface TempDb {
   close(): Promise<void>;
 }
 
+/**
+ * Безопасная очистка temp-каталога (промпт 1.13, Windows-fix): SQLite WAL/SHM и
+ * каталоги под OneDrive/антивирусом могут держать handles доли секунд — EPERM.
+ * Ретраи + best-effort: уборка не должна ронять прошедшие тесты.
+ */
+export function rmSafe(dir: string): void {
+  try {
+    rmSync(dir, { recursive: true, force: true, maxRetries: 6, retryDelay: 200 });
+  } catch {
+    /* best-effort: temp-каталог уберёт ОС */
+  }
+}
+
 export async function openTempDb(label: string, options: { seed?: boolean } = {}): Promise<TempDb> {
   const dir = mkdtempSync(join(tmpdir(), `mnemosin-${label}-`));
   const path = join(dir, 'test.sqlite');
@@ -57,7 +70,7 @@ export async function openTempDb(label: string, options: { seed?: boolean } = {}
     path,
     async close(): Promise<void> {
       await boot.close();
-      rmSync(dir, { recursive: true, force: true });
+      rmSafe(dir);
     },
   };
 }

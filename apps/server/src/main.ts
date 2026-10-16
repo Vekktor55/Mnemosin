@@ -11,6 +11,7 @@ import type { WsGatewayDeps, WsGatewayHandle } from '@mnemosin/gateway-ws';
 import { buildAIStack } from './ai.js';
 import { buildApp } from './app.js';
 import { buildCoreServices } from './core-services.js';
+import { reconcileOnBoot } from '@mnemosin/module-turn';
 import { buildModules } from './modules.js';
 import { attachModulesRegistry, validateModulesRegistry } from './modules-registry.js';
 import { buildProjectionProvider } from './projections.js';
@@ -138,6 +139,23 @@ async function main(): Promise<void> {
   // и config без единого импорта инфраструктуры внутрь ядра (D216/D221).
   const services = buildCoreServices(persistence, config);
   logger.info({ event: 'core_services_ready', services: Object.keys(services) }, 'core_services_ready');
+
+  // Промпт 1.13 (A1.11, D127): reconcileOnBoot ДО listen — ходы, застрявшие в
+  // PROCESSING после краха, переходят в FAILED{RECONCILE_INTERRUPTED}, ключ
+  // resolve:{turnId} освобождается, outbox получает TURN_FAILED.
+  const reconcileReport = await reconcileOnBoot({
+    uow: persistence.uow,
+    turns: services.turns,
+    journal: services.journal,
+    idempotency: persistence.uow.repos().idempotency,
+    logger: logger.child({ component: 'reconcile' }),
+  });
+  if (reconcileReport.reconciled.length > 0) {
+    logger.info(
+      { ...reconcileReport, event: 'reconcile_on_boot' },
+      `reconcileOnBoot: ходов восстановлено ${reconcileReport.reconciled.length}`,
+    );
+  }
 
   // Промпт 1.8: прикладные модули — Turn Engine (resolveTurn/commitTurn/
   // rejectTurn/retryTurn) и gm-review (approve/reject/editAndApprove/retry).

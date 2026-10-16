@@ -1,3 +1,4 @@
+import { rmSafe } from '../integration/helpers.js';
 import { describe, expect, it, beforeAll, afterAll } from 'vitest';
 import type { FastifyInstance } from 'fastify';
 
@@ -61,7 +62,7 @@ describe('HTTP каркас (A1.1)', () => {
   });
 
   it('GET /health с подключённой БД → db:ok и schemaVersion (промпт 1.4)', async () => {
-    const { mkdtempSync, rmSync } = await import('node:fs');
+    const { mkdtempSync } = await import('node:fs');
     const { tmpdir } = await import('node:os');
     const { join } = await import('node:path');
     const { bootstrapDatabase } = await import('@mnemosin/database');
@@ -83,7 +84,7 @@ describe('HTTP каркас (A1.1)', () => {
 
     await appWithDb.close();
     await persistence.close();
-    rmSync(dir, { recursive: true, force: true });
+    rmSafe(dir);
   });
 
   it('GET /version → version + contractsVersion + node', async () => {

@@ -22,7 +22,9 @@ import { fileURLToPath } from 'node:url';
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 const PORT = Number(process.env['VERIFY_PORT'] ?? 3911);
 const BASE = `http://127.0.0.1:${PORT}`;
-const TSX = resolve(ROOT, 'node_modules/.bin/tsx');
+// Windows: шимы в node_modules/.bin — это .cmd; spawn без расширения = ENOENT.
+const bin = (name) => resolve(ROOT, 'node_modules/.bin', process.platform === 'win32' ? `${name}.cmd` : name);
+const TSX = bin('tsx');
 
 /** @type {Array<{id:string, title:string, status:'PASS'|'FAIL'|'NOT_IMPLEMENTED', note?:string}>} */
 const results = [];
@@ -52,6 +54,9 @@ function startServer(extra = {}) {
     cwd: ROOT,
     env: serverEnv(extra),
     stdio: ['ignore', 'pipe', 'pipe'],
+    // tsx CLI порождает внутреннего ребёнка-сервер: остановка — по группе
+    // процессов, иначе зомби держит порт и ломает следующие проверки.
+    detached: true,
   });
   let stderr = '';
   child.stderr.setEncoding('utf8');
@@ -61,13 +66,70 @@ function startServer(extra = {}) {
   return { child, getStderr: () => stderr };
 }
 
-async function waitForHealth(timeoutMs = 30_000) {
+/** SIGKILL по группе и ожидание выхода; умерший child не вешает await. */
+async function killGroupAndWait(child, timeoutMs = 5000) {
+  if (child.exitCode !== null || child.signalCode !== null) return;
+  try {
+    if (child.pid !== undefined) process.kill(-child.pid, 'SIGKILL');
+  } catch {
+    try {
+      child.kill('SIGKILL');
+    } catch {
+      /* уже мертвы */
+    }
+  }
+  await Promise.race([
+    new Promise((resolve) => child.on('exit', () => resolve(true))),
+    new Promise((resolve) => setTimeout(() => resolve(false), timeoutMs)),
+  ]);
+}
+
+/** Остановка сервера: SIGTERM → 5 c → SIGKILL по ГРУППЕ процессов; не виснет на умершем child. */
+async function stopServer(child) {
+  if (child.exitCode !== null || child.signalCode !== null) return;
+  const signalGroup = (sig) => {
+    try {
+      if (child.pid !== undefined) process.kill(-child.pid, sig);
+    } catch {
+      try {
+        child.kill(sig);
+      } catch {
+        /* уже мертвы */
+      }
+    }
+  };
+  signalGroup('SIGTERM');
+  const exited = await Promise.race([
+    new Promise((resolve) => child.on('exit', () => resolve(true))),
+    new Promise((resolve) => setTimeout(() => resolve(false), 5000)),
+  ]);
+  if (!exited && child.exitCode === null) {
+    signalGroup('SIGKILL');
+    await Promise.race([
+      new Promise((resolve) => child.on('exit', () => resolve(true))),
+      new Promise((resolve) => setTimeout(() => resolve(false), 3000)),
+    ]);
+  }
+}
+
+async function waitForHealth(timeoutMs = 30_000, child = null) {
   const deadline = Date.now() + timeoutMs;
   let lastError = 'timeout';
   while (Date.now() < deadline) {
+    // Fail-fast: наш процесс умер (EADDRINUSE на порту, занятом чужим
+    // сервером-зомби, crash старта) — иначе fetch может «успешно» отвечать
+    // чужим процессом, а финальный await exit повиснет (промпт 1.13).
+    if (child !== null && child.exitCode !== null) {
+      throw new Error(`server process exited (${child.exitCode}) before becoming healthy: ${lastError}`);
+    }
     try {
       const res = await fetch(`${BASE}/health`);
-      if (res.ok) return await res.json();
+      if (res.ok) {
+        if (child !== null && child.exitCode !== null) {
+          throw new Error(`порт ${PORT} отвечает чужим процессом: наш server умер`);
+        }
+        return await res.json();
+      }
       lastError = `HTTP ${res.status}`;
     } catch (cause) {
       lastError = cause.message;
@@ -80,7 +142,7 @@ async function waitForHealth(timeoutMs = 30_000) {
 async function a1_1_serverStarts() {
   const { child, getStderr } = startServer();
   try {
-    const health = await waitForHealth();
+    const health = await waitForHealth(30_000, child);
     const version = await (await fetch(`${BASE}/version`)).json();
 
     const checks = [
@@ -108,8 +170,7 @@ async function a1_1_serverStarts() {
   } catch (cause) {
     record('A1.1', 'Сервер стартует, /health отвечает', 'FAIL', cause.message);
   } finally {
-    child.kill('SIGTERM');
-    await new Promise((r) => child.on('exit', r));
+    await stopServer(child);
     if (getStderr().length > 0) process.stderr.write(getStderr());
   }
 }
@@ -134,7 +195,7 @@ async function a1_http_transport() {
   const checks = [];
   const note = [];
   try {
-    await waitForHealth();
+    await waitForHealth(30_000, child);
 
     const post = async (url, body, token) => {
       const res = await fetch(`${BASE}${url}`, {
@@ -240,7 +301,7 @@ async function a1_http_transport() {
     const failed = checks.filter(([, ok]) => !ok).map(([name]) => name);
     note.push(`${checks.length - failed.length}/${checks.length} HTTP-проверок`);
     record(
-      'A1.1b2',
+      'A1.3',
       'HTTP-транспорт: сессия/join/action/lock/commit через реальный HTTP',
       failed.length === 0 ? 'PASS' : 'FAIL',
       failed.length === 0 ? note.join('; ') : `не выполнено: ${failed.join(', ')}`,
@@ -261,12 +322,11 @@ async function a1_http_transport() {
         : `ai=${aiAsPlayer.status} gm=${gmAsPlayer.status} aiGm=${aiAsGm.status}`,
     );
   } catch (cause) {
-    record('A1.1b2', 'HTTP-транспорт: сессия/join/action/lock/commit через реальный HTTP', 'FAIL', cause.message);
+    record('A1.3', 'HTTP-транспорт: сессия/join/action/lock/commit через реальный HTTP', 'FAIL', cause.message);
     record('A1.4', 'Идемпотентность через HTTP: повтор commit → тот же version (промпт 1.10)', 'FAIL', cause.message);
     record('A1.7', 'Приватность через HTTP: view=ai|gm под игроком → 403 (промпт 1.10)', 'FAIL', cause.message);
   } finally {
-    child.kill('SIGTERM');
-    await new Promise((r) => child.on('exit', r));
+    await stopServer(child);
     if (getStderr().length > 0) process.stderr.write(getStderr());
   }
 }
@@ -286,17 +346,17 @@ async function a1_1_failFast() {
   const failed = checks.filter(([, ok]) => !ok).map(([name]) => name);
 
   if (failed.length > 0) {
-    record('A1.1b', 'Fail-fast при невалидном env (без утечки секрета)', 'FAIL', `не выполнено: ${failed.join(', ')}`);
+    record('A1.1', 'Fail-fast при невалидном env (без утечки секрета)', 'FAIL', `не выполнено: ${failed.join(', ')}`);
     if (stderr) process.stderr.write(stderr);
   } else {
-    record('A1.1b', 'Fail-fast при невалидном env (без утечки секрета)', 'PASS', `exit=${exitCode}`);
+    record('A1.1', 'Fail-fast при невалидном env (без утечки секрета)', 'PASS', `exit=${exitCode}`);
   }
 }
 
 /** A1.2: границы зависимостей — dependency-cruiser + arch-тесты. */
 async function a1_2_boundaries() {
   const cruiser = spawnSync(
-    resolve(ROOT, 'node_modules/.bin/depcruise'),
+    bin('depcruise'),
     [
       '--config',
       '.dependency-cruiser.cjs',
@@ -311,14 +371,10 @@ async function a1_2_boundaries() {
     ],
     { cwd: ROOT, encoding: 'utf8' },
   );
-  const archTests = spawnSync(
-    resolve(ROOT, 'node_modules/.bin/vitest'),
-    ['run', '--project', 'arch', '--reporter=basic'],
-    {
-      cwd: ROOT,
-      encoding: 'utf8',
-    },
-  );
+  const archTests = spawnSync(bin('vitest'), ['run', '--project', 'arch', '--reporter=basic'], {
+    cwd: ROOT,
+    encoding: 'utf8',
+  });
   const checks = [
     ['dependency-cruiser: 0 нарушений', cruiser.status === 0],
     ['vitest --project arch: все тесты зелёные', archTests.status === 0],
@@ -643,11 +699,10 @@ async function a1_11_persistence() {
   const bootOnce = async () => {
     const { child, getStderr } = startServer({ DATABASE_URL: dbUrl });
     try {
-      const health = await waitForHealth();
+      const health = await waitForHealth(30_000, child);
       return { health, stderr: getStderr() };
     } finally {
-      child.kill('SIGTERM');
-      await new Promise((r) => child.on('exit', r));
+      await stopServer(child);
     }
   };
 
@@ -718,7 +773,7 @@ async function a1_11b_outbox() {
     ];
     const failed = checks.filter(([, ok]) => !ok).map(([name]) => name);
     record(
-      'A1.11b',
+      'A1.11',
       title,
       failed.length === 0 ? 'PASS' : 'FAIL',
       failed.length === 0
@@ -726,7 +781,7 @@ async function a1_11b_outbox() {
         : failed.join('; '),
     );
   } catch (cause) {
-    record('A1.11b', title, 'FAIL', cause.message);
+    record('A1.11', title, 'FAIL', cause.message);
   }
 }
 
@@ -916,12 +971,19 @@ async function a1_9_ws_reconnect() {
       /* игнорируем */
     }
   }
-  const env = { DATABASE_URL: `file:${dbFile}`, DB_SEED: 'false' };
+  // Фиксированный JWT_SECRET: рестарт после kill -9 обязан принимать ТЕ ЖЕ
+  // токены (иначе реконнект-контракт непроверяем); serverEnv по умолчанию
+  // генерирует случайный секрет на каждый startServer.
+  const env = {
+    DATABASE_URL: `file:${dbFile}`,
+    DB_SEED: 'false',
+    JWT_SECRET: 'a19-verify-secret-0123456789abcdef0123456789abcdef',
+  };
   let server = startServer(env);
   const checks = [];
   let client = null;
   try {
-    await waitForHealth();
+    await waitForHealth(30_000, server.child);
     const post = async (url, body, token) => {
       const res = await fetch(`${BASE}${url}`, {
         method: 'POST',
@@ -969,10 +1031,9 @@ async function a1_9_ws_reconnect() {
     // 2. kill -9 → подъём нового процесса на той же БД/порту.
     client.ws.removeAllListeners('error');
     client.ws.on('error', () => {});
-    server.child.kill('SIGKILL');
-    await new Promise((r) => server.child.on('exit', r));
+    await killGroupAndWait(server.child);
     server = startServer(env);
-    await waitForHealth(30_000);
+    await waitForHealth(30_000, server.child);
     checks.push(['сервер убит (SIGKILL) и поднят заново', true]);
 
     // 3. Реконнект: фиксированный порядок reconnect-контракта (п.7).
@@ -1039,8 +1100,7 @@ async function a1_9_ws_reconnect() {
         /* игнорируем */
       }
     }
-    server.child.kill('SIGKILL');
-    await new Promise((r) => server.child.on('exit', r));
+    await killGroupAndWait(server.child);
     for (const suffix of ['', '-shm', '-wal']) {
       try {
         rmSync(`${dbFile}${suffix}`, { force: true });
@@ -1051,26 +1111,116 @@ async function a1_9_ws_reconnect() {
   }
 }
 
-const NOT_IMPLEMENTED = [['A1.16', 'E2E «Стол»: 6 игроков + GM, полный цикл хода', 'промпт 1.13']];
+// Промпт 1.13: все 16 критериев проверяются здесь; A1.16 — запуском
+// браузерного сценария «Стол» (e2e/stage1-table.spec.ts, 7 контекстов).
+const NOT_IMPLEMENTED = [];
+
+/** A1.16: сквозной Playwright-сценарий «Стол» (6 игроков + GM). */
+async function a1_16_e2e_table() {
+  const run = spawnSync(
+    bin('playwright'),
+    ['test', '--config', 'e2e/playwright.config.ts', 'e2e/stage1-table.spec.ts'],
+    { cwd: ROOT, encoding: 'utf8', timeout: 600_000 },
+  );
+  const tail = (run.stdout ?? '').split('\n').slice(-6).join(' ').slice(0, 220);
+  if (run.status === 0) {
+    record('A1.16', 'E2E «Стол»: 6 игроков + GM, полный цикл хода (7 браузерных контекстов)', 'PASS', tail);
+  } else {
+    record(
+      'A1.16',
+      'E2E «Стол»: 6 игроков + GM, полный цикл хода (7 браузерных контекстов)',
+      'FAIL',
+      `${tail} ${(run.stderr ?? '').slice(-200)}`,
+    );
+  }
+}
+
+const CRITERIA_ORDER = [
+  'A1.1',
+  'A1.2',
+  'A1.3',
+  'A1.4',
+  'A1.5',
+  'A1.6',
+  'A1.7',
+  'A1.8',
+  'A1.9',
+  'A1.10',
+  'A1.11',
+  'A1.12',
+  'A1.13',
+  'A1.14',
+  'A1.15',
+  'A1.16',
+];
+
+/** Агрегация детальных записей по 16 критериям: FAIL перекрывает PASS. */
+function aggregate() {
+  const byId = new Map();
+  for (const row of results) {
+    const prev = byId.get(row.id);
+    if (prev === undefined) {
+      byId.set(row.id, { ...row, notes: [row.note] });
+    } else {
+      prev.notes.push(row.note);
+      if (row.status === 'FAIL') prev.status = 'FAIL';
+      else if (row.status === 'PASS' && prev.status === 'NOT_IMPLEMENTED') prev.status = 'PASS';
+    }
+  }
+  return byId;
+}
 
 function printTable() {
-  const width = Math.max(...results.map((r) => r.title.length), 40);
+  const byId = aggregate();
+  const rows = CRITERIA_ORDER.map((id) => byId.get(id)).filter((row) => row !== undefined);
+  const width = Math.max(...rows.map((r) => r.title.length), 40);
   const line = (id, title, status, note) => {
     const mark = status === 'PASS' ? '✅ PASS' : status === 'FAIL' ? '❌ FAIL' : '⬜ N/A  ';
     return `${id.padEnd(7)} ${mark}  ${title.padEnd(width)}  ${note ?? ''}`;
   };
-  process.stdout.write('\n=== МНЕМОСИН · verify:stage1 — критерии A1 ===\n\n');
-  for (const r of results) process.stdout.write(line(r.id, r.title, r.status, r.note) + '\n');
+  process.stdout.write('\n=== МНЕМОСИН · verify:stage1 — критерии A1 (этап 1 «Стол») ===\n\n');
+  for (const r of rows) {
+    const note = (r.notes ?? [r.note]).filter(Boolean).join(' · ');
+    process.stdout.write(line(r.id, r.title, r.status, note.slice(0, 240)) + '\n');
+  }
+  // Детальные строки вне 16 критериев (служебные прогoны) — в verbose-хвост.
+  const extra = results.filter((row) => !CRITERIA_ORDER.includes(row.id));
+  if (extra.length > 0) {
+    process.stdout.write('\n--- детализация прогонов ---\n');
+    for (const r of extra) {
+      process.stdout.write(line(r.id, r.title, r.status, (r.note ?? '').slice(0, 200)) + '\n');
+    }
+  }
   process.stdout.write('\n');
 
-  const pass = results.filter((r) => r.status === 'PASS').length;
-  const fail = results.filter((r) => r.status === 'FAIL').length;
-  const na = results.filter((r) => r.status === 'NOT_IMPLEMENTED').length;
-  process.stdout.write(`Итого: PASS ${pass} · FAIL ${fail} · ещё не реализовано ${na} (из 16 критериев A1)\n`);
-  return fail;
+  let pass = 0;
+  let fail = 0;
+  let na = 0;
+  for (const id of CRITERIA_ORDER) {
+    const row = byId.get(id);
+    if (row === undefined || row.status === 'NOT_IMPLEMENTED') na += 1;
+    else if (row.status === 'FAIL') fail += 1;
+    else pass += 1;
+  }
+  process.stdout.write(`Итого: PASS ${pass}/16 · FAIL ${fail} · не реализовано ${na}\n`);
+  return fail + na;
 }
 
 async function main() {
+  // Preflight: порт приёмки не должен отвечать чужим процессом (зомби прошлых
+  // прогонов): иначе проверки молча идут против чужого сервера (промпт 1.13).
+  try {
+    const res = await fetch(`${BASE}/health`);
+    if (res.ok) {
+      process.stderr.write(
+        `FATAL: ${BASE}/health отвечает ДО старта проверок — порт ${PORT} занят чужим процессом. Остановите его и повторите.\n`,
+      );
+      process.exit(2);
+    }
+  } catch {
+    /* порт свободен — ожидаемое состояние */
+  }
+
   if (!existsSync(TSX)) {
     process.stderr.write('node_modules/.bin/tsx не найден — выполните npm install\n');
     process.exit(1);
@@ -1090,6 +1240,7 @@ async function main() {
   await a1_9_ws_reconnect();
   await a1_14_extensibility();
   await a1_12_a1_13_switchProvider();
+  await a1_16_e2e_table();
   for (const [id, title, where] of NOT_IMPLEMENTED) {
     record(id, title, 'NOT_IMPLEMENTED', where);
   }

@@ -28,7 +28,7 @@ describe('resolveProjectRoot', () => {
     const previous = process.env['MNEMOSIN_HOME'];
     process.env['MNEMOSIN_HOME'] = '/tmp/explicit-home';
     try {
-      expect(resolveProjectRoot(resolve(ROOT, 'apps/server'))).toBe('/tmp/explicit-home');
+      expect(resolveProjectRoot(resolve(ROOT, 'apps/server'))).toBe(resolve('/tmp/explicit-home'));
     } finally {
       if (previous === undefined) delete process.env['MNEMOSIN_HOME'];
       else process.env['MNEMOSIN_HOME'] = previous;
@@ -36,6 +36,6 @@ describe('resolveProjectRoot', () => {
   });
 
   it('из каталога вне проекта возвращает стартовый путь (не падает)', () => {
-    expect(resolveProjectRoot('/tmp')).toBe('/tmp');
+    expect(resolveProjectRoot('/tmp')).toBe(resolve('/tmp'));
   });
 });

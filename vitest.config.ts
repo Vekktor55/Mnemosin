@@ -21,8 +21,14 @@ export default defineConfig({
       provider: 'v8',
       reporter: ['text', 'html'],
       include: ['core/src/**', 'modules/*/src/**', 'infrastructure/*/src/**', 'gateways/*/src/**'],
-      // Пороги из v3 §IX.5 включаются в промпте 1.13, когда появится код:
-      // core >= 90%, modules >= 75%, adapters/gateways >= 60%.
+      // Пороги v3 §IX.5 (промпт 1.13, п.7): core ≥ 90%, modules ≥ 75%,
+      // adapters/gateways ≥ 60%. Недобор → красный CI (exit code vitest).
+      thresholds: {
+        'core/src/**': { lines: 90, statements: 90, branches: 90, functions: 90 },
+        'modules/*/src/**': { lines: 75, statements: 75, branches: 75, functions: 75 },
+        'infrastructure/*/src/**': { lines: 60, statements: 60, branches: 60, functions: 60 },
+        'gateways/*/src/**': { lines: 60, statements: 60, branches: 60, functions: 60 },
+      },
     },
     projects: [
       { extends: true, test: { name: 'unit', include: ['tests/unit/**/*.test.ts'] } },

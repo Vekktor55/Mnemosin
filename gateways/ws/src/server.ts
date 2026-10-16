@@ -57,7 +57,11 @@ export async function registerWsGateway(app: FastifyInstance, deps: WsGatewayDep
   const logger = deps.logger;
   const registry = new ConnectionRegistry();
   const broadcaster = new WsBroadcaster(registry, logger);
-  const broadcast = attachWsBroadcast({ deps, registry, broadcaster, logger });
+  // Сборочная правка (промпт 1.12): exactOptionalPropertyTypes не позволяет
+  // передавать `logger: WsGatewayLog | undefined` в опциональное свойство —
+  // условный spread сохраняет прежнее поведение без изменения типов портов.
+  const loggerProp = logger === undefined ? {} : { logger };
+  const broadcast = attachWsBroadcast({ deps, registry, broadcaster, ...loggerProp });
 
   await app.register(websocket, {
     options: {
@@ -80,7 +84,7 @@ export async function registerWsGateway(app: FastifyInstance, deps: WsGatewayDep
     deps,
     registry,
     broadcaster,
-    logger,
+    ...loggerProp,
     hooks: {
       onAuth: async (state, token) => {
         await authenticate(state, token);

@@ -22,7 +22,10 @@ export function listSourceFiles(dir: string, exts = ['.ts']): string[] {
       if (entry === 'node_modules' || entry === 'dist' || entry.startsWith('.')) continue;
       const stat = statSync(full);
       if (stat.isDirectory()) walk(full);
-      else if (exts.some((ext) => full.endsWith(ext)) && !full.endsWith('.d.ts')) out.push(relative(ROOT, full));
+      else if (exts.some((ext) => full.endsWith(ext)) && !full.endsWith('.d.ts'))
+        // Windows: path.relative даёт backslashes — нормализуем к posix,
+        // иначе манифесты/allowlist'ы (всегда с '/') не совпадают (промпт 1.13, e2e-win).
+        out.push(relative(ROOT, full).replace(/\\+/g, '/'));
     }
   };
   walk(abs);
@@ -209,7 +212,19 @@ export const LAYER_RULES: readonly LayerRule[] = [
     layer: 'client',
     dirs: ['client'],
     internal: ['@mnemosin/contracts'],
-    external: ['zod', 'svelte', 'svelte/*', 'svelte/store', 'node:crypto'],
+    // Промпт 1.12: vite/@sveltejs/node:url — только для client/vite.config.ts
+    // (инструментарий сборки); рантайм-код src/ ограничен contracts+svelte+zod
+    // (детальная проверка — тест «клиент импортирует только контракты»).
+    external: [
+      'zod',
+      'svelte',
+      'svelte/*',
+      'svelte/store',
+      'node:crypto',
+      'vite',
+      '@sveltejs/vite-plugin-svelte',
+      'node:url',
+    ],
     forbiddenNote: 'клиент импортирует только контракты (v3 §IX.6): core/modules/database/gateways недоступны',
   },
 ];

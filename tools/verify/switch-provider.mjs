@@ -26,7 +26,7 @@ import { resolve, dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
-const TSX = resolve(ROOT, 'node_modules/.bin/tsx');
+const TSX = resolve(ROOT, 'node_modules/.bin', process.platform === 'win32' ? 'tsx.cmd' : 'tsx');
 const PORT = Number(process.env['VERIFY_AI_PORT'] ?? 3913);
 const BASE = `http://127.0.0.1:${PORT}`;
 const DB_FILE = 'verify-ai.sqlite';

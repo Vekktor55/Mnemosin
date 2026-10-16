@@ -1,0 +1,465 @@
+/**
+ * Рабочий стол GM (промпт 1.12, п.6): «плотный» — компактные таблицы, вкладки,
+ * много информации на экране. Принцип v1 D85 (раздельные player/gm-стили).
+ */
+
+.gm-body {
+  font-size: 14px;
+}
+
+.gm-shell {
+  display: grid;
+  grid-template-columns: minmax(200px, 250px) 1fr minmax(240px, 320px);
+  grid-template-rows: auto 1fr;
+  grid-template-areas:
+    'header header header'
+    'left center right';
+  gap: 8px;
+  padding: 8px 10px;
+  height: 100%;
+}
+
+.gm-header {
+  grid-area: header;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.gm-title {
+  font-size: 0.95rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--mn-warn);
+  font-weight: 700;
+}
+
+.gm-left,
+.gm-center,
+.gm-right {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-height: 0;
+}
+
+.gm-left {
+  grid-area: left;
+  overflow-y: auto;
+}
+
+.gm-center {
+  grid-area: center;
+  overflow-y: auto;
+}
+
+.gm-right {
+  grid-area: right;
+  overflow-y: auto;
+}
+
+.gm-shell .panel {
+  padding: 8px 10px;
+  border-radius: var(--mn-radius-sm);
+}
+
+.gm-shell .panel-title {
+  margin-bottom: 6px;
+}
+
+/* ------------------------------------------------------------------ вкладки */
+
+.gm-tabs {
+  display: flex;
+  gap: 4px;
+  border-bottom: 1px solid var(--mn-border);
+  margin-bottom: 8px;
+  flex-wrap: wrap;
+}
+
+.gm-tabs button {
+  border: 1px solid transparent;
+  border-bottom: none;
+  border-radius: var(--mn-radius-sm) var(--mn-radius-sm) 0 0;
+  padding: 5px 14px;
+  background: transparent;
+  color: var(--mn-text-dim);
+  font-size: 0.85rem;
+}
+
+.gm-tabs button.active {
+  background: var(--mn-bg-raised);
+  border-color: var(--mn-border);
+  color: var(--mn-warn);
+  font-weight: 600;
+}
+
+.gm-tab-body {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+/* ------------------------------------------------------------------ таблицы */
+
+.gm-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.84rem;
+}
+
+.gm-table th {
+  text-align: left;
+  color: var(--mn-text-faint);
+  font-weight: 600;
+  text-transform: uppercase;
+  font-size: 0.7rem;
+  letter-spacing: 0.05em;
+  padding: 3px 6px;
+  border-bottom: 1px solid var(--mn-border-strong);
+}
+
+.gm-table td {
+  padding: 3px 6px;
+  border-bottom: 1px solid var(--mn-border);
+  vertical-align: top;
+  word-break: break-word;
+}
+
+.gm-table tr:hover td {
+  background: rgba(122, 162, 247, 0.04);
+}
+
+/* --------------------------------------------------------------- review tab */
+
+.review-header {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.review-actions {
+  display: flex;
+  gap: 6px;
+  margin-left: auto;
+  flex-wrap: wrap;
+}
+
+.diagnostics-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 4px 12px;
+  font-size: 0.82rem;
+}
+
+.diagnostics-grid .dg-item {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  border-bottom: 1px dotted var(--mn-border);
+  padding: 1px 0;
+}
+
+.diagnostics-grid .dg-key {
+  color: var(--mn-text-faint);
+}
+
+.diagnostics-grid .dg-value {
+  font-family: var(--mn-font-mono);
+}
+
+.stale-banner {
+  border: 1px solid var(--mn-warn);
+  color: var(--mn-warn);
+  background: rgba(229, 192, 123, 0.08);
+  border-radius: var(--mn-radius-sm);
+  padding: 7px 10px;
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  font-size: 0.86rem;
+}
+
+.review-item {
+  border: 1px solid var(--mn-border);
+  border-radius: var(--mn-radius-sm);
+  padding: 7px 9px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  background: var(--mn-bg-raised);
+}
+
+.review-item.rejected {
+  opacity: 0.55;
+  border-color: var(--mn-danger);
+}
+
+.review-item-head {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+  font-size: 0.8rem;
+  color: var(--mn-text-dim);
+}
+
+.review-item textarea {
+  width: 100%;
+  min-height: 52px;
+  font-size: 0.9rem;
+}
+
+.status-toggle {
+  display: inline-flex;
+  gap: 0;
+  border: 1px solid var(--mn-border-strong);
+  border-radius: var(--mn-radius-sm);
+  overflow: hidden;
+}
+
+.status-toggle label {
+  padding: 2px 9px;
+  font-size: 0.76rem;
+  cursor: pointer;
+  color: var(--mn-text-dim);
+  user-select: none;
+}
+
+.status-toggle input {
+  display: none;
+}
+
+.status-toggle label.checked-approve {
+  background: rgba(92, 214, 138, 0.16);
+  color: var(--mn-ok);
+}
+
+.status-toggle label.checked-reject {
+  background: rgba(240, 113, 120, 0.16);
+  color: var(--mn-danger);
+}
+
+.rules-list {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  font-size: 0.8rem;
+}
+
+.rules-list .rule-fail {
+  color: var(--mn-warn);
+}
+
+/* ------------------------------------------------------------- turn controls */
+
+.turn-controls {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.turn-card-line {
+  display: flex;
+  gap: 12px;
+  align-items: baseline;
+  flex-wrap: wrap;
+}
+
+.actions-feed {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-height: 240px;
+  overflow-y: auto;
+}
+
+.actions-feed .action-row {
+  display: flex;
+  gap: 8px;
+  font-size: 0.85rem;
+  border-bottom: 1px dotted var(--mn-border);
+  padding: 2px 0;
+}
+
+.actions-feed .seq {
+  font-family: var(--mn-font-mono);
+  color: var(--mn-accent);
+  min-width: 24px;
+}
+
+/* ---------------------------------------------------------------- state tab */
+
+.state-columns {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 10px;
+}
+
+.knowledge-block {
+  border-left: 2px solid var(--mn-private);
+  padding-left: 8px;
+  margin: 4px 0;
+}
+
+.location-block {
+  border: 1px solid var(--mn-border);
+  border-radius: var(--mn-radius-sm);
+  padding: 6px 8px;
+  margin-bottom: 6px;
+}
+
+.location-block summary {
+  cursor: pointer;
+  color: var(--mn-narrative);
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
+.gm-secret {
+  color: var(--mn-warn);
+  font-size: 0.82rem;
+  border: 1px dashed var(--mn-warn);
+  border-radius: var(--mn-radius-sm);
+  padding: 5px 8px;
+  margin-top: 4px;
+}
+
+.move-form,
+.flag-form {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.move-form .player-picks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.move-form .player-picks label,
+.flag-form label {
+  font-size: 0.84rem;
+  color: var(--mn-text-dim);
+  display: inline-flex;
+  gap: 4px;
+  align-items: center;
+}
+
+.form-row {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.form-hint {
+  font-size: 0.8rem;
+  color: var(--mn-text-faint);
+}
+
+.form-hint.warn {
+  color: var(--mn-warn);
+}
+
+/* -------------------------------------------------------------- inspect tab */
+
+.inspect-json {
+  max-height: 480px;
+}
+
+.journal-payload {
+  max-height: 180px;
+  overflow: auto;
+  font-size: 0.78rem;
+}
+
+/* --------------------------------------------------------------- notes/audit */
+
+.notes-form textarea {
+  width: 100%;
+  min-height: 60px;
+}
+
+.note-item {
+  border-bottom: 1px dotted var(--mn-border);
+  padding: 4px 0;
+  font-size: 0.86rem;
+}
+
+.note-item .note-meta {
+  color: var(--mn-text-faint);
+  font-size: 0.74rem;
+  font-family: var(--mn-font-mono);
+}
+
+/* --------------------------------------------------------------- session card */
+
+.session-card {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+  font-size: 0.82rem;
+}
+
+.session-card input[readonly] {
+  font-family: var(--mn-font-mono);
+  font-size: 0.78rem;
+  width: 300px;
+  color: var(--mn-text-dim);
+}
+
+/* ----------------------------------------------------------------- login (gm) */
+
+.gm-login {
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.gm-login .login-card {
+  width: min(480px, 94vw);
+}
+
+.mode-switch {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 14px;
+}
+
+.mode-switch button.active {
+  border-color: var(--mn-warn);
+  color: var(--mn-warn);
+}
+
+.gm-result {
+  margin-top: 14px;
+  border: 1px solid var(--mn-ok);
+  border-radius: var(--mn-radius-sm);
+  padding: 10px 12px;
+  font-size: 0.86rem;
+}
+
+.gm-result input[readonly] {
+  width: 100%;
+  font-family: var(--mn-font-mono);
+  font-size: 0.78rem;
+  margin-top: 4px;
+}
+
+@media (max-width: 1100px) {
+  .gm-shell {
+    grid-template-columns: 1fr;
+    grid-template-areas:
+      'header'
+      'center'
+      'left'
+      'right';
+    height: auto;
+  }
+}

@@ -1,6 +1,6 @@
 import { spawn, type ChildProcessWithoutNullStreams } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
-import { mkdtempSync, rmSync } from 'node:fs';
+import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -12,7 +12,7 @@ import { sql } from 'drizzle-orm';
 import { nowIso, type TurnId } from '@mnemosin/contracts';
 import { bootstrapDatabase } from '@mnemosin/database';
 
-import { makeAction, makeChat, seedWorld } from './helpers.js';
+import { makeAction, makeChat, seedWorld, rmSafe } from './helpers.js';
 
 /**
  * Промпт 1.4 · критерий A1.11: персистентность и восстановление после сбоя.
@@ -26,7 +26,7 @@ import { makeAction, makeChat, seedWorld } from './helpers.js';
  */
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
-const TSX = resolve(ROOT, 'node_modules/.bin/tsx');
+const TSX = resolve(ROOT, 'node_modules/.bin', process.platform === 'win32' ? 'tsx.cmd' : 'tsx');
 const CHILD = resolve(ROOT, 'tests/integration/crash-child.ts');
 
 interface ChildRun {
@@ -143,7 +143,7 @@ describe('crash-consistency: SIGKILL в середине транзакции', 
     ).rejects.toThrow();
 
     await boot.close();
-    rmSync(dir, { recursive: true, force: true });
+    rmSafe(dir);
   });
 
   it('большая транзакция (2000 строк журнала) при убийстве не оставляет частичных данных', async () => {
@@ -178,7 +178,7 @@ describe('crash-consistency: SIGKILL в середине транзакции', 
     });
     expect(await repos.journal.lastId(sessionId as never)).toBe(1);
     await boot.close();
-    rmSync(dir, { recursive: true, force: true });
+    rmSafe(dir);
   });
 
   it('данные, записанные до рестарта процесса, читаются после него (A1.11)', async () => {
@@ -205,6 +205,6 @@ describe('crash-consistency: SIGKILL в середине транзакции', 
     expect(chat[0]?.text).toBe('Проверка связи');
     await second.close();
 
-    rmSync(dir, { recursive: true, force: true });
+    rmSafe(dir);
   });
 });

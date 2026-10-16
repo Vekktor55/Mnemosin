@@ -1,0 +1,104 @@
+# CI этапа 1 «Стол» (промпт 1.13, п.6; v3 §IX.7; аудит F-11.2).
+#
+# Порядок шагов повторяет локальную приёмку: lint → typecheck → тесты по
+# проектам → coverage-пороги (v3 §IX.5) → build → e2e (офлайн-стенды, без
+# сети и ключей) → npm audit → secret scanning → verify:stage1 (16/16 A1).
+# Всё детерминировано: AI_PROVIDER=scripted, MEDIA_PROVIDER=debug (stage 1
+# не регистрирует media-провайдеров; значение фиксирует «боевого» медиа нет).
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    name: Node ${{ matrix.node }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        node: [22]
+    env:
+      NODE_ENV: test
+      AI_PROVIDER: scripted
+      MEDIA_PROVIDER: debug
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node ${{ matrix.node }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+
+      - name: npm ci
+        run: npm ci
+
+      - name: lint (eslint + prettier)
+        run: npm run lint
+
+      - name: typecheck (tsc -b)
+        run: npm run typecheck
+
+      - name: test:unit
+        run: npm run test:unit
+
+      - name: test:integration
+        run: npm run test:integration
+
+      - name: test:arch
+        run: npm run test:arch
+
+      - name: test:contract
+        run: npm run test:contract
+
+      - name: coverage + пороги v3 §IX.5 (core ≥90, modules ≥75, adapters/gateways ≥60)
+        run: npx vitest run --coverage
+
+      - name: build (tsc -b + vite client)
+        run: |
+          npm run build
+          npm run build -w client
+
+      - name: Playwright browsers
+        run: npx playwright install --with-deps chromium
+
+      - name: test:e2e (офлайн-стенды, без сети и ключей)
+        run: npm run test:e2e
+
+      - name: npm audit (high+)
+        run: npm audit --audit-level=high
+
+      - name: secret scanning (gitleaks)
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: verify:stage1 — приёмка A1.1–A1.16
+        run: npm run verify:stage1
+
+      - name: artifact — playwright report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report-node${{ matrix.node }}
+          path: playwright-report/
+          retention-days: 14
+          if-no-files-found: ignore
+
+      - name: artifact — coverage
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-node${{ matrix.node }}
+          path: coverage/
+          retention-days: 14
+          if-no-files-found: ignore

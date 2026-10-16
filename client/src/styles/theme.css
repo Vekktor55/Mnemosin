@@ -1,0 +1,203 @@
+/**
+ * Тема МНЕМОСИН (промпт 1.12, п.6): тёмная тема на CSS-переменных,
+ * без UI-библиотек (D103). player.css и gm.css переиспользуют эти переменные
+ * (принцип v1 D85: атмосферный экран игрока vs плотный рабочий стол GM).
+ */
+
+:root {
+  /* базовая палитра — «тревожная тишина шлюза» */
+  --mn-bg: #0d1117;
+  --mn-bg-raised: #151b24;
+  --mn-bg-sunken: #090c11;
+  --mn-panel: #121821;
+  --mn-border: #232d3a;
+  --mn-border-strong: #33415a;
+  --mn-text: #d7dee8;
+  --mn-text-dim: #8b97a8;
+  --mn-text-faint: #5c6774;
+  --mn-accent: #7aa2f7;
+  --mn-accent-dim: #3d5a9e;
+  --mn-ok: #5cd68a;
+  --mn-warn: #e5c07b;
+  --mn-danger: #f07178;
+  --mn-private: #c792ea;
+  --mn-narrative: #a8c7fa;
+  --mn-radius: 10px;
+  --mn-radius-sm: 6px;
+  --mn-font: 'Segoe UI', 'Noto Sans', system-ui, -apple-system, sans-serif;
+  --mn-font-mono: 'Cascadia Code', 'JetBrains Mono', ui-monospace, monospace;
+  color-scheme: dark;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  background: var(--mn-bg);
+  color: var(--mn-text);
+  font-family: var(--mn-font);
+  font-size: 15px;
+  line-height: 1.45;
+}
+
+#app {
+  height: 100%;
+}
+
+button {
+  font: inherit;
+  color: var(--mn-text);
+  background: var(--mn-bg-raised);
+  border: 1px solid var(--mn-border-strong);
+  border-radius: var(--mn-radius-sm);
+  padding: 6px 12px;
+  cursor: pointer;
+  transition:
+    border-color 120ms ease,
+    background 120ms ease;
+}
+
+button:hover:not(:disabled) {
+  border-color: var(--mn-accent);
+  background: #1a2230;
+}
+
+button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+button.primary {
+  background: var(--mn-accent-dim);
+  border-color: var(--mn-accent);
+}
+
+button.danger {
+  border-color: var(--mn-danger);
+  color: var(--mn-danger);
+}
+
+input,
+select,
+textarea {
+  font: inherit;
+  color: var(--mn-text);
+  background: var(--mn-bg-sunken);
+  border: 1px solid var(--mn-border);
+  border-radius: var(--mn-radius-sm);
+  padding: 7px 10px;
+}
+
+input:focus,
+select:focus,
+textarea:focus {
+  outline: 1px solid var(--mn-accent);
+}
+
+textarea {
+  resize: vertical;
+}
+
+code,
+pre,
+.mono {
+  font-family: var(--mn-font-mono);
+  font-size: 0.86em;
+}
+
+pre {
+  background: var(--mn-bg-sunken);
+  border: 1px solid var(--mn-border);
+  border-radius: var(--mn-radius-sm);
+  padding: 8px 10px;
+  overflow: auto;
+  max-height: 420px;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+::-webkit-scrollbar {
+  width: 9px;
+  height: 9px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--mn-border-strong);
+  border-radius: 5px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.badge {
+  display: inline-block;
+  padding: 1px 8px;
+  border-radius: 999px;
+  border: 1px solid var(--mn-border-strong);
+  font-size: 0.74rem;
+  letter-spacing: 0.03em;
+  color: var(--mn-text-dim);
+  white-space: nowrap;
+}
+
+.badge.ok {
+  color: var(--mn-ok);
+  border-color: var(--mn-ok);
+}
+
+.badge.warn {
+  color: var(--mn-warn);
+  border-color: var(--mn-warn);
+}
+
+.badge.danger {
+  color: var(--mn-danger);
+  border-color: var(--mn-danger);
+}
+
+.badge.accent {
+  color: var(--mn-accent);
+  border-color: var(--mn-accent);
+}
+
+.badge.private {
+  color: var(--mn-private);
+  border-color: var(--mn-private);
+}
+
+.dim {
+  color: var(--mn-text-dim);
+}
+
+.faint {
+  color: var(--mn-text-faint);
+}
+
+.error-text {
+  color: var(--mn-danger);
+}
+
+.ok-text {
+  color: var(--mn-ok);
+}
+
+.panel {
+  background: var(--mn-panel);
+  border: 1px solid var(--mn-border);
+  border-radius: var(--mn-radius);
+  padding: 10px 12px;
+}
+
+.panel-title {
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--mn-text-faint);
+  margin: 0 0 8px;
+}

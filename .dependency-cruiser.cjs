@@ -83,7 +83,13 @@ module.exports = {
   ],
   options: {
     doNotFollow: { path: 'node_modules' },
-    exclude: { path: '(^|/)(dist|node_modules|coverage|data)(/|$)' },
+    exclude: { path: '(^|/)(dist|dist-types|node_modules|coverage|data)(/|$)|\\.svelte$' },
+    // Промпт 1.12: клиент содержит .svelte-компоненты — dependency-cruiser не
+    // умеет их парсить (svelte-синтаксис $store). Границы .svelte контролируют
+    // eslint (svelte-eslint-parser + no-restricted-imports) и arch-тест
+    // «клиент импортирует только контракты»; cruiser остаётся на TS/JS:
+    // .svelte исключены из графа (импорты на них — вне правил cruiser).
+    // exclude: { path: ... } ниже расширен на \.svelte$.
     tsPreCompilationDeps: true,
     tsConfig: { fileName: 'tsconfig.base.json' },
     enhancedResolveOptions: {
