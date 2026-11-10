@@ -1,4 +1,0 @@
-capabilities:
-  TEXT_AI:
-    required: true
-    chain: [scripted, ghost-provider]
