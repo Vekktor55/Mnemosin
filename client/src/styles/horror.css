@@ -1,0 +1,236 @@
+
+/**
+ * horror.css — атмосферный графический слой МНЕМОСИН (Psychological Horror /
+ * Dark Fantasy / Noir RPG). Подключается из theme.css (@import), поэтому
+ * доступен обеим точкам входа (/player/ и /gm/) без изменения main.ts.
+ *
+ * Слой чисто декоративный: все оверлеи имеют pointer-events: none и не
+ * затрагивают руны Svelte 5, WebSocket-логику и структуру GameState.
+ *
+ * Состав:
+ *  1. .mn-fog-a / .mn-fog-b — бордово-чёрная дымка (CSS-градиенты,
+ *     filter: blur(60px), @keyframes fogMove);
+ *  2. .mn-grain — зерно старой плёнки (анимированный SVG feTurbulence,
+ *     opacity: 0.04);
+ *  3. .mn-vignette — глубокое затемнение по периметру
+ *     (box-shadow: inset 0 0 140px rgba(0, 0, 0, 0.95));
+ *  4. .mn-scanlines — едва заметные строки развёртки (Noir / CRT);
+ *  5. служебные @keyframes: fogMove, grainShift, scenePulse, ritualBreathe,
+ *     microGlitch, statusPulse, sigilSpin.
+ */
+
+/* ------------------------------------------------------------- 1. туман (фон) */
+
+/*
+ * Слои тумана живут ВНУТРИ GameShell (position: fixed, z-index: -1) и
+ * плавают за сеткой контента. Движение — медленное, разнонаправленное,
+ * чтобы дымка «дышала», а не мигала.
+ */
+.mn-fog-a,
+.mn-fog-b {
+  position: fixed;
+  inset: -30vh -30vw;
+  z-index: -1;
+  pointer-events: none;
+  filter: blur(60px);
+  will-change: transform, opacity;
+}
+
+.mn-fog-a {
+  background:
+    radial-gradient(45vw 40vh at 20% 30%, rgba(139, 0, 0, 0.16), transparent 70%),
+    radial-gradient(55vw 45vh at 80% 70%, rgba(60, 8, 12, 0.28), transparent 72%),
+    radial-gradient(40vw 35vh at 55% 15%, rgba(20, 6, 10, 0.35), transparent 70%);
+  animation: fogMove 48s ease-in-out infinite alternate;
+}
+
+.mn-fog-b {
+  background:
+    radial-gradient(50vw 38vh at 75% 25%, rgba(107, 20, 20, 0.12), transparent 70%),
+    radial-gradient(60vw 50vh at 25% 80%, rgba(10, 4, 8, 0.4), transparent 75%),
+    radial-gradient(35vw 30vh at 45% 55%, rgba(90, 12, 24, 0.08), transparent 70%);
+  animation: fogMove 64s ease-in-out infinite alternate-reverse;
+  opacity: 0.85;
+}
+
+@keyframes fogMove {
+  0% {
+    transform: translate3d(-4vw, -2vh, 0) scale(1.02) rotate(0deg);
+    opacity: 0.65;
+  }
+  50% {
+    transform: translate3d(3vw, 2.5vh, 0) scale(1.1) rotate(0.6deg);
+    opacity: 0.9;
+  }
+  100% {
+    transform: translate3d(5vw, -3vh, 0) scale(1.04) rotate(-0.4deg);
+    opacity: 0.7;
+  }
+}
+
+/* ------------------------------------------------------- 2. зерно (feTurbulence) */
+
+/*
+ * Анимация «плёночного зерна»: SVG-шум feTurbulence вшит data-URI (без
+ * внешних ресурсов), opacity 0.04, сдвиг фона шагами — классический grain.
+ * `%23` — экранированный '#' в data-URI.
+ */
+.mn-grain {
+  position: fixed;
+  inset: -150px;
+  z-index: 9000;
+  pointer-events: none;
+  opacity: 0.04;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.82' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='300' height='300' filter='url(%23n)'/%3E%3C/svg%3E");
+  background-repeat: repeat;
+  animation: grainShift 0.9s steps(6) infinite;
+}
+
+@keyframes grainShift {
+  0% {
+    transform: translate3d(0, 0, 0);
+  }
+  20% {
+    transform: translate3d(-24px, 14px, 0);
+  }
+  40% {
+    transform: translate3d(18px, -22px, 0);
+  }
+  60% {
+    transform: translate3d(-14px, -10px, 0);
+  }
+  80% {
+    transform: translate3d(22px, 18px, 0);
+  }
+  100% {
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+/* ------------------------------------------------------------- 3. виньетка */
+
+.mn-vignette {
+  position: fixed;
+  inset: 0;
+  z-index: 8500;
+  pointer-events: none;
+  box-shadow: inset 0 0 140px rgba(0, 0, 0, 0.95);
+  /* едва уловимая багровая кромка — «кровь на стекле» */
+  background: radial-gradient(120% 100% at 50% 50%, transparent 62%, rgba(58, 6, 10, 0.14) 100%);
+}
+
+/* ------------------------------------------------------- 4. строки развёртки */
+
+.mn-scanlines {
+  position: fixed;
+  inset: 0;
+  z-index: 8400;
+  pointer-events: none;
+  opacity: 0.5;
+  background: repeating-linear-gradient(
+    to bottom,
+    rgba(0, 0, 0, 0) 0px,
+    rgba(0, 0, 0, 0) 2px,
+    rgba(0, 0, 0, 0.16) 3px,
+    rgba(0, 0, 0, 0) 4px
+  );
+  mix-blend-mode: multiply;
+}
+
+/* ------------------------------------------------- 5. служебные анимации */
+
+/** Медленный пульс свечения вокруг арта (смена локации / MEDIA_READY). */
+@keyframes scenePulse {
+  0% {
+    box-shadow:
+      0 0 0 rgba(139, 0, 0, 0),
+      inset 0 0 24px rgba(0, 0, 0, 0.75);
+  }
+  35% {
+    box-shadow:
+      0 0 34px rgba(139, 0, 0, 0.55),
+      inset 0 0 24px rgba(0, 0, 0, 0.75);
+  }
+  100% {
+    box-shadow:
+      0 0 6px rgba(139, 0, 0, 0.12),
+      inset 0 0 24px rgba(0, 0, 0, 0.75);
+  }
+}
+
+/** «Дыхание» ритуального контура (рамки панелей, кнопка хода в покое). */
+@keyframes ritualBreathe {
+  0%,
+  100% {
+    box-shadow: 0 0 0 rgba(139, 0, 0, 0);
+  }
+  50% {
+    box-shadow: 0 0 14px rgba(139, 0, 0, 0.22);
+  }
+}
+
+/**
+ * Micro-glitch: короткое органическое дрожание текста/кнопки при наведении.
+ * Работает в паре с SVG displacement-фильтром (#mn-displace в TurnPanel).
+ */
+@keyframes microGlitch {
+  0% {
+    transform: translate3d(0, 0, 0) skewX(0deg);
+  }
+  12% {
+    transform: translate3d(-1px, 0, 0) skewX(-0.4deg);
+  }
+  24% {
+    transform: translate3d(1px, -1px, 0) skewX(0.3deg);
+  }
+  36% {
+    transform: translate3d(-1px, 1px, 0) skewX(0deg);
+  }
+  48% {
+    transform: translate3d(1px, 0, 0) skewX(0.5deg);
+  }
+  60% {
+    transform: translate3d(0, -1px, 0) skewX(-0.3deg);
+  }
+  72% {
+    transform: translate3d(-1px, 0, 0) skewX(0deg);
+  }
+  100% {
+    transform: translate3d(0, 0, 0) skewX(0deg);
+  }
+}
+
+/** Пульс статус-индикатора (OPEN / ONLINE — «живой» сигнал). */
+@keyframes statusPulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.45;
+  }
+}
+
+/** Медленное вращение ритуальной сигиллы (декор GM-панели). */
+@keyframes sigilSpin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* ---------------------------------------------- доступность: меньше движения */
+
+@media (prefers-reduced-motion: reduce) {
+  .mn-fog-a,
+  .mn-fog-b,
+  .mn-grain {
+    animation: none;
+  }
+
+  .mn-scanlines {
+    display: none;
+  }
+}

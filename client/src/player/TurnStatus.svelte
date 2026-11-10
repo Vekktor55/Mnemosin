@@ -26,7 +26,9 @@
   });
 </script>
 
-<div class="turn-status-line" data-testid="turn-status">
+<!-- Редизайн (только CSS-класс): turn-OPEN / turn-LOCKED / turn-PROCESSING … —
+     контрастная подсветка статусов раунда (player.css). Логика $derived не меняется. -->
+<div class="turn-status-line turn-{turn?.status ?? 'NONE'}" data-testid="turn-status">
   {#if turn !== null}
     <span class="turn-number">Ход #{turn.number}</span>
     <span class="badge {statusBadge.cls}">{statusBadge.label}</span>

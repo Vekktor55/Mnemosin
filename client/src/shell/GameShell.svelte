@@ -28,6 +28,18 @@
 </script>
 
 <div class={role === 'gm' ? 'gm-shell' : 'player-shell'} data-testid="game-shell" data-role={role}>
+  <!--
+    Атмосферный графический слой (horror.css): бордово-чёрный туман (blur 60px,
+    fogMove), плёночное зерно (SVG feTurbulence, opacity 0.04), виньетка
+    (inset 0 0 140px rgba(0,0,0,0.95)) и строки развёртки. Слои декоративные:
+    aria-hidden, pointer-events: none — на руны, WS и GameState не влияют.
+  -->
+  <div class="mn-fog-a" aria-hidden="true"></div>
+  <div class="mn-fog-b" aria-hidden="true"></div>
+  <div class="mn-scanlines" aria-hidden="true"></div>
+  <div class="mn-vignette" aria-hidden="true"></div>
+  <div class="mn-grain" aria-hidden="true"></div>
+
   <header class={role === 'gm' ? 'gm-header' : 'player-header'}>
     <div class={role === 'gm' ? 'gm-title' : 'player-title'}>
       МНЕМО<em>СИН</em>

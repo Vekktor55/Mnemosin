@@ -68,7 +68,11 @@
       <div class="faint">Нет других игроков в сессии.</div>
     {/if}
     {#each thread as message (message.messageId)}
-      <div class="chat-message private-msg" data-message-id={message.messageId}>
+      <!-- private-secret — класс «тайны»: багровый фон + красное свечение текста (player.css). -->
+      <div
+        class={{ 'chat-message': true, 'private-msg': true, 'private-secret': true, director: message.fromPlayerId === null }}
+        data-message-id={message.messageId}
+      >
         <span class="time">{fmtTime(message.createdAt)}</span>
         <span class="author">{nameOf(message.fromPlayerId)} → {nameOf(message.toPlayerId)}:</span>
         <span>{message.text}</span>

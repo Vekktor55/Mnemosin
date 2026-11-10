@@ -35,7 +35,12 @@
   <h3 class="panel-title">Общий чат</h3>
   <div class="chat-messages" data-testid="public-chat">
     {#each messages as message (message.messageId)}
-      <div class="chat-message" data-message-id={message.messageId}>
+      <!-- class={{...}} — только CSS-класс: сообщения без fromPlayerId (AI-Директор)
+           получают алую акцентную рамку слева (player.css .chat-message.director). -->
+      <div
+        class={{ 'chat-message': true, director: message.fromPlayerId === null }}
+        data-message-id={message.messageId}
+      >
         <span class="time">{fmtTime(message.createdAt)}</span>
         <span class="author">{message.fromDisplayName ?? 'Гость'}{message.fromPlayerId !== null && message.fromPlayerId === myPlayerId ? ' (вы)' : ''}:</span>
         <span>{message.text}</span>

@@ -53,7 +53,9 @@
       <div class="faint">Пока тихо. Системные сообщения и нарратив появятся здесь.</div>
     {/if}
     {#each merged as entry (entry.id)}
-      <div class="feed-entry {entry.kind}" data-feed-kind={entry.kind}>
+      <!-- director — класс голоса AI-Директора (нарратив): алая акцентная рамка
+           слева (player.css/gm.css .feed-entry.director). Только CSS-класс. -->
+      <div class="feed-entry {entry.kind} {entry.kind === 'narrative' ? 'director' : ''}" data-feed-kind={entry.kind}>
         <span class="feed-time">{fmtTime(entry.at)}</span>
         {#if entry.kind === 'narrative' && entry.segments !== null}
           {#each entry.segments as segment (segment.segmentId)}

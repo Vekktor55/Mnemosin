@@ -55,10 +55,12 @@
   }
 </script>
 
-<div class="panel session-card" data-testid="session-card">
+<!-- Редизайн (только CSS-классы): gm-operator — «панель оператора» (строгие
+     линии, JetBrains Mono, акцентные индикаторы статусов); логика без изменений. -->
+<div class="panel session-card gm-operator" data-testid="session-card">
   <strong>Сессия:</strong>
   <input readonly data-testid="session-id" value={session.sessionId ?? '…'} onclick={(event) => void copy((event.target as HTMLInputElement).value)} title="клик — скопировать" />
-  <span class="badge {session.status === 'ACTIVE' ? 'ok' : ''}">{session.status ?? '…'}</span>
+  <span class="badge provider-indicator {session.status === 'ACTIVE' ? 'ok' : ''}">{session.status ?? '…'}</span>
   {#if joinLink !== null}
     <input readonly data-testid="join-link" value={joinLink} onclick={(event) => void copy((event.target as HTMLInputElement).value)} title="ссылка входа игроков — клик копирует" />
   {/if}
@@ -72,11 +74,11 @@
   {/if}
 </div>
 
-<div class="gm-tabs" role="tablist">
+<div class="gm-tabs ritual-tabs" role="tablist">
   {#each GM_TABS as item (item.id)}
     <button
       role="tab"
-      class={tab === item.id ? 'active' : ''}
+      class={{ active: tab === item.id, 'ritual-tab': true }}
       data-testid="tab-{item.id}"
       aria-selected={tab === item.id}
       onclick={() => setGmTab(item.id)}
@@ -86,7 +88,7 @@
   {/each}
 </div>
 
-<div class="gm-tab-body">
+<div class="gm-tab-body gm-console">
   {#if tab === 'review'}
     <ReviewTab />
   {:else if tab === 'turn'}

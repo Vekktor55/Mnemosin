@@ -1,33 +1,159 @@
+
 /**
- * Тема МНЕМОСИН (промпт 1.12, п.6): тёмная тема на CSS-переменных,
- * без UI-библиотек (D103). player.css и gm.css переиспользуют эти переменные
- * (принцип v1 D85: атмосферный экран игрока vs плотный рабочий стол GM).
+ * Design Tokens — Gothic Analog Horror (промпт 1.12, эт. B).
+ * Централизованная система визуальных токенов: цвета, типографика,
+ * рамки, тени, радиусы, отступы, анимации.
+ *
+ * Принцип: все компоненты берут переменные из :root. Нигде не разбросаны
+ * цветовые значения — меняют одну переменную, меняется весь интерфейс.
+ *
+ * Цветовая палитра inspired by Gothic Analog Horror / Dark Occult Terminal:
+ *  - почти чёрный графит, уголь, состаренные металлы
+ *  - патинированная латунь, темная бронза, тусклый бордовый
+ *  - состаренный пергамент для текста
+ *  - акцент: засохшая кровь (основной), старое золото (предупреждение)
+ *
+ * Шрифты: Cinzel (display/Cinzel-стиль, локальный fallback) + JetBrains Mono (UI/mono).
+ * Радиусы, отступы, тени — с organically-выглядеющими значениями.
+ * Анимации — умеренные, prefers-reduced-motion aware.
  */
 
+@import './horror.css';
+
 :root {
-  /* базовая палитра — «тревожная тишина шлюза» */
-  --mn-bg: #0d1117;
-  --mn-bg-raised: #151b24;
-  --mn-bg-sunken: #090c11;
-  --mn-panel: #121821;
-  --mn-border: #232d3a;
-  --mn-border-strong: #33415a;
-  --mn-text: #d7dee8;
-  --mn-text-dim: #8b97a8;
-  --mn-text-faint: #5c6774;
-  --mn-accent: #7aa2f7;
-  --mn-accent-dim: #3d5a9e;
-  --mn-ok: #5cd68a;
-  --mn-warn: #e5c07b;
-  --mn-danger: #f07178;
-  --mn-private: #c792ea;
-  --mn-narrative: #a8c7fa;
-  --mn-radius: 10px;
-  --mn-radius-sm: 6px;
-  --mn-font: 'Segoe UI', 'Noto Sans', system-ui, -apple-system, sans-serif;
-  --mn-font-mono: 'Cascadia Code', 'JetBrains Mono', ui-monospace, monospace;
-  color-scheme: dark;
+  /* --------------------- Цветовая палитра --------------------- */
+
+  /* Фон */
+  --mn-bg-deep:        #050506;   /* почти чёрный, холодный графит */
+  --mn-bg-panel:       #0d0c10;   /* тёмный угольный */
+  --mn-bg-raised:      #141218;   /* состаренное дерево / raised panel */
+  --mn-bg-sunken:      #070709;   /* углублённые поверхности */
+
+  /* Рамки и границы */
+  --mn-border-iron:    #2a2428;   /* тёмный состаренный металл */
+  --mn-border-brass:   #7a5c3a;   /* патинированная латунь */
+  --mn-border-bronze:  #4a3a2a;   /* тёмная бронза */
+  --mn-border-blood:   #5a1a1a;   /* тусклый бордовый */
+
+  /* Акценты */
+  --mn-accent-blood:   #8b0000;   /* засохшая кровь — основной акцент */
+  --mn-accent-blood-dim: #5a0d0d; /* приглушённый бордовый */
+  --mn-accent-warn:    #c9a45c;   /* старое золото / предупреждение */
+  --mn-accent-ok:      #6a8a6a;   /* приглушёная зелёнь / успех */
+
+  /* Текст */
+  --mn-text-parchment: #d4c8b8;   /* состаренный пергамент — основной текст */
+  --mn-text-dim:       #9a8f85;   /* второстепенный текст / подсказки */
+  --mn-text-faint:     #6a625a;   /* подписи, мета-данные, выцветший */
+
+  /* Заголовки (Cinzel-style) — более светлый контраст */
+  --mn-text-headline:  #e8dcc8;   /* крупные заголовки */
+
+  /* Четкие оттенки для состояний */
+  --mn-state-error:    #a00000;   /* ошибка — чисто-красный accent */
+  --mn-state-success:  #2a5a3a;   /* успех — темно-зелёный */
+  --mn-state-warning:  #8b5a00;   /* предупреждение — золото */
+
+  /* --------------------- Типографика --------------------- */
+
+  --mn-font-display:   'Cinzel', 'Palatino Linotype', 'Book Antiqua', Palatino, Georgia, serif;
+  --mn-font-ui:        'JetBrains Mono', 'Cascadia Code', ui-monospace, 'SF Mono', Menlo, monospace;
+  --mn-font-mono:      'JetBrains Mono', 'Cascadia Code', ui-monospace, 'SF Mono', Menlo, monospace;
+
+  --mn-text-xxsmall:   0.65rem;   /* мелкие подписи внутри компонентов */
+  --mn-text-xsmall:    0.7rem;
+  --mn-text-small:     0.85rem;
+  --mn-text-base:      1rem;      /* базовый размер основного текста */
+  --mn-text-medium:    1.15rem;
+  --mn-text-large:     1.4rem;
+  --mn-text-xlarge:    1.8rem;
+
+  --mn-line-height:    1.5;       /* базовый line-height */
+  --mn-line-height-tight: 1.3;   /* для заголовков */
+
+  --mn-font-weight-normal: 400;
+  --mn-font-weight-medium: 500;
+  --mn-font-weight-semibold: 600;
+  --mn-font-weight-bold: 700;
+
+  /* Радиусы границ */
+  --mn-radius-none:    0px;
+  --mn-radius-sm:      4px;
+  --mn-radius-md:      6px;
+  --mn-radius-lg:      8px;
+  --mn-radius-full:    9999px;
+
+  /* Тени */
+  --mn-shadow-deep:    rgba(0, 0, 0, 0.7);
+  --mn-shadow-medium:  rgba(0, 0, 0, 0.5);
+  --mn-shadow-inner:   rgba(255, 255, 255, 0.02) 0px 0px 0px 0px inset;
+  --mn-shadow-sm:      rgba(0, 0, 0, 0.4);
+  --mn-shadow-lg:      rgba(0, 0, 0, 0.8);
+
+  /* Границы */
+  --mn-border-width:   1px;
+  --mn-border-width-strong: 2px;
+
+  /* Плотность /不透明度 для декоративных слоев */
+  --mn-opacity-thin:   0.08;
+  --mn-opacity-medium: 0.15;
+  --mn-opacity-thick:  0.25;
+
+  /* Анимации */
+  --mn-dur-fast:       120ms;
+  --mn-dur-base:       200ms;
+  --mn-dur-slow:       400ms;
+  --mn-dur-slower:     700ms;
+  --mn-dur-slowest:    1200ms;
+
+  --mn-ei-base:        cubic-bezier(0.25, 0.46, 0.45, 0.94); /* organic */
+  --mn-ei-sharp:       cubic-bezier(0.4, 0, 0.2, 1);
+  --mn-ei-spring:      cubic-bezier(0.34, 1.56, 0.64, 1);    /* springy */
+  --mn-ei-bounce:      cubic-bezier(0.68, -0.55, 0.27, 1.55); /* bounce */
+
+  /* Animation keyframes names (для синхронизации) */
+  --mn-anim-fade-in:          fadeIn var(--mn-dur-base) var(--mn-ei-base);
+  --mn-anim-fade-out:         fadeOut var(--mn-dur-base) var(--mn-ei-base);
+  --mn-anim-slide-up:         slideUp var(--mn-dur-slow) var(--mn-ei-spring);
+  --mn-anim-slide-down:       slideDown var(--mn-dur-slow) var(--mn-ei-spring);
+  --mn-anim-scale-in:         scaleIn var(--mn-dur-base) var(--mn-ei-spring);
+  --mn-anim-pulse:            pulse var(--mn-dur-slower) ease-in-out infinite;
+  --mn-anim-glow-pulse:       glowPulse 3s ease-in-out infinite;
+  --mn-anim-shimmer:          shimmer 2s ease-in-out infinite;
+  --mn-anim-float:            float 6s ease-in-out infinite;
+  --mn-anim-rotate-slow:      rotateSlow 20s linear infinite;
+  --mn-anim-breath:           breath 4s ease-in-out infinite;
+  --mn-anim-flicker:          flicker 0.15s steps(3) infinite;
+
+  /* Z-index слои */
+  --mn-z-base:         0;
+  --mn-z-panel:        10;
+  --mn-z-tooltip:      100;
+  --mn-z-modal:        1000;
+  --mn-z-toast:        1100;
+
+  /* ----------------------------------------------------------------
+     Глобальные keyframes (доступны всем компонентам)
+     ---------------------------------------------------------------- */
+
+  /* Базовые цвета из старой палитры (для обратной совместимости импортеров) */
+  --bg-dark:           var(--mn-bg-deep);
+  --bg-panel:          var(--mn-bg-panel);
+  --accent-red:        var(--mn-accent-blood);
+  --text-main:         var(--mn-text-parchment);
+  --text-danger:       var(--mn-state-error);
+
+  /* Служебные токены, оставшиеся из старой системы (фиксированы через var()) */
+  --blood-bright:      var(--mn-accent-blood);
+  --ember:             var(--mn-accent-warn);
+  --frame-dark:        var(--mn-border-iron);
+  --frame-darker:      #1a0808; /* оставляем константой, тёмнее 철 */
+  --chat-veil:         rgba(18, 17, 22, 0.85);
 }
+
+/* ----------------------------------------------------------------
+   Базовые сброс и глобальные стили (тело интерфейса)
+   ---------------------------------------------------------------- */
 
 * {
   box-sizing: border-box;
@@ -38,70 +164,282 @@ body {
   margin: 0;
   padding: 0;
   height: 100%;
-  background: var(--mn-bg);
-  color: var(--mn-text);
-  font-family: var(--mn-font);
-  font-size: 15px;
-  line-height: 1.45;
+  background: var(--mn-bg-deep);
+  color: var(--mn-text-parchment);
+  font-family: var(--mn-font-ui);
+  font-size: var(--mn-text-base);
+  line-height: var(--mn-line-height);
+  color-scheme: dark;
 }
 
-#app {
-  height: 100%;
+/* Заголовки используют display-шрифт */
+h1,
+h2,
+h3,
+h4 {
+  font-family: var(--mn-font-display);
 }
+
+/* ----------------------------------------------------------------
+   Кнопки (все используют font: inherit, цвета через переменные)
+   ---------------------------------------------------------------- */
 
 button {
   font: inherit;
-  color: var(--mn-text);
-  background: var(--mn-bg-raised);
-  border: 1px solid var(--mn-border-strong);
+  color: var(--mn-text-parchment);
+  background: linear-gradient(180deg, #1a1720 0%, #131118 100%);
+  border: 1px solid var(--mn-border-iron);
   border-radius: var(--mn-radius-sm);
   padding: 6px 12px;
   cursor: pointer;
+  letter-spacing: 0.04em;
+  position: relative;
+  overflow: hidden;
   transition:
-    border-color 120ms ease,
-    background 120ms ease;
+    border-color var(--mn-dur-base) var(--mn-ei-base),
+    background var(--mn-dur-base) var(--mn-ei-base),
+    box-shadow var(--mn-dur-base) var(--mn-ei-base),
+    color var(--mn-dur-base) var(--mn-ei-base),
+    transform var(--mn-dur-fast) var(--mn-ei-base);
 }
 
+/* Hover — рамка латунью, легкое свечение, лёгкий подъём */
 button:hover:not(:disabled) {
-  border-color: var(--mn-accent);
-  background: #1a2230;
+  border-color: var(--mn-border-brass);
+  background: #201a22;
+  box-shadow: 0 0 10px rgba(122, 92, 58, 0.3), 0 2px 8px rgba(0, 0, 0, 0.3);
+  transform: translateY(-1px);
 }
 
+/* Active — нажатие (вдавливание) */
+button:active:not(:disabled) {
+  transform: translateY(1px) scale(0.98);
+  box-shadow: 0 0 6px rgba(122, 92, 58, 0.2), inset 0 2px 4px rgba(0, 0, 0, 0.4);
+  transition: transform 50ms var(--mn-ei-sharp), box-shadow 50ms var(--mn-ei-sharp);
+}
+
+/* Focus-visible — клавиатурная навигация (a11y) */
+button:focus-visible {
+  outline: none;
+  border-color: var(--mn-accent-blood);
+  box-shadow:
+    0 0 0 2px var(--mn-bg-deep),
+    0 0 0 4px var(--mn-accent-blood),
+    0 0 12px rgba(139, 0, 0, 0.5);
+}
+
+/* Disabled — приглушен */
 button:disabled {
   opacity: 0.45;
   cursor: not-allowed;
+  transform: none;
 }
 
+/* Loading state — спиннер внутри кнопки */
+button.loading {
+  position: relative;
+  color: transparent !important;
+  pointer-events: none;
+}
+
+button.loading::after {
+  content: '';
+  position: absolute;
+  width: 16px;
+  height: 16px;
+  top: 50%;
+  left: 50%;
+  margin: -8px 0 0 -8px;
+  border: 2px solid var(--mn-border-brass);
+  border-top-color: var(--mn-accent-blood);
+  border-radius: 50%;
+  animation: rotateSlow 0.8s linear infinite;
+}
+
+/* Primary кнопки — бордовый градиент */
 button.primary {
-  background: var(--mn-accent-dim);
-  border-color: var(--mn-accent);
+  background: linear-gradient(180deg, #7a1a1a 0%, var(--ember) 100%);
+  border-color: var(--mn-accent-blood);
+  color: #f2e9e4;
+  text-shadow: 0 0 8px rgba(255, 51, 51, 0.35);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 140, 140, 0.15),
+    0 2px 8px rgba(0, 0, 0, 0.5);
 }
 
+/* Primary hover — интенсивнее + пульсация свечения */
+button.primary:hover:not(:disabled) {
+  box-shadow:
+    inset 0 1px 0 rgba(255, 140, 140, 0.2),
+    0 0 20px rgba(255, 30, 30, 0.4),
+    0 4px 12px rgba(0, 0, 0, 0.5);
+  transform: translateY(-1px);
+}
+
+button.primary:active:not(:disabled) {
+  transform: translateY(1px) scale(0.98);
+  box-shadow:
+    inset 0 2px 6px rgba(0, 0, 0, 0.5),
+    0 0 10px rgba(255, 30, 30, 0.3);
+}
+
+button.primary:focus-visible {
+  outline: none;
+  box-shadow:
+    0 0 0 2px var(--mn-bg-deep),
+    0 0 0 4px var(--mn-accent-blood),
+    0 0 20px rgba(255, 30, 30, 0.6),
+    0 4px 12px rgba(0, 0, 0, 0.5);
+}
+
+/* Danger кнопка */
 button.danger {
   border-color: var(--mn-danger);
   color: var(--mn-danger);
+  background: linear-gradient(180deg, #1a1720 0%, #131118 100%);
 }
+
+button.danger:hover:not(:disabled) {
+  border-color: var(--mn-state-error);
+  background: #2a1010;
+  box-shadow: 0 0 12px rgba(160, 0, 0, 0.3);
+  transform: translateY(-1px);
+}
+
+button.danger:focus-visible {
+  outline: none;
+  box-shadow:
+    0 0 0 2px var(--mn-bg-deep),
+    0 0 0 4px var(--mn-state-error),
+    0 0 16px rgba(160, 0, 0, 0.5);
+}
+
+/* Ghost/secondary кнопка — минималистичная */
+button.ghost {
+  background: transparent;
+  border-color: transparent;
+  color: var(--mn-text-dim);
+}
+
+button.ghost:hover:not(:disabled) {
+  background: rgba(122, 92, 58, 0.1);
+  color: var(--mn-text-parchment);
+  border-color: transparent;
+  box-shadow: none;
+  transform: none;
+}
+
+/* Icon-only кнопка (компактная) */
+button.icon-only {
+  padding: 6px;
+  min-width: 36px;
+}
+
+/* ----------------------------------------------------------------
+   Поля ввода / селекты / текстовой области
+   ---------------------------------------------------------------- */
 
 input,
 select,
 textarea {
   font: inherit;
-  color: var(--mn-text);
+  color: var(--mn-text-parchment);
   background: var(--mn-bg-sunken);
   border: 1px solid var(--mn-border);
   border-radius: var(--mn-radius-sm);
   padding: 7px 10px;
+  transition:
+    border-color var(--mn-dur-base) var(--mn-ei-base),
+    box-shadow var(--mn-dur-base) var(--mn-ei-base),
+    background var(--mn-dur-base) var(--mn-ei-base);
 }
 
+/* Hover — лёгкое подсвечивание границы */
+input:hover:not(:disabled),
+select:hover:not(:disabled),
+textarea:hover:not(:disabled) {
+  border-color: var(--mn-border-brass);
+  background: #0a0a0c;
+}
+
+/* Focus — рамка железо + бордовый акцент + анимация */
 input:focus,
 select:focus,
 textarea:focus {
-  outline: 1px solid var(--mn-accent);
+  outline: none;
+  border-color: var(--mn-border-iron);
+  box-shadow:
+    0 0 0 2px var(--mn-bg-deep),
+    0 0 0 3px var(--mn-accent-blood),
+    0 0 16px rgba(139, 0, 0, 0.25);
+  background: #0b0a0e;
+  animation: scaleIn 150ms var(--mn-ei-spring);
 }
 
+/* Disabled */
+input:disabled,
+select:disabled,
+textarea:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  background: var(--mn-bg-panel);
+}
+
+/* Error state */
+input.error,
+select.error,
+textarea.error {
+  border-color: var(--mn-state-error);
+  box-shadow: 0 0 12px rgba(160, 0, 0, 0.25);
+}
+
+input.error:focus,
+select.error:focus,
+textarea.error:focus {
+  box-shadow:
+    0 0 0 2px var(--mn-bg-deep),
+    0 0 0 3px var(--mn-state-error),
+    0 0 16px rgba(160, 0, 0, 0.35);
+}
+
+/* Success state */
+input.success,
+select.success,
+textarea.success {
+  border-color: var(--mn-accent-ok);
+}
+
+input.success:focus,
+select.success:focus,
+textarea.success:focus {
+  box-shadow:
+    0 0 0 2px var(--mn-bg-deep),
+    0 0 0 3px var(--mn-accent-ok),
+    0 0 16px rgba(106, 138, 106, 0.3);
+}
+
+/* Textarea specific */
 textarea {
   resize: vertical;
+  min-height: 80px;
 }
+
+/* Select styling */
+select {
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%239a8f85' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  padding-right: 32px;
+}
+
+select:hover {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%237a5c3a' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+}
+
+/* ----------------------------------------------------------------
+   Code / Pre блока
+   ---------------------------------------------------------------- */
 
 code,
 pre,
@@ -121,55 +459,82 @@ pre {
   word-break: break-word;
 }
 
+/* ----------------------------------------------------------------
+   Scrollbar (кастомный стиль в рамках эстетики)
+   ---------------------------------------------------------------- */
+
 ::-webkit-scrollbar {
   width: 9px;
   height: 9px;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: var(--mn-border-strong);
-  border-radius: 5px;
+  background: var(--mn-border-iron);
+  border: 1px solid var(--mn-border-bronze);
+  border-radius: var(--mn-radius-sm);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--mn-border-brass);
 }
 
 ::-webkit-scrollbar-track {
   background: transparent;
 }
 
+/* ----------------------------------------------------------------
+   Badge — индикаторы статусов, тегов,etiket
+   ---------------------------------------------------------------- */
+
 .badge {
   display: inline-block;
   padding: 1px 8px;
-  border-radius: 999px;
+  border-radius: 2px;
   border: 1px solid var(--mn-border-strong);
-  font-size: 0.74rem;
-  letter-spacing: 0.03em;
+  font-family: var(--mn-font-display);
+  font-size: 0.68rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
   color: var(--mn-text-dim);
   white-space: nowrap;
+  background: rgba(10, 10, 12, 0.6);
 }
 
+/* States badges */
 .badge.ok {
   color: var(--mn-ok);
-  border-color: var(--mn-ok);
+  border-color: rgba(126, 168, 130, 0.55);
+  box-shadow: 0 0 8px rgba(126, 168, 130, 0.15);
 }
 
 .badge.warn {
   color: var(--mn-warn);
-  border-color: var(--mn-warn);
+  border-color: rgba(201, 164, 92, 0.55);
+  box-shadow: 0 0 8px rgba(201, 164, 92, 0.15);
 }
 
 .badge.danger {
   color: var(--mn-danger);
-  border-color: var(--mn-danger);
+  border-color: rgba(255, 51, 51, 0.55);
+  box-shadow: 0 0 10px rgba(255, 51, 51, 0.25);
+  animation: statusPulse 1.6s ease-in-out infinite;
 }
 
 .badge.accent {
-  color: var(--mn-accent);
-  border-color: var(--mn-accent);
+  color: #d76a63;
+  border-color: rgba(139, 0, 0, 0.8);
+  box-shadow: 0 0 10px rgba(139, 0, 0, 0.3);
 }
 
 .badge.private {
   color: var(--mn-private);
-  border-color: var(--mn-private);
+  border-color: rgba(176, 124, 198, 0.5);
 }
+
+/* ----------------------------------------------------------------
+   dim / faint helpers
+   ---------------------------------------------------------------- */
 
 .dim {
   color: var(--mn-text-dim);
@@ -179,6 +544,10 @@ pre {
   color: var(--mn-text-faint);
 }
 
+/* ----------------------------------------------------------------
+   error-text / ok-text helpers
+   ---------------------------------------------------------------- */
+
 .error-text {
   color: var(--mn-danger);
 }
@@ -187,17 +556,323 @@ pre {
   color: var(--mn-ok);
 }
 
+/* ----------------------------------------------------------------
+   Panel — базовая панель с рамкой и материалом
+   ---------------------------------------------------------------- */
+
 .panel {
-  background: var(--mn-panel);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.015), transparent 30%),
+    var(--mn-bg-panel);
   border: 1px solid var(--mn-border);
   border-radius: var(--mn-radius);
   padding: 10px 12px;
+  box-shadow:
+    0 10px 34px var(--mn-shadow-deep),
+    inset 0 1px 0 rgba(255, 255, 255, 0.02);
+  animation: var(--mn-anim-slide-up);
+  opacity: 0;
+  animation-fill-mode: forwards;
 }
 
+/* Panel hover — лёгкое подсвечивание рамки */
+.panel:hover {
+  border-color: var(--mn-border-brass);
+  box-shadow:
+    0 12px 40px var(--mn-shadow-deep),
+    inset 0 1px 0 rgba(255, 255, 255, 0.03),
+    0 0 20px rgba(122, 92, 58, 0.1);
+  transition: border-color var(--mn-dur-base) var(--mn-ei-base),
+              box-shadow var(--mn-dur-base) var(--mn-ei-base);
+}
+
+/* Panel focus-within (для доступности) */
+.panel:focus-within {
+  border-color: var(--mn-accent-blood);
+  box-shadow:
+    0 0 0 2px var(--mn-bg-deep),
+    0 0 0 3px var(--mn-accent-blood),
+    0 10px 34px var(--mn-shadow-deep),
+    inset 0 1px 0 rgba(255, 255, 255, 0.02);
+}
+
+/* Frame Key — ключевая панель (Уровень 1) с анимированными углами */
+.panel.frame-key {
+  position: relative;
+  background: var(--mn-bg-raised);
+  border: 1px solid var(--mn-border-iron);
+  border-radius: var(--mn-radius-lg);
+  overflow: hidden;
+  animation: var(--mn-anim-scale-in);
+}
+
+/* Анимированный внутренний контур */
+.panel.frame-key::before {
+  content: '';
+  position: absolute;
+  inset: 2px;
+  border: 1px solid var(--mn-border-brass);
+  border-radius: calc(var(--mn-radius-lg) - 2px);
+  pointer-events: none;
+  opacity: 0;
+  animation: fadeIn 600ms var(--mn-ei-base) 200ms forwards;
+}
+
+/* Угловые орнаменты с появлением */
+.panel.frame-key::after {
+  content: '';
+  position: absolute;
+  inset: -2px;
+  border: 2px solid transparent;
+  border-radius: calc(var(--mn-radius-lg) + 2px);
+  pointer-events: none;
+  background: linear-gradient(45deg, var(--mn-border-iron), var(--mn-border-brass), var(--mn-border-iron), var(--mn-border-brass)) border-box;
+  -webkit-mask: linear-gradient(#fff 0 0) padding-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  opacity: 0;
+  animation: fadeIn 800ms var(--mn-ei-spring) 300ms forwards;
+}
+
+/* Frame Side — боковая панель (Уровень 2) */
+.panel.frame-side {
+  background: var(--mn-bg-panel);
+  border: 1px solid var(--mn-border-brass);
+  border-radius: var(--mn-radius-md);
+  animation: var(--mn-anim-fade-in);
+}
+
+/* Внутренний акцентный контур */
+.panel.frame-side::after {
+  content: '';
+  position: absolute;
+  inset: 1px;
+  border: 1px solid var(--mn-border-blood);
+  border-radius: calc(var(--mn-radius-md) - 1px);
+  pointer-events: none;
+  opacity: 0;
+  animation: fadeIn 500ms var(--mn-ei-base) 150ms forwards;
+}
+
+/* ----------------------------------------------------------------
+   Panel-title — заголовок панели с акцентной линией
+   ---------------------------------------------------------------- */
+
 .panel-title {
+  font-family: var(--mn-font-display);
   font-size: 0.78rem;
+  font-weight: 600;
   text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: var(--mn-text-faint);
+  letter-spacing: 0.22em;
+  color: #9a8f7d;
   margin: 0 0 8px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid rgba(59, 17, 17, 0.55);
+  text-shadow: 0 0 12px rgba(139, 0, 0, 0.25);
+  position: relative;
+  animation: slideDown 400ms var(--mn-ei-spring) 100ms both;
+}
+
+.panel-title::after {
+  content: '';
+  position: absolute;
+  bottom: -1px;
+  left: 0;
+  width: 40px;
+  height: 1px;
+  background: linear-gradient(90deg, var(--mn-accent-blood), transparent);
+  animation: shimmer 3s ease-in-out infinite;
+}
+
+/* ----------------------------------------------------------------
+   Additional utility classes (preserved from old system)
+   ---------------------------------------------------------------- */
+
+/* Оставляем старые алиасы для совместимости — они ссылаются на новые токены */
+.badge.ok { border-color: rgba(126, 168, 130, 0.55); } /* уже определен выше */
+.badge.warn { border-color: rgba(201, 164, 92, 0.55); } /* уже определен выше */
+
+/* Micro-helpers, которые часто использовали в компонентах */
+.text-center { text-align: center; }
+.text-right { text-align: right; }
+.mb-0 { margin-bottom: 0; }
+.mb-2 { margin-bottom: 0.5rem; }
+.mb-4 { margin-bottom: 1rem; }
+.pb-2 { padding-bottom: 0.5rem; }
+.pl-2 { padding-left: 0.5rem; }
+.pr-2 { padding-right: 0.5rem; }
+
+/* ----------------------------------------------------------------
+   Активность/состояния кнопок (адаптировано под новую палитру)
+   ---------------------------------------------------------------- */
+
+button.primary {
+  background: linear-gradient(180deg, #7a1a1a 0%, var(--ember) 100%);
+  border-color: var(--mn-accent-blood);
+  color: #f2e9e4;
+  text-shadow: 0 0 8px rgba(255, 51, 51, 0.35);
+}
+
+button.primary:hover:not(:disabled) {
+  box-shadow: 0 0 15px rgba(255, 30, 30, 0.5);
+}
+
+button.primary:active:not(:disabled) {
+  transform: translateY(1px);
+  box-shadow: 0 0 8px rgba(255, 30, 30, 0.35);
+}
+
+button.primary:disabled {
+  background: #241a1e;
+  border-color: #3a2a2e;
+  color: #6d5f63;
+  text-shadow: none;
+  box-shadow: none;
+}
+
+/* ----------------------------------------------------------------
+   Чат-стили адаптация (переменные вместо хардкода)
+   ---------------------------------------------------------------- */
+
+.chat-panel {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  flex: 1;
+  background: var(--chat-veil);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid #2a2430;
+  box-shadow:
+    0 10px 34px var(--mn-shadow-deep),
+    inset 0 0 40px rgba(0, 0, 0, 0.35);
+}
+
+/* ----------------------------------------------------------------
+   Визуал / scene-frame (адаптировано)
+   ---------------------------------------------------------------- */
+
+.visual-panel .scene-frame {
+  position: relative;
+  border: 1px solid var(--mn-border-iron);
+  outline: 1px solid var(--mn-border-bronze);
+  outline-offset: 3px;
+  border-radius: var(--mn-radius-sm); /* было 2px, now variable */
+  padding: 6px;
+  background:
+    radial-gradient(120% 90% at 50% 0%, rgba(139, 0, 0, 0.1), transparent 60%),
+    var(--mn-bg-sunken);
+  box-shadow: inset 0 0 24px rgba(0, 0, 0, 0.75);
+}
+
+/* ----------------------------------------------------------------
+   Глобальные keyframes (доступны всем компонентам)
+   ---------------------------------------------------------------- */
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes fadeOut {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes slideDown {
+  from { opacity: 0; transform: translateY(-20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes scaleIn {
+  from { opacity: 0; transform: scale(0.92); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 0.6; transform: scale(1); }
+  50% { opacity: 1; transform: scale(1.02); }
+}
+
+@keyframes glowPulse {
+  0%, 100% { box-shadow: 0 0 4px var(--mn-accent-blood), 0 0 8px var(--mn-accent-blood); }
+  50% { box-shadow: 0 0 12px var(--mn-accent-blood), 0 0 24px var(--mn-accent-blood), 0 0 36px var(--mn-accent-blood); }
+}
+
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0) rotate(0deg); }
+  50% { transform: translateY(-8px) rotate(0.5deg); }
+}
+
+@keyframes rotateSlow {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+@keyframes breath {
+  0%, 100% { transform: scale(1); opacity: 0.8; }
+  50% { transform: scale(1.03); opacity: 1; }
+}
+
+@keyframes flicker {
+  0% { opacity: 1; }
+  33% { opacity: 0.6; }
+  66% { opacity: 0.9; }
+  100% { opacity: 1; }
+}
+
+/* ----------------------------------------------------------------
+   Утилитарные анимационные классы
+   ---------------------------------------------------------------- */
+
+.anim-fade-in { animation: var(--mn-anim-fade-in); }
+.anim-slide-up { animation: var(--mn-anim-slide-up); }
+.anim-scale-in { animation: var(--mn-anim-scale-in); }
+.anim-pulse { animation: var(--mn-anim-pulse); }
+.anim-glow-pulse { animation: var(--mn-anim-glow-pulse); }
+.anim-shimmer { animation: var(--mn-anim-shimmer); }
+.anim-float { animation: var(--mn-anim-float); }
+.anim-breath { animation: var(--mn-anim-breath); }
+.anim-flicker { animation: var(--mn-anim-flicker); }
+
+/* Stagger delays для списков */
+.anim-stagger-1 { animation-delay: 50ms; }
+.anim-stagger-2 { animation-delay: 100ms; }
+.anim-stagger-3 { animation-delay: 150ms; }
+.anim-stagger-4 { animation-delay: 200ms; }
+.anim-stagger-5 { animation-delay: 250ms; }
+.anim-stagger-6 { animation-delay: 300ms; }
+
+/* ----------------------------------------------------------------
+   Доступность: prefers-reduced-motion
+   ---------------------------------------------------------------- */
+
+@media (prefers-reduced-motion: reduce) {
+  /* Fog & grain animations disabled */
+  /* Сюда будет дописываться в horror.css, но можно и здесь */
+  .mn-fog-a,
+  .mn-fog-b,
+  .mn-grain {
+    animation: none;
+  }
+
+  .mn-scanlines {
+    display: none;
+  }
+
+  /* Отключаем наши новые анимации */
+  [class*="anim-"] {
+    animation: none !important;
+    transition: none !important;
+  }
 }

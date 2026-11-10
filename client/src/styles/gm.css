@@ -1,13 +1,29 @@
 /**
- * Рабочий стол GM (промпт 1.12, п.6): «плотный» — компактные таблицы, вкладки,
- * много информации на экране. Принцип v1 D85 (раздельные player/gm-стили).
+ * GM Desktop — Gothic Analog Horror redesign (промпт 1.12, эт. C).
+ * Использует централизованные токены из theme.css.
+ * Frame system: 3 уровня оформления через CSS-псевдоэлементы.
  */
+
+@import './theme.css';
+
+/* ----------------------------------------------------------------
+   GM Body — основной фон с легкимиGradients
+   ---------------------------------------------------------------- */
 
 .gm-body {
   font-size: 14px;
+  background:
+    radial-gradient(1000px 420px at 50% -80px, rgba(139, 0, 0, 0.06), transparent),
+    var(--mn-bg-deep);
 }
 
+/* ----------------------------------------------------------------
+   GM Shell — grid-структура рабочего стола
+   ---------------------------------------------------------------- */
+
 .gm-shell {
+  position: relative;
+  isolation: isolate;
   display: grid;
   grid-template-columns: minmax(200px, 250px) 1fr minmax(240px, 320px);
   grid-template-rows: auto 1fr;
@@ -19,6 +35,24 @@
   height: 100%;
 }
 
+/* Адаптив: маленькие экраны */
+@media (max-width: 1100px) {
+  .gm-shell {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto auto auto auto;
+    grid-template-areas:
+      'header'
+      'center'
+      'left'
+      'right';
+    height: auto;
+  }
+}
+
+/* ----------------------------------------------------------------
+   GM Header — панель оператора и вкладки
+   ---------------------------------------------------------------- */
+
 .gm-header {
   grid-area: header;
   display: flex;
@@ -26,57 +60,137 @@
   gap: 12px;
 }
 
+/* Заголовок "МНЕМОСИН" */
 .gm-title {
+  font-family: var(--mn-font-display);
   font-size: 0.95rem;
-  letter-spacing: 0.18em;
+  letter-spacing: 0.24em;
   text-transform: uppercase;
-  color: var(--mn-warn);
+  color: var(--mn-text-dim);
   font-weight: 700;
+  /* Рамка для заголовка */
+  background: var(--mn-bg-raised);
+  border: 1px solid var(--mn-border-iron);
+  border-radius: var(--mn-radius-lg);
+  padding: 6px 12px;
+  display: inline-block;
 }
 
-.gm-left,
-.gm-center,
-.gm-right {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  min-height: 0;
-}
+/* ----------------------------------------------------------------
+   Left column — Session Card + Panels
+   ---------------------------------------------------------------- */
 
 .gm-left {
   grid-area: left;
   overflow-y: auto;
 }
 
+/* Session Card — ключевая панель ведущего */
+.session-card {
+  position: relative;
+  padding: 10px 12px;
+  border: 1px solid var(--mn-border-iron);
+  border-radius: var(--mn-radius-lg);
+  background: var(--mn-bg-raised);
+  box-shadow:
+    0 4px 12px var(--mn-shadow-medium),
+    inset 0 1px 0 rgba(255, 255, 255, 0.02);
+  margin-bottom: 8px;
+  animation: var(--mn-anim-scale-in), breath 10s ease-in-out infinite;
+  animation-fill-mode: forwards;
+}
+
+/* Анимированные угловые декораторы */
+.session-card::before {
+  content: '';
+  position: absolute;
+  width: 12px;
+  height: 12px;
+  background: var(--mn-border-brass);
+  top: -4px;
+  left: -4px;
+  transform: rotate(45deg);
+  pointer-events: none;
+  opacity: 0;
+  animation: fadeIn 500ms var(--mn-ei-spring) 100ms forwards, float 6s ease-in-out infinite;
+  animation-delay: 100ms, 0;
+}
+
+.session-card::after {
+  content: '';
+  position: absolute;
+  width: 12px;
+  height: 12px;
+  background: var(--mn-border-brass);
+  bottom: -4px;
+  right: -4px;
+  transform: rotate(45deg);
+  pointer-events: none;
+  opacity: 0;
+  animation: fadeIn 500ms var(--mn-ei-spring) 200ms forwards, float 6s ease-in-out infinite;
+  animation-delay: 200ms, 3s;
+}
+
+/* Hover эффект для session-card */
+.session-card:hover {
+  border-color: var(--mn-border-brass);
+  box-shadow:
+    0 6px 20px var(--mn-shadow-deep),
+    inset 0 1px 0 rgba(255, 255, 255, 0.03),
+    0 0 24px rgba(122, 92, 58, 0.15);
+  transition: border-color var(--mn-dur-base) var(--mn-ei-base),
+              box-shadow var(--mn-dur-base) var(--mn-ei-base);
+}
+
+/* Индикатор статуса сессии */
+.gm-operator {
+  font-family: var(--mn-font-mono);
+  border: 1px solid var(--mn-border-iron);
+  border-left: 3px solid var(--mn-accent-blood);
+  background: var(--mn-bg-panel);
+  border-radius: var(--mn-radius-md);
+  padding: 8px 10px;
+  margin-bottom: 12px;
+  font-size: 0.84rem;
+  animation: var(--mn-anim-slide-up);
+}
+
+/* Лог-панель оператора с повторяющимся градиентом */
+.gm-operator strong {
+  font-family: var(--mn-font-display);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  font-size: 0.8rem;
+  color: #9a8f7d;
+  animation: shimmer 3s ease-in-out infinite;
+}
+
+/* ----------------------------------------------------------------
+   Center column — вкладки (Review, Turn, State, Inspect, Notes, Audit)
+   ---------------------------------------------------------------- */
+
 .gm-center {
   grid-area: center;
   overflow-y: auto;
 }
 
-.gm-right {
-  grid-area: right;
-  overflow-y: auto;
-}
-
-.gm-shell .panel {
-  padding: 8px 10px;
-  border-radius: var(--mn-radius-sm);
-}
-
-.gm-shell .panel-title {
-  margin-bottom: 6px;
-}
-
-/* ------------------------------------------------------------------ вкладки */
-
+/* Табы — ritual-tabs система */
 .gm-tabs {
   display: flex;
   gap: 4px;
-  border-bottom: 1px solid var(--mn-border);
+  border-bottom: 1px solid var(--mn-border-iron);
   margin-bottom: 8px;
   flex-wrap: wrap;
 }
 
+/* Ritual-tabs — "печать оператора" */
+.gm-tabs.ritual-tabs {
+  border-bottom: 1px solid var(--mn-border-iron);
+  box-shadow: 0 1px 0 rgba(139, 0, 0, 0.35), 0 6px 18px rgba(0, 0, 0, 0.35);
+  padding-bottom: 0;
+}
+
+/* Стиль кнопок табов */
 .gm-tabs button {
   border: 1px solid transparent;
   border-bottom: none;
@@ -84,23 +198,86 @@
   padding: 5px 14px;
   background: transparent;
   color: var(--mn-text-dim);
-  font-size: 0.85rem;
+  font-family: var(--mn-font-mono);
+  font-size: 0.82rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  position: relative;
+  overflow: hidden;
+  transition: all var(--mn-dur-base) var(--mn-ei-base);
 }
 
-.gm-tabs button.active {
-  background: var(--mn-bg-raised);
-  border-color: var(--mn-border);
-  color: var(--mn-warn);
-  font-weight: 600;
+.gm-tabs button::before {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 50%;
+  width: 0;
+  height: 2px;
+  background: var(--mn-accent-blood);
+  transform: translateX(-50%);
+  transition: width var(--mn-dur-slow) var(--mn-ei-spring);
 }
 
+.gm-tabs button:hover:not(.active)::before {
+  width: 80%;
+}
+
+/* Активная вкладка */
+.gm-tabs button.active,
+.gm-tabs button.ritual-tab.active {
+  background: linear-gradient(180deg, rgba(139, 0, 0, 0.18), rgba(18, 17, 22, 0.9));
+  border-color: var(--mn-border-iron);
+  border-top: 2px solid var(--mn-accent-blood);
+  color: #e8d9c8;
+  font-weight: 700;
+  text-shadow: 0 0 10px rgba(255, 51, 51, 0.35);
+  animation: var(--mn-anim-scale-in);
+}
+
+.gm-tabs button.active::before,
+.gm-tabs button.ritual-tab.active::before {
+  width: 100%;
+  background: var(--mn-accent-blood);
+  box-shadow: 0 0 8px var(--mn-accent-blood);
+}
+
+/* Наведение неактивной вкладки */
+.gm-tabs button.ritual-tab:hover:not(.active) {
+  color: #d76a63;
+  border-color: #33202a;
+  background: rgba(122, 92, 58, 0.1);
+  transform: translateY(-1px);
+}
+
+/* Анимация появления табов (stagger) */
+.gm-tabs button:nth-child(1) { animation-delay: 50ms; }
+.gm-tabs button:nth-child(2) { animation-delay: 100ms; }
+.gm-tabs button:nth-child(3) { animation-delay: 150ms; }
+.gm-tabs button:nth-child(4) { animation-delay: 200ms; }
+.gm-tabs button:nth-child(5) { animation-delay: 250ms; }
+.gm-tabs button:nth-child(6) { animation-delay: 300ms; }
+.gm-tabs button { animation: var(--mn-anim-fade-in), slideUp 300ms var(--mn-ei-spring) both; }
+
+/* Тело вкладки */
 .gm-tab-body {
   display: flex;
   flex-direction: column;
   gap: 10px;
 }
 
-/* ------------------------------------------------------------------ таблицы */
+/* ----------------------------------------------------------------
+   Right column — чаты (Public + System)
+   ---------------------------------------------------------------- */
+
+.gm-right {
+  grid-area: right;
+  overflow-y: auto;
+}
+
+/* ----------------------------------------------------------------
+   Таблицы GM
+   ---------------------------------------------------------------- */
 
 .gm-table {
   width: 100%;
@@ -116,7 +293,7 @@
   font-size: 0.7rem;
   letter-spacing: 0.05em;
   padding: 3px 6px;
-  border-bottom: 1px solid var(--mn-border-strong);
+  border-bottom: 1px solid var(--mn-border);
 }
 
 .gm-table td {
@@ -127,16 +304,19 @@
 }
 
 .gm-table tr:hover td {
-  background: rgba(122, 162, 247, 0.04);
+  background: rgba(139, 0, 0, 0.07);
 }
 
-/* --------------------------------------------------------------- review tab */
+/* ---------------------------------------------------------------
+   Review tab — детальная панель ревью
+   ---------------------------------------------------------------- */
 
 .review-header {
   display: flex;
   gap: 10px;
   align-items: center;
   flex-wrap: wrap;
+  animation: var(--mn-anim-slide-up);
 }
 
 .review-actions {
@@ -146,41 +326,7 @@
   flex-wrap: wrap;
 }
 
-.diagnostics-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-  gap: 4px 12px;
-  font-size: 0.82rem;
-}
-
-.diagnostics-grid .dg-item {
-  display: flex;
-  justify-content: space-between;
-  gap: 8px;
-  border-bottom: 1px dotted var(--mn-border);
-  padding: 1px 0;
-}
-
-.diagnostics-grid .dg-key {
-  color: var(--mn-text-faint);
-}
-
-.diagnostics-grid .dg-value {
-  font-family: var(--mn-font-mono);
-}
-
-.stale-banner {
-  border: 1px solid var(--mn-warn);
-  color: var(--mn-warn);
-  background: rgba(229, 192, 123, 0.08);
-  border-radius: var(--mn-radius-sm);
-  padding: 7px 10px;
-  display: flex;
-  gap: 10px;
-  align-items: center;
-  font-size: 0.86rem;
-}
-
+/* Панель ревью с анимацией появления */
 .review-item {
   border: 1px solid var(--mn-border);
   border-radius: var(--mn-radius-sm);
@@ -189,13 +335,26 @@
   flex-direction: column;
   gap: 6px;
   background: var(--mn-bg-raised);
+  margin-bottom: 6px;
+  animation: var(--mn-anim-fade-in), slideUp 300ms var(--mn-ei-spring) calc(50ms * var(--review-index, 0)) both;
+  transition: border-color var(--mn-dur-base) var(--mn-ei-base),
+              box-shadow var(--mn-dur-base) var(--mn-ei-base),
+              transform var(--mn-dur-fast) var(--mn-ei-base);
+}
+
+.review-item:hover {
+  border-color: var(--mn-border-brass);
+  box-shadow: 0 0 16px rgba(122, 92, 58, 0.15);
+  transform: translateY(-1px);
 }
 
 .review-item.rejected {
   opacity: 0.55;
-  border-color: var(--mn-danger);
+  border-color: var(--mn-state-error);
+  animation: fadeIn 300ms var(--mn-ei-base), flicker 1s ease-in-out 2;
 }
 
+/* Заголовок записи ревью */
 .review-item-head {
   display: flex;
   gap: 8px;
@@ -205,18 +364,46 @@
   color: var(--mn-text-dim);
 }
 
-.review-item textarea {
-  width: 100%;
-  min-height: 52px;
-  font-size: 0.9rem;
+/* Диагностические данные */
+.diagnostics-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 4px 12px;
+  font-size: 0.82rem;
+  animation: var(--mn-anim-fade-in);
 }
 
+.diagnostics-grid .dg-item {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  border-bottom: 1px dotted var(--mn-border);
+  padding: 1px 0;
+  opacity: 0;
+  animation: fadeIn 300ms var(--mn-ei-base) calc(30ms * var(--dg-index, 0)) forwards;
+}
+
+.diagnostics-grid .dg-key {
+  color: var(--mn-text-faint);
+  transition: color var(--mn-dur-base) var(--mn-ei-base);
+}
+
+.diagnostics-grid .dg-item:hover .dg-key {
+  color: var(--mn-border-brass);
+}
+
+.diagnostics-grid .dg-value {
+  font-family: var(--mn-font-mono);
+}
+
+/* Тоггле статусов (승인/отклонение) с анимациями */
 .status-toggle {
   display: inline-flex;
   gap: 0;
   border: 1px solid var(--mn-border-strong);
   border-radius: var(--mn-radius-sm);
   overflow: hidden;
+  position: relative;
 }
 
 .status-toggle label {
@@ -225,90 +412,145 @@
   cursor: pointer;
   color: var(--mn-text-dim);
   user-select: none;
+  position: relative;
+  z-index: 1;
+  transition: all var(--mn-dur-base) var(--mn-ei-base);
 }
 
 .status-toggle input {
   display: none;
 }
 
+/* Анимированный слайдер для выбора */
+.status-toggle::before {
+  content: '';
+  position: absolute;
+  top: 1px;
+  bottom: 1px;
+  left: 1px;
+  width: calc(50% - 1px);
+  background: linear-gradient(180deg, var(--mn-accent-ok), var(--mn-state-success));
+  border-radius: calc(var(--mn-radius-sm) - 1px);
+  transform: translateX(0);
+  transition: transform var(--mn-dur-slow) var(--mn-ei-spring), background var(--mn-dur-base) var(--mn-ei-base);
+  z-index: 0;
+}
+
+.status-toggle.has-reject::before {
+  transform: translateX(calc(50% + 1px));
+  background: linear-gradient(180deg, var(--mn-state-error), var(--mn-danger));
+}
+
+.status-toggle label {
+  position: relative;
+  z-index: 2;
+}
+
 .status-toggle label.checked-approve {
-  background: rgba(92, 214, 138, 0.16);
+  background: transparent;
   color: var(--mn-ok);
+  text-shadow: 0 0 8px rgba(106, 138, 106, 0.5);
+  animation: glowPulse 2s ease-in-out infinite;
 }
 
 .status-toggle label.checked-reject {
-  background: rgba(240, 113, 120, 0.16);
+  background: transparent;
   color: var(--mn-danger);
+  text-shadow: 0 0 8px rgba(160, 0, 0, 0.5);
+  animation: glowPulse 2s ease-in-out infinite;
 }
 
-.rules-list {
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
-  font-size: 0.8rem;
-}
-
-.rules-list .rule-fail {
-  color: var(--mn-warn);
-}
-
-/* ------------------------------------------------------------- turn controls */
+/* ----------------------------------------------------------------
+   Turn controls — кнопки Open/Lock/Unlock/Cancel с анимациями
+   ---------------------------------------------------------------- */
 
 .turn-controls {
   display: flex;
   gap: 6px;
   flex-wrap: wrap;
   align-items: center;
+  animation: var(--mn-anim-fade-in);
 }
 
-.turn-card-line {
-  display: flex;
-  gap: 12px;
-  align-items: baseline;
-  flex-wrap: wrap;
-}
-
-.actions-feed {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  max-height: 240px;
-  overflow-y: auto;
-}
-
-.actions-feed .action-row {
-  display: flex;
-  gap: 8px;
-  font-size: 0.85rem;
-  border-bottom: 1px dotted var(--mn-border);
-  padding: 2px 0;
-}
-
-.actions-feed .seq {
+/* Стили кнопок управления ходом */
+.turn-controls button {
+  border-radius: var(--mn-radius-sm);
   font-family: var(--mn-font-mono);
-  color: var(--mn-accent);
-  min-width: 24px;
+  font-size: 0.8rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 6px 14px;
+  animation: var(--mn-anim-fade-in), slideUp 300ms var(--mn-ei-spring) calc(50ms * var(--btn-index, 0)) both;
 }
 
-/* ---------------------------------------------------------------- state tab */
+.turn-controls button.primary {
+  background: linear-gradient(180deg, #7d1919 0%, var(--ember) 55%, #4d0e0e 100%);
+  border: 1px solid var(--mn-accent-blood);
+  color: #f6ece6;
+  text-shadow: 0 0 10px rgba(255, 60, 60, 0.45);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 140, 140, 0.15),
+    0 2px 8px rgba(0, 0, 0, 0.5);
+  animation: var(--mn-anim-scale-in), breath 5s ease-in-out infinite;
+}
+
+.turn-controls button.primary:hover:not(:disabled) {
+  box-shadow:
+    inset 0 1px 0 rgba(255, 140, 140, 0.2),
+    0 0 20px rgba(255, 30, 30, 0.4),
+    0 4px 12px rgba(0, 0, 0, 0.5);
+  transform: translateY(-1px);
+}
+
+.turn-controls button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  animation: none;
+  transform: none;
+}
+
+/* ----------------------------------------------------------------
+   State tab - блоки знаний, локаций, секретов с анимациями
+   ---------------------------------------------------------------- */
 
 .state-columns {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
   gap: 10px;
+  animation: var(--mn-anim-fade-in);
 }
 
+.state-columns > * {
+  animation: var(--mn-anim-slide-up);
+  animation-delay: calc(50ms * var(--col-index, 0));
+  animation-fill-mode: both;
+}
+
+/* Блок знаний */
 .knowledge-block {
   border-left: 2px solid var(--mn-private);
   padding-left: 8px;
   margin: 4px 0;
+  background: var(--mn-bg-panel);
+  border-radius: var(--mn-radius-sm);
+  padding: 6px 10px;
+  transition: border-color var(--mn-dur-base) var(--mn-ei-base),
+              background var(--mn-dur-base) var(--mn-ei-base);
+  animation: var(--mn-anim-fade-in);
 }
 
+.knowledge-block:hover {
+  border-left-color: var(--mn-border-brass);
+  background: var(--mn-bg-raised);
+}
+
+/* Блок локаций */
 .location-block {
   border: 1px solid var(--mn-border);
   border-radius: var(--mn-radius-sm);
   padding: 6px 8px;
   margin-bottom: 6px;
+  background: var(--mn-bg-panel);
 }
 
 .location-block summary {
@@ -318,76 +560,58 @@
   font-size: 0.9rem;
 }
 
+/* Секреты */
 .gm-secret {
-  color: var(--mn-warn);
+  color: var(--mn-accent-warn);
   font-size: 0.82rem;
-  border: 1px dashed var(--mn-warn);
+  border: 1px dashed var(--mn-accent-warn);
   border-radius: var(--mn-radius-sm);
   padding: 5px 8px;
   margin-top: 4px;
+  background: rgba(176, 124, 198, 0.08);
 }
 
-.move-form,
-.flag-form {
-  display: flex;
-  flex-direction: column;
-  gap: 7px;
-}
-
-.move-form .player-picks {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
-.move-form .player-picks label,
-.flag-form label {
-  font-size: 0.84rem;
-  color: var(--mn-text-dim);
-  display: inline-flex;
-  gap: 4px;
-  align-items: center;
-}
-
-.form-row {
-  display: flex;
-  gap: 6px;
-  align-items: center;
-  flex-wrap: wrap;
-}
-
-.form-hint {
-  font-size: 0.8rem;
-  color: var(--mn-text-faint);
-}
-
-.form-hint.warn {
-  color: var(--mn-warn);
-}
-
-/* -------------------------------------------------------------- inspect tab */
+/* ----------------------------------------------------------------
+   Inspect tab — JSON payload, journal
+   ---------------------------------------------------------------- */
 
 .inspect-json {
   max-height: 480px;
+  animation: var(--mn-anim-fade-in);
+}
+
+.inspect-json pre {
+  animation: var(--mn-anim-slide-up);
 }
 
 .journal-payload {
   max-height: 180px;
   overflow: auto;
   font-size: 0.78rem;
+  animation: var(--mn-anim-fade-in);
 }
 
-/* --------------------------------------------------------------- notes/audit */
+/* ----------------------------------------------------------------
+   Notes / Audit tabs
+   ---------------------------------------------------------------- */
 
 .notes-form textarea {
   width: 100%;
   min-height: 60px;
+  animation: var(--mn-anim-fade-in);
 }
 
 .note-item {
   border-bottom: 1px dotted var(--mn-border);
   padding: 4px 0;
   font-size: 0.86rem;
+  opacity: 0;
+  animation: fadeIn 300ms var(--mn-ei-base) calc(30ms * var(--note-index, 0)) forwards;
+  transition: background var(--mn-dur-base) var(--mn-ei-base);
+}
+
+.note-item:hover {
+  background: rgba(122, 92, 58, 0.05);
 }
 
 .note-item .note-meta {
@@ -396,45 +620,80 @@
   font-family: var(--mn-font-mono);
 }
 
-/* --------------------------------------------------------------- session card */
-
-.session-card {
-  display: flex;
-  gap: 10px;
-  align-items: center;
-  flex-wrap: wrap;
-  font-size: 0.82rem;
-}
-
-.session-card input[readonly] {
-  font-family: var(--mn-font-mono);
-  font-size: 0.78rem;
-  width: 300px;
-  color: var(--mn-text-dim);
-}
-
-/* ----------------------------------------------------------------- login (gm) */
+/* ----------------------------------------------------------------
+   GM Login screen с анимациями
+   ---------------------------------------------------------------- */
 
 .gm-login {
   height: 100%;
   display: flex;
   align-items: center;
   justify-content: center;
+  background:
+    radial-gradient(1000px 420px at 50% -80px, rgba(139, 0, 0, 0.06), transparent),
+    var(--mn-bg-deep);
 }
 
 .gm-login .login-card {
   width: min(480px, 94vw);
+  background: var(--chat-veil);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid var(--mn-border-iron);
+  outline: 1px solid var(--mn-border-bronze);
+  border-radius: var(--mn-radius-lg);
+  box-shadow:
+    0 18px 60px rgba(0, 0, 0, 0.7),
+    inset 0 0 60px rgba(0, 0, 0, 0.4);
+  animation: var(--mn-anim-scale-in), float 8s ease-in-out infinite;
+  animation-fill-mode: forwards;
+}
+
+.gm-login .login-card h1 {
+  font-family: var(--mn-font-display);
+  letter-spacing: 0.28em;
+  color: var(--mn-text-dim);
+  text-shadow: 0 0 20px rgba(139, 0, 0, 0.35);
+  animation: var(--mn-anim-slide-up), shimmer 4s ease-in-out infinite;
+}
+
+.gm-login .login-card .subtitle {
+  animation: fadeIn 500ms var(--mn-ei-base) 200ms both;
+}
+
+.gm-login .login-card label {
+  animation: fadeIn 400ms var(--mn-ei-base) calc(300ms + 50ms * var(--label-index, 0)) both;
+}
+
+.gm-login .login-card input {
+  animation: var(--mn-anim-slide-up);
+  animation-delay: calc(400ms + 50ms * var(--input-index, 0));
+  animation-fill-mode: both;
+}
+
+.gm-login .login-card .submit-row {
+  animation: var(--mn-anim-fade-in);
+  animation-delay: 600ms;
+  animation-fill-mode: both;
 }
 
 .mode-switch {
   display: flex;
   gap: 6px;
   margin-bottom: 14px;
+  animation: var(--mn-anim-fade-in);
+}
+
+.mode-switch button {
+  animation: var(--mn-anim-scale-in);
+  animation-delay: calc(50ms * var(--mode-index, 0));
+  animation-fill-mode: both;
 }
 
 .mode-switch button.active {
-  border-color: var(--mn-warn);
-  color: var(--mn-warn);
+  border-color: var(--mn-accent-warn);
+  color: var(--mn-accent-warn);
+  animation: glowPulse 2s ease-in-out infinite;
 }
 
 .gm-result {
@@ -443,6 +702,8 @@
   border-radius: var(--mn-radius-sm);
   padding: 10px 12px;
   font-size: 0.86rem;
+  animation: var(--mn-anim-slide-up), breath 4s ease-in-out infinite;
+  animation-fill-mode: forwards;
 }
 
 .gm-result input[readonly] {
@@ -450,16 +711,30 @@
   font-family: var(--mn-font-mono);
   font-size: 0.78rem;
   margin-top: 4px;
+  animation: fadeIn 400ms var(--mn-ei-base) 200ms both;
 }
 
-@media (max-width: 1100px) {
-  .gm-shell {
-    grid-template-columns: 1fr;
-    grid-template-areas:
-      'header'
-      'center'
-      'left'
-      'right';
-    height: auto;
-  }
+/* Улучшенные анимации для ленточных элементов (feed) */
+.feed-entry {
+  animation: var(--mn-anim-slide-up);
+  animation-delay: calc(30ms * var(--feed-index, 0));
+  animation-fill-mode: both;
+}
+
+.feed-entry.director {
+  animation: var(--mn-anim-slide-up), glowPulse 3s ease-in-out infinite;
+}
+
+/* Таблицы с анимацией строк */
+.gm-table tbody tr {
+  opacity: 0;
+  animation: fadeIn 200ms var(--mn-ei-base) calc(20ms * var(--row-index, 0)) forwards;
+}
+
+.gm-table tbody tr:hover {
+  animation: none;
+  background: rgba(139, 0, 0, 0.1);
+  transform: scale(1.005);
+  transition: background var(--mn-dur-base) var(--mn-ei-base),
+              transform var(--mn-dur-fast) var(--mn-ei-base);
 }
