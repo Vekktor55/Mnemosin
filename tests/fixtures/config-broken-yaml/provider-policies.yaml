@@ -1,0 +1,33 @@
+# Политики провайдеров: таймауты, ретраи, circuit breaker, цены.
+# v3 §V.11. Единственный источник retry/timeout — этот файл (не аргументы порта, F-7.2).
+#
+# costPer1kTokens: null → цена неизвестна, costUsd не считается (UNKNOWN#5).
+# Фактические цены появятся в промпте 2.8 (config/model-prices.yaml).
+policies:
+  - providerId: scripted
+    capability: TEXT_AI
+    timeoutMs: 5000
+    retries: { max: 0, backoffMs: 500, jitter: false }
+    circuitBreaker: { failureThreshold: 3, cooldownMs: 30000 }
+    costPer1kTokens: { input: null, output: null }
+
+  - providerId: echo
+    capability: TEXT_AI
+    timeoutMs: 5000
+    retries: { max: 0, backoffMs: 500, jitter: false }
+    circuitBreaker: { failureThreshold: 3, cooldownMs: 30000 }
+    costPer1kTokens: { input: null, output: null }
+
+  # Заготовки этапа 2 (включаются добавлением в capabilities.yaml → chain):
+  # - providerId: openrouter
+  #   capability: TEXT_AI
+  #   timeoutMs: 45000
+  #   retries: { max: 2, backoffMs: 1000, jitter: true }
+  #   circuitBreaker: { failureThreshold: 3, cooldownMs: 60000 }
+  #   costPer1kTokens: { input: null, output: null }
+  # - providerId: lmstudio
+  #   capability: TEXT_AI
+  #   timeoutMs: 30000
+  #   retries: { max: 1, backoffMs: 500, jitter: false }
+  #   circuitBreaker: { failureThreshold: 2, cooldownMs: 30000 }
+  #   costPer1kTokens: { input: null, output: null }

@@ -1,0 +1,13 @@
+# Фикстура для теста расширяемости (A1.14): в цепочку добавлен провайдер
+# `xai-probe`, которого нет ни в коде, ни в основных конфигах.
+# Если для его появления потребовалось бы изменить контракты или core —
+# тест extensibility.test.ts упадёт.
+capabilities:
+  TEXT_AI:
+    required: true
+    chain: [xai-probe, scripted, echo]
+  VISUAL_PROMPT: { required: false, chain: [] }
+  IMAGE_GENERATION: { required: false, chain: [] }
+  IMAGE_EDITING: { required: false, chain: [] }
+  AUDIO_GENERATION: { required: false, chain: [] }
+  VIDEO: { required: false, chain: [] }
