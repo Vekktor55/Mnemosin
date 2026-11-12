@@ -11,11 +11,7 @@ export interface TurnServicePort {
   /** Открывает ход для сессии.
    *  Возвращает turnId и номер хода.
    */
-  openTurn(input: {
-    sessionId: SessionId;
-    idempotencyKey: string;
-    traceId: string;
-  }): Promise<{
+  openTurn(input: { sessionId: SessionId; idempotencyKey: string; traceId: string }): Promise<{
     turnId: TurnId;
     number: number;
   }>;
