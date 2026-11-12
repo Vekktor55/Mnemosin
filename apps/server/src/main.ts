@@ -1,6 +1,4 @@
 import { CONTRACTS_VERSION } from '@mnemosin/contracts';
-import { mkdirSync } from 'node:fs';
-import { resolve as resolvePath } from 'node:path';
 import { loadConfigOrExit, readPackageVersion } from '@mnemosin/config';
 import { createLogger } from '@mnemosin/logging';
 import { bootstrapDatabase } from '@mnemosin/database';
@@ -82,11 +80,13 @@ async function main(): Promise<void> {
     }, 10_000);
     timer.unref();
     try {
-      app.close();
+      await app.close();
       await persistence.close();
+      clearTimeout(timer);
       logger.info({ event: 'shutdown_complete', signal }, 'shutdown_complete');
       process.exit(0);
     } catch (cause) {
+      clearTimeout(timer);
       logger.error({ err: cause, event: 'shutdown_failed' }, 'shutdown_failed');
       process.exit(1);
     }

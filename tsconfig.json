@@ -11,25 +11,13 @@
       "path": "modules/session"
     },
     {
-      "path": "modules/turn"
-    },
-    {
       "path": "modules/chat"
     },
     {
       "path": "modules/story"
     },
     {
-      "path": "modules/gm"
-    },
-    {
-      "path": "modules/gm-review"
-    },
-    {
       "path": "modules/gm-audit"
-    },
-    {
-      "path": "modules/ai-director"
     },
     {
       "path": "infrastructure/config"
