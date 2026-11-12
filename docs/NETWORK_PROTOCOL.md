@@ -26,14 +26,14 @@
 
 ### 0.2. Связанные документы
 
-| Документ | Ответственность |
-|---|---|
-| `SYSTEM_ARCHITECTURE.md` | Общие компоненты, роли, права, верхнеуровневые границы |
-| `HOT_COLD_DESIGN.md` | Семантика simulation input, HOT/COLD events, state ownership, scene snapshots и recovery |
-| `WORLD_SIMULATION.md` | Spatial inputs/outputs, координаты, взаимодействия и геометрия |
-| `DOLL_AI.md` | Внутренние события и read models Doll AI |
-| `ANDREY_AI.md` | Диалоговые команды/ответы Андрея и статусы генерации |
-| `NETWORK_PROTOCOL.md` | Внешний сетевой контракт клиента и сервера, авторизация, маршрутизация, delivery и reconnect |
+| Документ                 | Ответственность                                                                              |
+| ------------------------ | -------------------------------------------------------------------------------------------- |
+| `SYSTEM_ARCHITECTURE.md` | Общие компоненты, роли, права, верхнеуровневые границы                                       |
+| `HOT_COLD_DESIGN.md`     | Семантика simulation input, HOT/COLD events, state ownership, scene snapshots и recovery     |
+| `WORLD_SIMULATION.md`    | Spatial inputs/outputs, координаты, взаимодействия и геометрия                               |
+| `DOLL_AI.md`             | Внутренние события и read models Doll AI                                                     |
+| `ANDREY_AI.md`           | Диалоговые команды/ответы Андрея и статусы генерации                                         |
+| `NETWORK_PROTOCOL.md`    | Внешний сетевой контракт клиента и сервера, авторизация, маршрутизация, delivery и reconnect |
 
 Этот документ не дублирует внутреннюю семантику симуляции, крафта, ИИ кукол или диалогов. Он определяет, как соответствующие команды и разрешённые результаты проходят через транспорт.
 
@@ -225,11 +225,11 @@ WebSocket используется для:
 interface ConnectionActorContext {
   connectionId: string;
   actorId: string;
-  actorType: "player" | "observer" | "developer";
+  actorType: 'player' | 'observer' | 'developer';
   matchId: string;
   sessionId: string;
   connectionEpoch: number;
-  projectionKind: "player" | "observer" | "developer";
+  projectionKind: 'player' | 'observer' | 'developer';
   permissions: string[];
 }
 ```
@@ -298,7 +298,7 @@ interface ConnectionActorContext {
 
 ```ts
 interface WsEnvelope<TType extends string, TPayload> {
-  protocolVersion: "v1";
+  protocolVersion: 'v1';
   type: TType;
   messageId: string;
   matchId?: string;
@@ -316,20 +316,20 @@ interface WsEnvelope<TType extends string, TPayload> {
 
 Не смешивать следующие значения:
 
-| Идентификатор | Назначение |
-|---|---|
-| `messageId` | Уникальная конкретная транспортная отправка/сообщение |
-| `commandId` | Идемпотентный ID действия, которое может быть повторено после retry |
-| `inputSequence` | Порядковый номер movement input в одном input stream |
-| `inputStreamId` | Идентификатор потока ввода/connection epoch |
-| `sceneSequence` | Порядковый номер scene replication update для projection/connection |
-| `baseSceneSequence` | Последняя версия, относительно которой построена delta |
-| `simulationTick` | Авторитетный номер HOT tick |
-| `eventId` | Стабильный ID durable gameplay event |
-| `eventSequence` | Порядок durable events в пределах match/world epoch |
-| `projectionRevision` | Версия COLD projection или domain read model |
-| `worldEpoch` | Версия активного экземпляра/состояния игрового мира, необходимая для invalidation старых scene streams |
-| `connectionEpoch` | Поколение соединения/управляющего input stream |
+| Идентификатор        | Назначение                                                                                             |
+| -------------------- | ------------------------------------------------------------------------------------------------------ |
+| `messageId`          | Уникальная конкретная транспортная отправка/сообщение                                                  |
+| `commandId`          | Идемпотентный ID действия, которое может быть повторено после retry                                    |
+| `inputSequence`      | Порядковый номер movement input в одном input stream                                                   |
+| `inputStreamId`      | Идентификатор потока ввода/connection epoch                                                            |
+| `sceneSequence`      | Порядковый номер scene replication update для projection/connection                                    |
+| `baseSceneSequence`  | Последняя версия, относительно которой построена delta                                                 |
+| `simulationTick`     | Авторитетный номер HOT tick                                                                            |
+| `eventId`            | Стабильный ID durable gameplay event                                                                   |
+| `eventSequence`      | Порядок durable events в пределах match/world epoch                                                    |
+| `projectionRevision` | Версия COLD projection или domain read model                                                           |
+| `worldEpoch`         | Версия активного экземпляра/состояния игрового мира, необходимая для invalidation старых scene streams |
+| `connectionEpoch`    | Поколение соединения/управляющего input stream                                                         |
 
 Идентификаторы не должны использоваться взаимозаменяемо.
 
@@ -388,41 +388,41 @@ interface WsErrorPayload {
 
 Минимальный целевой каталог логических типов:
 
-| Type | Назначение | Semantics |
-|---|---|---|
-| `connection:client-ready` | Клиент закончил подготовку handlers | Однократно на connection lifecycle |
-| `connection:ping` | Application heartbeat/RTT sample | Эфемерное, периодическое |
-| `scene:input` | Movement intent | Частое, sequence-ordered, latest-state semantics |
-| `scene:resync` | Запрос keyframe после пропуска/несогласованности | Идемпотентное чтение состояния |
-| `interaction:command` | Взаимодействие со светом/дверью/укрытием и т. п. | Idempotent command |
-| `chat:send` | Публичное/пространственное сообщение | Durable/domain command по правилам Chat |
-| `andrew:ask` | Запрос к Андрею | Idempotent request с async status/result |
-| `domain:command` | Остальные разрешённые COLD actions | Только discriminated union allowlist |
-| `observer:command` | Разрешённое вмешательство Бога | Capability-protected, audited, idempotent |
+| Type                      | Назначение                                       | Semantics                                        |
+| ------------------------- | ------------------------------------------------ | ------------------------------------------------ |
+| `connection:client-ready` | Клиент закончил подготовку handlers              | Однократно на connection lifecycle               |
+| `connection:ping`         | Application heartbeat/RTT sample                 | Эфемерное, периодическое                         |
+| `scene:input`             | Movement intent                                  | Частое, sequence-ordered, latest-state semantics |
+| `scene:resync`            | Запрос keyframe после пропуска/несогласованности | Идемпотентное чтение состояния                   |
+| `interaction:command`     | Взаимодействие со светом/дверью/укрытием и т. п. | Idempotent command                               |
+| `chat:send`               | Публичное/пространственное сообщение             | Durable/domain command по правилам Chat          |
+| `andrew:ask`              | Запрос к Андрею                                  | Idempotent request с async status/result         |
+| `domain:command`          | Остальные разрешённые COLD actions               | Только discriminated union allowlist             |
+| `observer:command`        | Разрешённое вмешательство Бога                   | Capability-protected, audited, idempotent        |
 
 Наличие сообщения не означает, что все соответствующие игровые функции уже реализованы. Каталог будет расширяться отдельными domain specs.
 
 ## 6.2. Server → Client
 
-| Type | Назначение | Projection / delivery |
-|---|---|---|
-| `connection:welcome` | Результат подключения и capability negotiation | Actor-specific |
-| `connection:ready` | Initial sync completed | Actor-specific |
-| `connection:pong` | Heartbeat response | Только отправитель ping |
-| `connection:error` | Ошибка protocol/connection | Actor-specific, без скрытых данных |
-| `scene:keyframe` | Полное состояние активной сцены | Player или Observer projection |
-| `scene:delta` | Компактное изменение сцены | Player или Observer projection |
-| `scene:input-ack` | Подтверждение обработанного input | Только controlling actor |
-| `scene:resync-required` | Требуется полная синхронизация | Только соответствующее соединение |
-| `command:result` | Результат COLD command | Только actor, отправивший команду (кроме отдельно определённых broadcast events) |
-| `domain:event` | Разрешённое событие домена | Targeted projection / audience |
-| `chat:message` | Новая доступная реплика | Audience из server privacy policy |
-| `chat:delivery` | Статус сохранения/доставки сообщения | Отправитель и/или адресат по правилам Chat |
-| `andrew:status` | accepted/queued/completed/fallback status | Запросивший игрок; Observer видит расширенный статус в своей projection |
-| `andrew:reply` | Реплика Андрея | Только разрешённая аудитория |
-| `match:projection` | Изменение COLD read model состояния партии | Role-specific |
-| `observer:projection` | Полная скрытая игровая projection | Только Observer |
-| `developer:diagnostic` | Техническая диагностика | Только Developer Mode |
+| Type                    | Назначение                                     | Projection / delivery                                                            |
+| ----------------------- | ---------------------------------------------- | -------------------------------------------------------------------------------- |
+| `connection:welcome`    | Результат подключения и capability negotiation | Actor-specific                                                                   |
+| `connection:ready`      | Initial sync completed                         | Actor-specific                                                                   |
+| `connection:pong`       | Heartbeat response                             | Только отправитель ping                                                          |
+| `connection:error`      | Ошибка protocol/connection                     | Actor-specific, без скрытых данных                                               |
+| `scene:keyframe`        | Полное состояние активной сцены                | Player или Observer projection                                                   |
+| `scene:delta`           | Компактное изменение сцены                     | Player или Observer projection                                                   |
+| `scene:input-ack`       | Подтверждение обработанного input              | Только controlling actor                                                         |
+| `scene:resync-required` | Требуется полная синхронизация                 | Только соответствующее соединение                                                |
+| `command:result`        | Результат COLD command                         | Только actor, отправивший команду (кроме отдельно определённых broadcast events) |
+| `domain:event`          | Разрешённое событие домена                     | Targeted projection / audience                                                   |
+| `chat:message`          | Новая доступная реплика                        | Audience из server privacy policy                                                |
+| `chat:delivery`         | Статус сохранения/доставки сообщения           | Отправитель и/или адресат по правилам Chat                                       |
+| `andrew:status`         | accepted/queued/completed/fallback status      | Запросивший игрок; Observer видит расширенный статус в своей projection          |
+| `andrew:reply`          | Реплика Андрея                                 | Только разрешённая аудитория                                                     |
+| `match:projection`      | Изменение COLD read model состояния партии     | Role-specific                                                                    |
+| `observer:projection`   | Полная скрытая игровая projection              | Только Observer                                                                  |
+| `developer:diagnostic`  | Техническая диагностика                        | Только Developer Mode                                                            |
 
 Список может быть нормализован до меньшего числа `type`, если discriminated payload и права остаются строго типизированы. Нельзя ради сокращения количества типов смешивать несопоставимые security scopes.
 
@@ -881,7 +881,7 @@ Command result возвращает победившее состояние/ко
 ```ts
 interface ChatSendPayload {
   commandId: string;
-  mode: "public" | "whisper" | "private";
+  mode: 'public' | 'whisper' | 'private';
   recipientId?: string;
   content: string;
   clientMessageId?: string;
@@ -965,7 +965,10 @@ Observer может видеть полный игровой факт прива
 Запрещён контракт вида:
 
 ```ts
-{ type: string; payload: any }
+{
+  type: string;
+  payload: any;
+}
 ```
 
 который позволяет клиенту прислать произвольный domain action.
@@ -1204,13 +1207,13 @@ WebSocket closed не обязательно означает, что игрок
 
 Разделить сообщения по семантике:
 
-| Класс | Примеры | Перегрузка |
-|---|---|---|
-| Ephemeral latest-state | movement scene deltas | Старые superseded deltas можно coalesce |
+| Класс                   | Примеры                                   | Перегрузка                                                            |
+| ----------------------- | ----------------------------------------- | --------------------------------------------------------------------- |
+| Ephemeral latest-state  | movement scene deltas                     | Старые superseded deltas можно coalesce                               |
 | Reliable command result | результат interaction/chat/domain command | Не терять; доставлять после commit или восстановить по command status |
-| Durable domain event | важные события партии | Не coalesce и не silently drop |
-| Projection snapshot | полный state/keyframe | Можно заменить более новым keyframe, если старый ещё не отправлен |
-| Diagnostics | debug traces/metrics | Можно sample/drop по policy, никогда не смешивать с gameplay |
+| Durable domain event    | важные события партии                     | Не coalesce и не silently drop                                        |
+| Projection snapshot     | полный state/keyframe                     | Можно заменить более новым keyframe, если старый ещё не отправлен     |
+| Diagnostics             | debug traces/metrics                      | Можно sample/drop по policy, никогда не смешивать с gameplay          |
 
 ## 18.2. Scene coalescing
 
@@ -1380,7 +1383,7 @@ shared/contracts/
 Пример концепции:
 
 ```ts
-const ClientMessageSchema = z.discriminatedUnion("type", [
+const ClientMessageSchema = z.discriminatedUnion('type', [
   ConnectionReadySchema,
   ConnectionPingSchema,
   SceneInputSchema,
@@ -1665,28 +1668,28 @@ Gateway не должен реализовывать доменные игров
 
 Эти решения нельзя считать закрытыми только на основании текущих документов.
 
-| ID | Вопрос | Почему важно |
-|---|---|---|
-| NET-01 | Сохраняем ли `mnemosin.v1.<jwt>` subprotocol auth или вводим одноразовый ticket/cookie flow? | Безопасность browser handshake и миграция |
+| ID     | Вопрос                                                                                              | Почему важно                                  |
+| ------ | --------------------------------------------------------------------------------------------------- | --------------------------------------------- |
+| NET-01 | Сохраняем ли `mnemosin.v1.<jwt>` subprotocol auth или вводим одноразовый ticket/cookie flow?        | Безопасность browser handshake и миграция     |
 | NET-02 | Какой финальный movement input mode: held direction, velocity intent, click-to-move или комбинация? | Client prediction и input schema; также HC-02 |
-| NET-03 | Разрешены ли несколько controlling player connections на одного actor? | Multi-tab control conflict |
-| NET-04 | Каковы heartbeat interval и connection timeout? | RTT, liveness и false disconnects |
-| NET-05 | Каково значение input lease timeout? | Зависшее движение при потере release message |
-| NET-06 | Какова точная audience policy для whisper/private communication? | Приватность и улики |
-| NET-07 | Каковы spatial visibility rules для позиции других игроков? | Player scene projection |
-| NET-08 | Какую часть Observer data отправлять realtime, а какую по запросу? | Объём трафика и UI |
-| NET-09 | Нужен ли отдельный физический WS для Observer, или достаточно отдельного logical stream? | Изоляция и backpressure |
-| NET-10 | Сколько Observer connections может быть в одной партии? | Capacity и права |
-| NET-11 | Какие domain commands безопасно повторять после reconnect и каков их TTL? | Offline queue correctness |
-| NET-12 | Какова disconnect/AFK policy для персонажа? | Игровое состояние при потере соединения |
-| NET-13 | Какой initial/interpolation delay подходит при реальном RTT/jitter? | Плавность remote movement |
-| NET-14 | Каковы max payload sizes по типам сообщений? | DoS protection и совместимость с content |
-| NET-15 | Какова точная частота snapshots и throttling неподвижных сущностей? | Трафик и server load |
-| NET-16 | Нужна ли replay API для command status после потери command result? | Надёжность reconnect |
-| NET-17 | Какие Observer interventions доступны на первом этапе? | Capability model и audit |
-| NET-18 | Разрешены ли private messages игроку в Captured/Stasis и как они доставляются? | Chat mechanics |
-| NET-19 | Какой compatibility policy использовать при rolling deployment client/server? | Обновления без сломанной партии |
-| NET-20 | Какой лимит connections/commands per IP/actor будет допустим без false positives? | Security и usability |
+| NET-03 | Разрешены ли несколько controlling player connections на одного actor?                              | Multi-tab control conflict                    |
+| NET-04 | Каковы heartbeat interval и connection timeout?                                                     | RTT, liveness и false disconnects             |
+| NET-05 | Каково значение input lease timeout?                                                                | Зависшее движение при потере release message  |
+| NET-06 | Какова точная audience policy для whisper/private communication?                                    | Приватность и улики                           |
+| NET-07 | Каковы spatial visibility rules для позиции других игроков?                                         | Player scene projection                       |
+| NET-08 | Какую часть Observer data отправлять realtime, а какую по запросу?                                  | Объём трафика и UI                            |
+| NET-09 | Нужен ли отдельный физический WS для Observer, или достаточно отдельного logical stream?            | Изоляция и backpressure                       |
+| NET-10 | Сколько Observer connections может быть в одной партии?                                             | Capacity и права                              |
+| NET-11 | Какие domain commands безопасно повторять после reconnect и каков их TTL?                           | Offline queue correctness                     |
+| NET-12 | Какова disconnect/AFK policy для персонажа?                                                         | Игровое состояние при потере соединения       |
+| NET-13 | Какой initial/interpolation delay подходит при реальном RTT/jitter?                                 | Плавность remote movement                     |
+| NET-14 | Каковы max payload sizes по типам сообщений?                                                        | DoS protection и совместимость с content      |
+| NET-15 | Какова точная частота snapshots и throttling неподвижных сущностей?                                 | Трафик и server load                          |
+| NET-16 | Нужна ли replay API для command status после потери command result?                                 | Надёжность reconnect                          |
+| NET-17 | Какие Observer interventions доступны на первом этапе?                                              | Capability model и audit                      |
+| NET-18 | Разрешены ли private messages игроку в Captured/Stasis и как они доставляются?                      | Chat mechanics                                |
+| NET-19 | Какой compatibility policy использовать при rolling deployment client/server?                       | Обновления без сломанной партии               |
+| NET-20 | Какой лимит connections/commands per IP/actor будет допустим без false positives?                   | Security и usability                          |
 
 ---
 

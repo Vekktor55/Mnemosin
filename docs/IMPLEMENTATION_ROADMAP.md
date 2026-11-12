@@ -49,17 +49,17 @@
 
 Coding agent должен использовать следующие документы как единый комплект:
 
-| Документ | Ответственность |
-|---|---|
-| `SYSTEM_ARCHITECTURE.md` | Верхнеуровневые границы, стек, слои, безопасность и архитектурные инварианты |
-| `HOT_COLD_DESIGN.md` | Симуляционный tick, владение состоянием, команды и события между HOT/COLD, prediction, interpolation, snapshots и recovery |
-| `WORLD_SIMULATION.md` | Координаты, World Pack, геометрия, движение, коллизии, навигация, газ, свет, звук и пространственные взаимодействия |
-| `DOLL_AI.md` | Perception, Memory, Decision, Navigation, Action, тактические профили кукол и захват |
-| `ANDREY_AI.md` | Состояние Андрея, знания, убеждения, память, диалоги, LLM Gateway, бюджет и fallback |
-| `NETWORK_PROTOCOL.md` | WebSocket envelope, сообщения, авторизация, Player/Observer/Developer projections, reconnect и resync |
-| `MATCH_LIFECYCLE.md` | Комната, состав участников, Scenario Configuration, фазы, этажи, захват/оставление, финал и концовки |
-| `IMPLEMENTATION_ROADMAP.md` | Последовательность реализации, зависимости, гейты и критерии завершения |
-| `в общем2.txt` / «Цикл 48» | Исходный игровой канон и сводка решений |
+| Документ                    | Ответственность                                                                                                            |
+| --------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| `SYSTEM_ARCHITECTURE.md`    | Верхнеуровневые границы, стек, слои, безопасность и архитектурные инварианты                                               |
+| `HOT_COLD_DESIGN.md`        | Симуляционный tick, владение состоянием, команды и события между HOT/COLD, prediction, interpolation, snapshots и recovery |
+| `WORLD_SIMULATION.md`       | Координаты, World Pack, геометрия, движение, коллизии, навигация, газ, свет, звук и пространственные взаимодействия        |
+| `DOLL_AI.md`                | Perception, Memory, Decision, Navigation, Action, тактические профили кукол и захват                                       |
+| `ANDREY_AI.md`              | Состояние Андрея, знания, убеждения, память, диалоги, LLM Gateway, бюджет и fallback                                       |
+| `NETWORK_PROTOCOL.md`       | WebSocket envelope, сообщения, авторизация, Player/Observer/Developer projections, reconnect и resync                      |
+| `MATCH_LIFECYCLE.md`        | Комната, состав участников, Scenario Configuration, фазы, этажи, захват/оставление, финал и концовки                       |
+| `IMPLEMENTATION_ROADMAP.md` | Последовательность реализации, зависимости, гейты и критерии завершения                                                    |
+| `в общем2.txt` / «Цикл 48»  | Исходный игровой канон и сводка решений                                                                                    |
 
 Если файл в репозитории имеет другое имя или расположен в другом каталоге, агент должен сначала найти его и проверить содержимое. Нельзя создавать копию документа под вторым именем только ради совпадения с этой таблицей.
 
@@ -184,24 +184,24 @@ Coding agent должен использовать следующие докум
 
 Таблица задаёт рекомендуемый порядок, а не календарный график. Сроки не указываются: они зависят от фактического состояния кода, найденных зависимостей и результатов прототипов.
 
-| ID | Этап | Главный результат | Зависимости | Начальный статус |
-|---|---|---|---|---|
-| P00 | Инвентаризация и baseline | Проверенная карта текущего репозитория без функциональной миграции | Нет | READY |
-| P01 | Решения и ADR register | Реестр блокирующих вопросов и утверждённых временных границ | P00 | READY WITH PROVISIONAL DETAILS |
-| P02 | Контракты и архитектурные основы | Единый Zod/WS catalog и безопасные application boundaries | P00–P01 | READY WITH PROVISIONAL DETAILS |
-| P03 | World Pack и координаты | Загружаемая/валидируемая тестовая карта | P02 | READY WITH PROVISIONAL DETAILS |
-| P04 | Минимальный HOT movement | Серверное авторитетное перемещение и коллизии | P03 | READY WITH PROVISIONAL DETAILS |
-| P05 | Network replication + realtime client | Prediction, reconciliation, interpolation, PixiJS vertical slice | P02, P04 | READY WITH PROVISIONAL DETAILS |
-| P06 | HOT/COLD bridge и recovery | Надёжные дискретные события и проверенное восстановление | P02, P04 | BLOCKED BY DECISION для persistence guarantees; прототип допустим |
-| P07 | Environment и базовые взаимодействия | Свет, двери, укрытия, газ/фильтры, стимулы и proximity | P03–P06 | Часть READY, часть BLOCKED BY DECISION |
-| P08 | Doll AI baseline | Патруль, восприятие, память, поиск, преследование и захват | P03–P07 | BLOCKED BY DECISION для полной сенсорики/захвата |
-| P09 | COLD gameplay domains | Инвентарь, ресурсы, крафт, предметы, evidence, social/sabotage | P02, P06, P07 | READY WITH PROVISIONAL DETAILS; нужны доменные спецификации |
-| P10 | Match lifecycle | Lobby, seed/roles, пролог, этажи, фазы, participant states | P02, P06, P09 | BLOCKED BY DECISION для ряда правил на 7–10 игроков и progression |
-| P11 | Observer и Developer tooling | Полная Observer view, debug projections, отдельные God Actions | P02, P05, P06, P10 | Read-only часть READY; actions BLOCKED BY DECISION |
-| P12 | Андрей без LLM и с LLM | Scripted lifecycle, memory/beliefs, provider, budget/fallback | P02, P06, P09, P10 | READY WITH PROVISIONAL DETAILS; открыты диалоговые правила |
-| P13 | Finale, endings и cycle reset | Детерминированный Ending Resolver и сюжетная перемотка | P06, P09, P10, P12 | BLOCKED BY DECISION |
-| P14 | Art/content pipeline и полные World Packs | Производственный pipeline Blender/World Pack/scene assets | P03, P05, P07 | READY WITH PROVISIONAL DETAILS |
-| P15 | Интеграция, нагрузка и release readiness | Проверенный вертикальный срез и затем playable alpha | P00–P14 в необходимом объёме | DEFERRED до готовности функций |
+| ID  | Этап                                      | Главный результат                                                  | Зависимости                  | Начальный статус                                                  |
+| --- | ----------------------------------------- | ------------------------------------------------------------------ | ---------------------------- | ----------------------------------------------------------------- |
+| P00 | Инвентаризация и baseline                 | Проверенная карта текущего репозитория без функциональной миграции | Нет                          | READY                                                             |
+| P01 | Решения и ADR register                    | Реестр блокирующих вопросов и утверждённых временных границ        | P00                          | READY WITH PROVISIONAL DETAILS                                    |
+| P02 | Контракты и архитектурные основы          | Единый Zod/WS catalog и безопасные application boundaries          | P00–P01                      | READY WITH PROVISIONAL DETAILS                                    |
+| P03 | World Pack и координаты                   | Загружаемая/валидируемая тестовая карта                            | P02                          | READY WITH PROVISIONAL DETAILS                                    |
+| P04 | Минимальный HOT movement                  | Серверное авторитетное перемещение и коллизии                      | P03                          | READY WITH PROVISIONAL DETAILS                                    |
+| P05 | Network replication + realtime client     | Prediction, reconciliation, interpolation, PixiJS vertical slice   | P02, P04                     | READY WITH PROVISIONAL DETAILS                                    |
+| P06 | HOT/COLD bridge и recovery                | Надёжные дискретные события и проверенное восстановление           | P02, P04                     | BLOCKED BY DECISION для persistence guarantees; прототип допустим |
+| P07 | Environment и базовые взаимодействия      | Свет, двери, укрытия, газ/фильтры, стимулы и proximity             | P03–P06                      | Часть READY, часть BLOCKED BY DECISION                            |
+| P08 | Doll AI baseline                          | Патруль, восприятие, память, поиск, преследование и захват         | P03–P07                      | BLOCKED BY DECISION для полной сенсорики/захвата                  |
+| P09 | COLD gameplay domains                     | Инвентарь, ресурсы, крафт, предметы, evidence, social/sabotage     | P02, P06, P07                | READY WITH PROVISIONAL DETAILS; нужны доменные спецификации       |
+| P10 | Match lifecycle                           | Lobby, seed/roles, пролог, этажи, фазы, participant states         | P02, P06, P09                | BLOCKED BY DECISION для ряда правил на 7–10 игроков и progression |
+| P11 | Observer и Developer tooling              | Полная Observer view, debug projections, отдельные God Actions     | P02, P05, P06, P10           | Read-only часть READY; actions BLOCKED BY DECISION                |
+| P12 | Андрей без LLM и с LLM                    | Scripted lifecycle, memory/beliefs, provider, budget/fallback      | P02, P06, P09, P10           | READY WITH PROVISIONAL DETAILS; открыты диалоговые правила        |
+| P13 | Finale, endings и cycle reset             | Детерминированный Ending Resolver и сюжетная перемотка             | P06, P09, P10, P12           | BLOCKED BY DECISION                                               |
+| P14 | Art/content pipeline и полные World Packs | Производственный pipeline Blender/World Pack/scene assets          | P03, P05, P07                | READY WITH PROVISIONAL DETAILS                                    |
+| P15 | Интеграция, нагрузка и release readiness  | Проверенный вертикальный срез и затем playable alpha               | P00–P14 в необходимом объёме | DEFERRED до готовности функций                                    |
 
 ---
 
@@ -859,14 +859,14 @@ Observer видит скрытую игровую картину, Player не п
 
 Параллельная работа разрешается только при стабильных интерфейсах и отсутствии одновременного редактирования общих contracts.
 
-| Поток | Может идти параллельно с | Условие |
-|---|---|---|
-| Арт-производство и подготовка ассетов | P03–P13 | Asset IDs и World Pack references согласованы; art не задаёт collision geometry |
-| Svelte UI shell и интерфейсные макеты | P03–P10 | Не содержит самостоятельно реализованных игровых правил |
-| Domain specs для crafting/evidence/social | P03–P08 | Сначала спецификация и решения; не менять общие контракты без согласования |
-| Андрей scripted dialogue fixtures | P03–P10 | Использует server-owned state contracts; не зависит от LLM |
-| Нагрузочные harnesses | P04–P15 | Измеряют реальные интерфейсы; не меняют production behavior |
-| Observer read-only UI | P05–P11 | Использует отдельную ObserverProjection; не получает секреты через PlayerProjection |
+| Поток                                     | Может идти параллельно с | Условие                                                                             |
+| ----------------------------------------- | ------------------------ | ----------------------------------------------------------------------------------- |
+| Арт-производство и подготовка ассетов     | P03–P13                  | Asset IDs и World Pack references согласованы; art не задаёт collision geometry     |
+| Svelte UI shell и интерфейсные макеты     | P03–P10                  | Не содержит самостоятельно реализованных игровых правил                             |
+| Domain specs для crafting/evidence/social | P03–P08                  | Сначала спецификация и решения; не менять общие контракты без согласования          |
+| Андрей scripted dialogue fixtures         | P03–P10                  | Использует server-owned state contracts; не зависит от LLM                          |
+| Нагрузочные harnesses                     | P04–P15                  | Измеряют реальные интерфейсы; не меняют production behavior                         |
+| Observer read-only UI                     | P05–P11                  | Использует отдельную ObserverProjection; не получает секреты через PlayerProjection |
 
 Не вести параллельно несколько реализаций `shared/contracts`, World Pack schema, event envelope или Match state machine.
 
@@ -888,19 +888,19 @@ Observer видит скрытую игровую картину, Player не п
 
 ## 6.2. Карта блокирующих групп
 
-| Группа вопросов | Источники | Блокируемая работа | Что можно делать до решения |
-|---|---|---|---|
-| Координаты/input/collider/grid | `WS-01…WS-06`, `HC-02…HC-04`, `NET` movement items | Production movement/physics/input UX | Изолированный prototype с пометкой PROTOTYPE-ONLY |
-| HOT durability/recovery | `HC-06…HC-10`, `O-01`, `O-02`, `WS-17` where relevant | Production crash guarantees | Crash harness, event/command contracts, fault injection |
-| Light/vision/sound/gas | `WS-07…WS-13`, `DOLL-OPEN-01…03` | Final perception and detection balance | Query interfaces, test fixtures, prototype-only models |
-| Doll tactical behavior | `DOLL-OPEN-04…15` | Full floor profiles, coordination, capture edge rules | Patrol and internal runtime skeleton |
-| Lobby/matchmaking | `ML-01…ML-07`, `ML-15` | Public room/start flow and full party | Match aggregate skeleton, test harness |
-| Progression/support/vote | `ML-08…ML-15` | Production floor transitions | State machine scaffolding and unit tests for agreed transitions |
-| Captured state/rescue | `ML-16…ML-20` | Full capture/rescue UX | COLD status model only where already agreed; no invented actions |
-| Ending/cycle reset | `ML-21…ML-32` | EndingResolver, reset and meta-memory | Store canonical final facts and build resolver interface |
-| Observer actions | `ML-33…ML-38`, Observer items in `NET` | God Actions | Full read-only Observer projection |
-| Andrew privacy/LLM | `AND-OPEN-*`, budget questions in `ANDREY_AI.md` | Full dialogue audience/production tuning | Scripted core, fixtures, local fake provider |
-| Crafting/evidence/social rules | «Цикл 48» plus any gaps in current code | Full domain behavior | Existing code audit and separate specifications |
+| Группа вопросов                | Источники                                             | Блокируемая работа                                    | Что можно делать до решения                                      |
+| ------------------------------ | ----------------------------------------------------- | ----------------------------------------------------- | ---------------------------------------------------------------- |
+| Координаты/input/collider/grid | `WS-01…WS-06`, `HC-02…HC-04`, `NET` movement items    | Production movement/physics/input UX                  | Изолированный prototype с пометкой PROTOTYPE-ONLY                |
+| HOT durability/recovery        | `HC-06…HC-10`, `O-01`, `O-02`, `WS-17` where relevant | Production crash guarantees                           | Crash harness, event/command contracts, fault injection          |
+| Light/vision/sound/gas         | `WS-07…WS-13`, `DOLL-OPEN-01…03`                      | Final perception and detection balance                | Query interfaces, test fixtures, prototype-only models           |
+| Doll tactical behavior         | `DOLL-OPEN-04…15`                                     | Full floor profiles, coordination, capture edge rules | Patrol and internal runtime skeleton                             |
+| Lobby/matchmaking              | `ML-01…ML-07`, `ML-15`                                | Public room/start flow and full party                 | Match aggregate skeleton, test harness                           |
+| Progression/support/vote       | `ML-08…ML-15`                                         | Production floor transitions                          | State machine scaffolding and unit tests for agreed transitions  |
+| Captured state/rescue          | `ML-16…ML-20`                                         | Full capture/rescue UX                                | COLD status model only where already agreed; no invented actions |
+| Ending/cycle reset             | `ML-21…ML-32`                                         | EndingResolver, reset and meta-memory                 | Store canonical final facts and build resolver interface         |
+| Observer actions               | `ML-33…ML-38`, Observer items in `NET`                | God Actions                                           | Full read-only Observer projection                               |
+| Andrew privacy/LLM             | `AND-OPEN-*`, budget questions in `ANDREY_AI.md`      | Full dialogue audience/production tuning              | Scripted core, fixtures, local fake provider                     |
+| Crafting/evidence/social rules | «Цикл 48» plus any gaps in current code               | Full domain behavior                                  | Existing code audit and separate specifications                  |
 
 ## 6.3. Не закрывать открытые вопросы техническими default values
 
@@ -1142,20 +1142,20 @@ Observer видит скрытую игровую картину, Player не п
 
 # 12. Риски проекта и способы их контролировать
 
-| Риск | Возможное последствие | Контроль |
-|---|---|---|
-| Одновременная массовая миграция старой архитектуры | Большой объём регрессий, трудно найти источник ошибки | P00 baseline, небольшие migration slices, старые модули удалять только после mapping/tests |
-| Агент принимает открытые игровые решения | Несогласованный канон и дорогие переделки | Status tags, Decision Register, blocking IDs |
-| HOT event теряется между RAM и COLD commit | Расхождение мира и истории партии | Durable event semantics, fault injection, recovery tests |
-| 20 Hz субъективно кажется дёрганым | Плохой realtime UX | Prediction/interpolation prototype с RTT/jitter, frame-time metrics, 20/30 Hz experiment только по измерениям |
-| Слишком сложный Doll AI слишком рано | Большая стоимость реализации и сложная отладка | Один патрульный агент, затем perception, memory, pursuit, capture, profiles |
-| Куклы получают всеведущую информацию | Социальная дедукция теряет смысл | Observation provenance, TTL, knowledge boundary tests |
-| LLM становится обязательной для прохождения | Партия ломается при rate limit/timeout | Андрей scripted core, fallback, отсутствие LLM на HOT path |
-| Контекст Андрея раскрывает скрытые факты | Нарушение роли и канона | Minimal context, projection tests, response validator |
-| Observer accidentally exposes Developer secrets | Утечка credentials/diagnostics | Раздельные permissions/projections, security tests |
-| Неопределённые 7–10 player rules | Некорректные партии на отдельных размерах | Не включать непроверенные composition profiles |
-| Художественная сцена не совпадает с серверной геометрией | Игроки кликают/двигаются по неверным областям | World Pack geometry as authority, projection calibration, visual acceptance tests |
-| Перегрузка scope coding agent | Частично реализованные модули и отсутствие интеграции | Один этап за запуск, Definition of Done, отчёт |
+| Риск                                                     | Возможное последствие                                 | Контроль                                                                                                      |
+| -------------------------------------------------------- | ----------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| Одновременная массовая миграция старой архитектуры       | Большой объём регрессий, трудно найти источник ошибки | P00 baseline, небольшие migration slices, старые модули удалять только после mapping/tests                    |
+| Агент принимает открытые игровые решения                 | Несогласованный канон и дорогие переделки             | Status tags, Decision Register, blocking IDs                                                                  |
+| HOT event теряется между RAM и COLD commit               | Расхождение мира и истории партии                     | Durable event semantics, fault injection, recovery tests                                                      |
+| 20 Hz субъективно кажется дёрганым                       | Плохой realtime UX                                    | Prediction/interpolation prototype с RTT/jitter, frame-time metrics, 20/30 Hz experiment только по измерениям |
+| Слишком сложный Doll AI слишком рано                     | Большая стоимость реализации и сложная отладка        | Один патрульный агент, затем perception, memory, pursuit, capture, profiles                                   |
+| Куклы получают всеведущую информацию                     | Социальная дедукция теряет смысл                      | Observation provenance, TTL, knowledge boundary tests                                                         |
+| LLM становится обязательной для прохождения              | Партия ломается при rate limit/timeout                | Андрей scripted core, fallback, отсутствие LLM на HOT path                                                    |
+| Контекст Андрея раскрывает скрытые факты                 | Нарушение роли и канона                               | Minimal context, projection tests, response validator                                                         |
+| Observer accidentally exposes Developer secrets          | Утечка credentials/diagnostics                        | Раздельные permissions/projections, security tests                                                            |
+| Неопределённые 7–10 player rules                         | Некорректные партии на отдельных размерах             | Не включать непроверенные composition profiles                                                                |
+| Художественная сцена не совпадает с серверной геометрией | Игроки кликают/двигаются по неверным областям         | World Pack geometry as authority, projection calibration, visual acceptance tests                             |
+| Перегрузка scope coding agent                            | Частично реализованные модули и отсутствие интеграции | Один этап за запуск, Definition of Done, отчёт                                                                |
 
 ---
 

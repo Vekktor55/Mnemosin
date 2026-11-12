@@ -23,6 +23,7 @@ Three TypeScript TS2307 errors reference deleted `turn-service.ts`, but these ar
 ## 3. Confirmed TypeScript Errors
 
 Three TS2307 errors from `apps/server/tsconfig.json` referencing deleted `core/src/turns/turn-service.ts`:
+
 - `core/src/turns/index.ts` lines 3-12: exports from non-existent `turn-service.js`
 - `core/src/services.ts` line 3: `import { TurnService } from './turns/turn-service.js'`
 - `core/src/session/session-service.ts` line 25: `import type { TurnService } from '../turns/turn-service.js'`
@@ -53,35 +54,35 @@ Core APIs → SessionService / CoreServices
 
 ## 5. Component Classification (Updated)
 
-| Component | Classification | Reasoning |
-|---|---|---|
-| `TurnService` exports (index.ts) | DELETE CANDIDATE | Exported types from module that can be removed once Turn Engine is separated |
-| `CoreServices.turns` | ADAPT | Must be removed or replaced; currently depends on TurnEngine |
-| `SessionService` | ADAPT | Calls `this.turns.openTurn()` in `startSession()` — needs replacement |
-| `TurnServiceDeps`, `TurnCommandResult`, etc. | DELETE CANDIDATE | Turn-scoped types from removed engine |
-| `JournalService` | ADAPT (was PRESERVE) | API and storage model are turn-scoped (FK turn_id, NOT NULL). Requires adaptation for v4. |
-| `StateService` | PRESERVE | Core domain service; no Turn dependency |
-| `LocationService` | PRESERVE | No Turn dependency |
-| `CoreServices` factory | ADAPT | Creates TurnService; needs v4 replacement |
-| `modules/session` contract | ADAPT | Returns `turnId` in `StartSessionOutput` — Turn-dependent |
-| `modules/` (turn, gm, gm-audit, chat, story) | OUT OF SCOPE for CORE-01A | Full module restructuring needed |
-| `main.ts` Turn references | OUT OF SCOPE for CORE-01A | P01 not applied; main.ts still has full TurnEngine wiring |
-| `reconcileOnBoot` | OUT OF SCOPE for CORE-01A | P01 not applied; Turn Engine boot logic still present in main.ts |
-| `StartSessionOutputSchema` returning `turnId`/`turnNumber` | ADAPT | Directly couples session start to Turn Engine; requires v4 decision |
+| Component                                                  | Classification            | Reasoning                                                                                 |
+| ---------------------------------------------------------- | ------------------------- | ----------------------------------------------------------------------------------------- |
+| `TurnService` exports (index.ts)                           | DELETE CANDIDATE          | Exported types from module that can be removed once Turn Engine is separated              |
+| `CoreServices.turns`                                       | ADAPT                     | Must be removed or replaced; currently depends on TurnEngine                              |
+| `SessionService`                                           | ADAPT                     | Calls `this.turns.openTurn()` in `startSession()` — needs replacement                     |
+| `TurnServiceDeps`, `TurnCommandResult`, etc.               | DELETE CANDIDATE          | Turn-scoped types from removed engine                                                     |
+| `JournalService`                                           | ADAPT (was PRESERVE)      | API and storage model are turn-scoped (FK turn_id, NOT NULL). Requires adaptation for v4. |
+| `StateService`                                             | PRESERVE                  | Core domain service; no Turn dependency                                                   |
+| `LocationService`                                          | PRESERVE                  | No Turn dependency                                                                        |
+| `CoreServices` factory                                     | ADAPT                     | Creates TurnService; needs v4 replacement                                                 |
+| `modules/session` contract                                 | ADAPT                     | Returns `turnId` in `StartSessionOutput` — Turn-dependent                                 |
+| `modules/` (turn, gm, gm-audit, chat, story)               | OUT OF SCOPE for CORE-01A | Full module restructuring needed                                                          |
+| `main.ts` Turn references                                  | OUT OF SCOPE for CORE-01A | P01 not applied; main.ts still has full TurnEngine wiring                                 |
+| `reconcileOnBoot`                                          | OUT OF SCOPE for CORE-01A | P01 not applied; Turn Engine boot logic still present in main.ts                          |
+| `StartSessionOutputSchema` returning `turnId`/`turnNumber` | ADAPT                     | Directly couples session start to Turn Engine; requires v4 decision                       |
 
 ## 6. Session-to-Match Migration Analysis (Updated)
 
-| Old Entity/Operation | Current Purpose | Target v4 Entity/Operation | Status | Note |
-|---|---|---|---|---|
-| `Session` | Session state machine (LOBBY/ACTIVE/PAUSED/ENDED) | `Match` (Match Lifecycle Status) | DEFER | Full migration requires module restructuring |
-| `startSession()` | LOBBY→ACTIVE, checks GM, ≥1 player, `TurnService.openTurn()` | Match creation + Floor Phase | ADAPT (partial) | Must remove `this.turns.openTurn()` call; status transition kept |
-| `currentTurnId` | Tracks active turn in Session | Part of Match progression state | DEFER | Retained in schema but semantics changing; also used in gateways |
-| `TurnId` | Turn identifier | Match/Phase identifier | DEFER | Type kept but usage changing across core, contracts, gateways |
-| `SessionStatus` | LOBBY/ACTIVE/PAUSED/ENDED | Match Lifecycle Status | DEFER | Transition logic kept, semantics evolving |
-| `openTurn` command | Turn Engine API | Match floor phase command | OPEN DECISION | No v4 equivalent defined; requires owner decision |
-| `Journal` | Turn-scoped journal entries (FK turn_id, NOT NULL) | Event history with turn association | ADAPT | JournalService API is turn-scoped; needs adaptation for stand-alone use |
-| `reconcileOnBoot` | Fixes PROCESSING→FAILED turns after crash | Match crash recovery | OPEN DECISION | P01 not applied; Turn Engine boot logic present in main.ts |
-| `StartSessionOutputSchema` (turnId, turnNumber) | Returns turn info on session start | Match progression info | ADAPT | Explicitly couples session start to Turn Engine |
+| Old Entity/Operation                            | Current Purpose                                              | Target v4 Entity/Operation          | Status          | Note                                                                    |
+| ----------------------------------------------- | ------------------------------------------------------------ | ----------------------------------- | --------------- | ----------------------------------------------------------------------- |
+| `Session`                                       | Session state machine (LOBBY/ACTIVE/PAUSED/ENDED)            | `Match` (Match Lifecycle Status)    | DEFER           | Full migration requires module restructuring                            |
+| `startSession()`                                | LOBBY→ACTIVE, checks GM, ≥1 player, `TurnService.openTurn()` | Match creation + Floor Phase        | ADAPT (partial) | Must remove `this.turns.openTurn()` call; status transition kept        |
+| `currentTurnId`                                 | Tracks active turn in Session                                | Part of Match progression state     | DEFER           | Retained in schema but semantics changing; also used in gateways        |
+| `TurnId`                                        | Turn identifier                                              | Match/Phase identifier              | DEFER           | Type kept but usage changing across core, contracts, gateways           |
+| `SessionStatus`                                 | LOBBY/ACTIVE/PAUSED/ENDED                                    | Match Lifecycle Status              | DEFER           | Transition logic kept, semantics evolving                               |
+| `openTurn` command                              | Turn Engine API                                              | Match floor phase command           | OPEN DECISION   | No v4 equivalent defined; requires owner decision                       |
+| `Journal`                                       | Turn-scoped journal entries (FK turn_id, NOT NULL)           | Event history with turn association | ADAPT           | JournalService API is turn-scoped; needs adaptation for stand-alone use |
+| `reconcileOnBoot`                               | Fixes PROCESSING→FAILED turns after crash                    | Match crash recovery                | OPEN DECISION   | P01 not applied; Turn Engine boot logic present in main.ts              |
+| `StartSessionOutputSchema` (turnId, turnNumber) | Returns turn info on session start                           | Match progression info              | ADAPT           | Explicitly couples session start to Turn Engine                         |
 
 **Key incompatibility:** `startSession()` calls `this.turns.openTurn()` which is a Turn Engine method. In v4, this must be replaced or removed. The `StartSessionOutputSchema` also returns `turnId` and `turnNumber`, directly coupling session start to Turn Engine.
 
@@ -120,14 +121,14 @@ Given that P01 was NOT applied to `arch-v2`:
 
 Given P01 NOT applied, the immediate files to change are:
 
-| File | Change | Reason |
-|---|---|---|
-| `apps/server/src/main.ts` | Remove `import { reconcileOnBoot } from '@mnemosin/module-turn'`; remove `reconcileOnBoot({turns: services.turns, ...})` call; remove `turns: services.turns` from HTTP and WS gateway deps | P01 not applied — Turn Engine still wired in server boot |
-| `apps/server/src/modules.ts` | Remove `import { TurnEngine, rulesStub } from '@mnemosin/module-turn'`; remove `new TurnEngine({...services.turns...})` creation; remove `turns: services.turns` from GmService deps | P01 not applied — TurnEngine module still imported and instantiated |
-| `core/src/turns/index.ts` | Remove TurnService exports; keep only JournalService | Turn Engine exports from core |
-| `core/src/services.ts` | Remove TurnService import/creation; make `turns` field optional or remove from `CoreServices` | Eliminate direct Turn dependency in core |
-| `core/src/session/session-service.ts` | Remove `this.turns.openTurn()` call in `startSession()`; adjust return type of `startSession()` | Session no longer depends on Turn Engine |
-| `core/src/index.ts` | Update barrel exports — remove TurnService from public API | Public API cleanup |
+| File                                  | Change                                                                                                                                                                                      | Reason                                                              |
+| ------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------- |
+| `apps/server/src/main.ts`             | Remove `import { reconcileOnBoot } from '@mnemosin/module-turn'`; remove `reconcileOnBoot({turns: services.turns, ...})` call; remove `turns: services.turns` from HTTP and WS gateway deps | P01 not applied — Turn Engine still wired in server boot            |
+| `apps/server/src/modules.ts`          | Remove `import { TurnEngine, rulesStub } from '@mnemosin/module-turn'`; remove `new TurnEngine({...services.turns...})` creation; remove `turns: services.turns` from GmService deps        | P01 not applied — TurnEngine module still imported and instantiated |
+| `core/src/turns/index.ts`             | Remove TurnService exports; keep only JournalService                                                                                                                                        | Turn Engine exports from core                                       |
+| `core/src/services.ts`                | Remove TurnService import/creation; make `turns` field optional or remove from `CoreServices`                                                                                               | Eliminate direct Turn dependency in core                            |
+| `core/src/session/session-service.ts` | Remove `this.turns.openTurn()` call in `startSession()`; adjust return type of `startSession()`                                                                                             | Session no longer depends on Turn Engine                            |
+| `core/src/index.ts`                   | Update barrel exports — remove TurnService from public API                                                                                                                                  | Public API cleanup                                                  |
 
 ## 11. Verification (Updated)
 

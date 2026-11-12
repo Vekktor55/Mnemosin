@@ -156,12 +156,14 @@ Response: {"version":"0.1.0","contractsVersion":"0.5.0","gitTag":null,"node":"v2
 ### Graceful Shutdown:
 
 **Code implemented in `main.ts`:**
+
 - `await app.close()` followed by `await persistence.close()`
 - 10-second timeout with `setTimeout` and `clearTimeout`
 - Protection against repeated shutdown calls
 - SIGINT/SIGTERM handlers registered
 
 **Verification:**
+
 - HTTP endpoints tested and working
 - Server starts and listens on port 3000
 - Port freed after process termination
