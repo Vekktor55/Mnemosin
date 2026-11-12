@@ -1,6 +1,7 @@
 /**
- * Порты ядра (v3 §II.18). Реализации живут в infrastructure/* и НИКОГДА не импортируются
- * из core — связь только через эти интерфейсы (правила dependency-cruiser, промпт 1.3).
+ * Domain ports (v3 �II.18). ���������� ����� � infrastructure/* � ������� ��
+ * ������������� �� core � ����� ������ ����� ��� ���������� (�������
+ * dependency-cruiser, ������ 1.3).
  */
 export type { TxToken, TxOutcome, TxScope, UnitOfWork, RepositoryRegistry } from './unit-of-work.js';
 export type { AIPort, AIGenerateInput, AIGenerateResult, AIDeadline } from './ai-port.js';
@@ -28,3 +29,4 @@ export type {
   AiDecisionRecord,
   AiDecisionStatus,
 } from './ai-decision-repository.js';
+export type { TurnServicePort } from './turn-service.js';

@@ -3,22 +3,14 @@ import { JournalService } from './turns/journal.js';
 import { StateService } from './state/state-service.js';
 import { LocationService, type WorldPackData } from './locations/location-service.js';
 import { SessionService } from './session/session-service.js';
-import type { TurnId } from '@mnemosin/contracts';
+import type { TurnServicePort } from './domain/ports/turn-service.js';
 
 /**
- * Порты Turn Engine (v3 §II.4).
- * Определяются здесь для того, чтобы SessionService мог использовать узкий интерфейс,
- * а CoreServices не создавал конкретную реализацию TurnService.
- * Реальная реализация передаётся извне (из apps/server).
+ * Core Services — фабрика доменных сервисов.
+ *
+ * Порты внедряются извне (из apps/server или tools/verify).
+ * Core не создаёт инфраструктуру сам — инварианты 1–3, D216/D221.
  */
-export interface TurnServicePort {
-  /** Открывает ход для сессии. Возвращает turnId и номер хода. */
-  openTurn(input: {
-    sessionId: string;
-    idempotencyKey: string;
-    traceId: string;
-  }): Promise<{ turnId: TurnId; number: number }>;
-}
 
 /**
  * Сборка доменных сервисов core (промпт 1.6).
@@ -46,6 +38,8 @@ export interface CreateCoreServicesOptions {
   /** Данные world-pack (этап 1: фикстуры locations.stage1.json, D204/D221). */
   readonly pack: WorldPackData;
   readonly limits: CoreLimits;
+  /** Порт зависимостей Turn Engine (внедряется извне). */
+  readonly turns: TurnServicePort;
 }
 
 export interface CoreServices {
@@ -68,10 +62,10 @@ export function createCoreServices(options: CreateCoreServicesOptions): CoreServ
   const sessions = new SessionService({
     uow: options.uow,
     guard: options.guard,
-    turns: {} as TurnServicePort,
+    turns: options.turns,
     locations,
     pack: options.pack,
     limits: { maxPlayersPerSession: options.limits.maxPlayersPerSession },
   });
-  return { journal, state, turns: {} as TurnServicePort, locations, sessions };
+  return { journal, state, turns: options.turns, locations, sessions };
 }

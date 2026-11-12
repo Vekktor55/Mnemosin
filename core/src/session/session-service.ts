@@ -22,7 +22,7 @@ import type { CommandRunner, TxScope, UnitOfWork } from '../domain/ports/index.j
 import { assertTransition } from '../domain/transition.js';
 import { appendOutbox, createEvent } from '../events/outbox.js';
 import type { LocationService, WorldPackData } from '../locations/location-service.js';
-import type { TurnServicePort } from '../services.js';
+import type { TurnServicePort } from '../domain/ports/turn-service.js';
 
 /**
  * SessionService — жизненный цикл сессии и партии (промпт 1.6; v3 §II.2–II.3).
