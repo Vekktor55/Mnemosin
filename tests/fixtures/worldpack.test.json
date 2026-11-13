@@ -1,0 +1,40 @@
+{
+  "packId": "test-pack-1",
+  "version": "1",
+  "startLocationId": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
+  "locations": [
+    {
+      "locationId": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
+      "sessionId": "00000000-0000-0000-0000-000000000000",
+      "templateSlug": "loc_start",
+      "name": "Test Start Location",
+      "description": "A minimal test location for integration tests",
+      "atmosphere": "Neutral test atmosphere",
+      "objects": [],
+      "exits": [],
+      "hazards": [],
+      "registeredEventIds": [],
+      "narrativeNotes": "Test narrative notes",
+      "aiGuidance": {
+        "role": "test",
+        "coreInstruction": "Test core instruction",
+        "revelationPacing": [],
+        "forbiddenKnowledgeReveal": [],
+        "supernaturalLimit": null
+      },
+      "gmSecret": null,
+      "tags": ["test", "start"],
+      "meta": {
+        "floor": 0,
+        "indexOnFloor": 0,
+        "floorName": "Test Floor",
+        "batch": 1,
+        "origin": "v3-fixture",
+        "atmosphereParts": null,
+        "actors": {},
+        "items": {}
+      },
+      "updatedAt": "2026-10-14T00:00:00.000Z"
+    }
+  ]
+}

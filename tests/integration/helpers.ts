@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { readFileSync } from 'node:fs';
 
 import { createCoreServices, type CoreServices } from '@mnemosin/core';
 
@@ -28,7 +29,7 @@ import {
   type Turn,
   type TurnId,
 } from '@mnemosin/contracts';
-import { bootstrapDatabase, loadLocationFixtures, type BootstrapResult } from '@mnemosin/database';
+import { bootstrapDatabase, type BootstrapResult, hashResult } from '@mnemosin/database';
 
 /**
  * Общие фабрики и временные БД для интеграционных тестов (промпт 1.4).
@@ -62,8 +63,23 @@ export async function openTempDb(label: string, options: { seed?: boolean } = {}
   };
 }
 
-export const fixtures = loadLocationFixtures();
-export const startLocationId = fixtures.startLocationId;
+// --- Минимальная тестовая WorldPack-фикстура (не зависит от production-файлов) ---
+interface TestWorldPack {
+  readonly packId: string;
+  readonly version: string;
+  readonly startLocationId: string;
+  readonly locations: readonly LocationDefinition[];
+}
+
+function loadTestWorldPack(): TestWorldPack {
+  const path = join(process.cwd(), 'tests/fixtures/worldpack.test.json');
+  const raw = readFileSync(path, 'utf8');
+  return JSON.parse(raw) as TestWorldPack;
+}
+
+const testWorldPack = loadTestWorldPack();
+export const fixtures = testWorldPack;
+export const startLocationId = testWorldPack.startLocationId;
 
 export interface SampleWorld {
   readonly session: Session;
@@ -296,15 +312,77 @@ export function makeLocation(patch: Partial<LocationDefinition> = {}): LocationD
  * Сборка доменных сервисов core на временной БД (промпт 1.6).
  * guard — IdempotencyService из bootstrap (порт CommandRunner, D216);
  * pack — те же фикстуры, что использует bootstrap dev-сессии.
+ * turns — тестовый TurnServicePort с реализацией openTurn().
  */
 export function buildTestServices(
   db: TempDb,
   limits: { maxPlayersPerSession?: number; actionsPerPlayerPerTurn?: number } = {},
 ): CoreServices {
+  // Тестовый TurnServicePort: реализует только openTurn()
+  // Идемпотентность обрабатывается на уровне репозитория через findByKey/finish
+  const turnsPort = {
+    async openTurn(input: { sessionId: string; idempotencyKey: string; traceId: string }) {
+      const { sessionId, idempotencyKey, traceId } = input;
+      const uow = db.boot.uow;
+      
+      return await uow.runInTx(async (scope) => {
+        // Проверяем идемпотентность через репозиторий
+        const existing = await scope.repos.idempotency.findByKey(idempotencyKey as any);
+        if (existing) {
+          if (existing.status === 'DONE' && existing.resultJson) {
+            return JSON.parse(existing.resultJson);
+          }
+        }
+        
+        const turnRepo = scope.repos.turns;
+        const sessionRepo = scope.repos.sessions;
+        
+        // Получаем номер следующего хода
+        const latest = await turnRepo.findLatestBySession(sessionId as any);
+        const nextNumber = (latest?.number ?? 0) + 1;
+        
+        const turnId = randomUUID() as any;
+        const now = nowIso();
+        
+        const newTurn = {
+          turnId,
+          sessionId,
+          number: nextNumber,
+          status: 'OPEN' as const,
+          resolution: null,
+          lockedAt: null,
+          processingStartedAt: null,
+          reviewReadyAt: null,
+          committedAt: null,
+          failed: null,
+          createdAt: now,
+          updatedAt: now,
+        };
+        
+        await turnRepo.insert(newTurn);
+        
+        // Обновляем currentTurnId в сессии
+        await sessionRepo.patchPhase(sessionId as any, { currentTurnId: turnId, updatedAt: now });
+        
+        const result = { turnId, number: nextNumber };
+        
+        // Записываем результат идемпотентности
+        await scope.repos.idempotency.finish({
+          key: idempotencyKey as any,
+          resultJson: JSON.stringify(result),
+          resultHash: hashResult(result),
+        });
+        
+        return { turnId, number: nextNumber };
+      });
+    },
+  };
+  
   return createCoreServices({
     uow: db.boot.uow,
     guard: db.boot.idempotency,
     pack: fixtures,
+    turns: turnsPort,
     limits: {
       maxPlayersPerSession: limits.maxPlayersPerSession ?? 12,
       actionsPerPlayerPerTurn: limits.actionsPerPlayerPerTurn ?? 5,
