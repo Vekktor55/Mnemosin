@@ -1,9 +1,16 @@
 import type { CommandRunner, UnitOfWork } from './domain/ports/index.js';
 import { JournalService } from './turns/journal.js';
-import { TurnService } from './turns/turn-service.js';
 import { StateService } from './state/state-service.js';
 import { LocationService, type WorldPackData } from './locations/location-service.js';
 import { SessionService } from './session/session-service.js';
+import type { TurnServicePort } from './domain/ports/turn-service.js';
+
+/**
+ * Core Services — фабрика доменных сервисов.
+ *
+ * Порты внедряются извне (из apps/server или tools/verify).
+ * Core не создаёт инфраструктуру сам — инварианты 1–3, D216/D221.
+ */
 
 /**
  * Сборка доменных сервисов core (промпт 1.6).
@@ -31,12 +38,14 @@ export interface CreateCoreServicesOptions {
   /** Данные world-pack (этап 1: фикстуры locations.stage1.json, D204/D221). */
   readonly pack: WorldPackData;
   readonly limits: CoreLimits;
+  /** Порт зависимостей Turn Engine (внедряется извне). */
+  readonly turns: TurnServicePort;
 }
 
 export interface CoreServices {
   readonly journal: JournalService;
   readonly state: StateService;
-  readonly turns: TurnService;
+  readonly turns: TurnServicePort;
   readonly locations: LocationService;
   readonly sessions: SessionService;
 }
@@ -44,12 +53,6 @@ export interface CoreServices {
 export function createCoreServices(options: CreateCoreServicesOptions): CoreServices {
   const journal = new JournalService(options.uow);
   const state = new StateService({ uow: options.uow, journal });
-  const turns = new TurnService({
-    uow: options.uow,
-    guard: options.guard,
-    journal,
-    limits: { actionsPerPlayerPerTurn: options.limits.actionsPerPlayerPerTurn },
-  });
   const locations = new LocationService({
     uow: options.uow,
     guard: options.guard,
@@ -59,10 +62,10 @@ export function createCoreServices(options: CreateCoreServicesOptions): CoreServ
   const sessions = new SessionService({
     uow: options.uow,
     guard: options.guard,
-    turns,
+    turns: options.turns,
     locations,
     pack: options.pack,
     limits: { maxPlayersPerSession: options.limits.maxPlayersPerSession },
   });
-  return { journal, state, turns, locations, sessions };
+  return { journal, state, turns: options.turns, locations, sessions };
 }

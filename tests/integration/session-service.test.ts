@@ -169,6 +169,134 @@ describe('joinSession / startSession / жизненный цикл', () => {
     expect(session.currentTurnId).toBe(started.turnId);
   });
 
+  it('startSession вызывает внедрённый openTurn() и возвращает turnId/number', async () => {
+    // Проверка на fresh-сессии: создаём новую сессию и стартуем её
+    const soloDb = await openTempDb('session-start-turn', { seed: false });
+    try {
+      const solo = buildTestServices(soloDb);
+      const created = await solo.sessions.createSession({
+        title: 'StartTurn Test',
+        gmDisplayName: 'Ведущий',
+        idempotencyKey: testKey('create-start'),
+      });
+      await solo.sessions.joinSession({
+        sessionId: created.sessionId,
+        displayName: 'Игрок',
+        idempotencyKey: testKey('join-start'),
+      });
+
+      const started = await solo.sessions.startSession({
+        sessionId: created.sessionId,
+        idempotencyKey: testKey('start-turn'),
+      });
+
+      // Проверяем что openTurn был вызван и вернул корректные данные
+      expect(started.turnId).toBeDefined();
+      expect(started.turnNumber).toBe(1);
+      expect(started.status).toBe('ACTIVE');
+
+      const session = await solo.sessions.getSession(created.sessionId);
+      expect(session.currentTurnId).toBe(started.turnId);
+      expect(session.status).toBe('ACTIVE');
+
+      // Проверяем что ход реально создан в БД
+      const turn = await soloDb.boot.uow.repos().turns.findById(started.turnId);
+      expect(turn).not.toBeNull();
+      expect(turn?.number).toBe(1);
+      expect(turn?.sessionId).toBe(created.sessionId);
+      expect(turn?.status).toBe('OPEN');
+    } finally {
+      await soloDb.close();
+    }
+  });
+
+  it('повтор startSession с тем же ключом → replayed, openTurn не вызывается повторно', async () => {
+    const soloDb = await openTempDb('session-start-idem', { seed: false });
+    try {
+      const solo = buildTestServices(soloDb);
+      const created = await solo.sessions.createSession({
+        title: 'Idem Start',
+        gmDisplayName: 'Ведущий',
+        idempotencyKey: testKey('create-start-idem'),
+      });
+      await solo.sessions.joinSession({
+        sessionId: created.sessionId,
+        displayName: 'Игрок',
+        idempotencyKey: testKey('join-start-idem'),
+      });
+
+      const key = testKey('start-idem');
+      const first = await solo.sessions.startSession({
+        sessionId: created.sessionId,
+        idempotencyKey: key,
+      });
+      const second = await solo.sessions.startSession({
+        sessionId: created.sessionId,
+        idempotencyKey: key,
+      });
+
+      expect(second.replayed).toBe(true);
+      expect(second.turnId).toBe(first.turnId);
+      expect(second.turnNumber).toBe(first.turnNumber);
+
+      // Проверяем что в БД только один ход
+      const turns = await soloDb.boot.uow.repos().turns.listBySession(created.sessionId);
+      expect(turns).toHaveLength(1);
+    } finally {
+      await soloDb.close();
+    }
+  });
+
+  it('openTurn ошибка → транзакция откатывается, сессия остаётся LOBBY', async () => {
+    // Создаём сервисы с падающим openTurn
+    const soloDb = await openTempDb('session-open-fail', { seed: false });
+    try {
+      // Создаём сервисы с кастомным failing turn port
+      const failingTurns = {
+        async openTurn() {
+          throw new Error('SIMULATED_TURN_FAILURE');
+        },
+      };
+
+      const { createCoreServices } = await import('@mnemosin/core');
+      const services = createCoreServices({
+        uow: soloDb.boot.uow,
+        guard: soloDb.boot.idempotency,
+        pack: (await import('./helpers.js')).fixtures,
+        turns: failingTurns,
+        limits: { maxPlayersPerSession: 12, actionsPerPlayerPerTurn: 5 },
+      });
+
+      const created = await services.sessions.createSession({
+        title: 'Fail Turn Test',
+        gmDisplayName: 'Ведущий',
+        idempotencyKey: testKey('create-fail'),
+      });
+      await services.sessions.joinSession({
+        sessionId: created.sessionId,
+        displayName: 'Игрок',
+        idempotencyKey: testKey('join-fail'),
+      });
+
+      // startSession должен упасть с ошибкой openTurn
+      const code = await errorCodeOf(() =>
+        services.sessions.startSession({ sessionId: created.sessionId, idempotencyKey: testKey('start-fail') }),
+      );
+      expect(code).not.toBeNull(); // Ошибка должна прокинуться
+
+      // Сессия должна остаться в LOBBY (rollback транзакции)
+      const session = await services.sessions.getSession(created.sessionId);
+      expect(session.status).toBe('LOBBY');
+      expect(session.currentTurnId).toBeNull();
+
+      // Ход не должен быть создан
+      const turns = await soloDb.boot.uow.repos().turns.listBySession(created.sessionId);
+      expect(turns).toHaveLength(0);
+    } finally {
+      await soloDb.close();
+    }
+  });
+
   it('join после старта → CORE_INVALID_STATE_TRANSITION (только LOBBY)', async () => {
     const code = await errorCodeOf(() =>
       services.sessions.joinSession({ sessionId, displayName: 'Вера', idempotencyKey: testKey('join-late') }),

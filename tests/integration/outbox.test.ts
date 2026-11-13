@@ -1,4 +1,4 @@
-import { mkdtempSync } from 'node:fs';
+import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { randomUUID } from 'node:crypto';
@@ -9,7 +9,7 @@ import { nowIso, type DomainEvent, type SessionId, type TurnId } from '@mnemosin
 import { appendOutbox, createEvent, InMemoryMetricsSink, InProcessEventBus } from '@mnemosin/core';
 import { bootstrapDatabase, eventOutbox, OutboxPublisher } from '@mnemosin/database';
 
-import { openTempDb, seedWorld, type SampleWorld, type TempDb, rmSafe } from './helpers.js';
+import { openTempDb, seedWorld, type SampleWorld, type TempDb } from './helpers.js';
 
 /**
  * Промпт 1.5 · outbox-публикатор (критерий A1.11, дефекты F-2.5/F-2.8/F-2.9).
@@ -240,7 +240,26 @@ describe('outbox · порядок и рестарт (промпт 1.5, п.5.4; 
       expect(await boot2.uow.repos().outbox.countByStatus('PUBLISHED')).toBe(1);
     } finally {
       await boot2.close();
-      rmSafe(dir);
+      // Windows fix: wait for SQLite handles to be released, then retry deletion
+      const maxRetries = 5;
+      for (let attempt = 0; attempt < maxRetries; attempt++) {
+        try {
+          rmSync(dir, { recursive: true, force: true });
+          return;
+        } catch (err: unknown) {
+          const code = (err as { code?: string }).code;
+          if (code === 'EPERM' || code === 'EBUSY' || code === 'ENOTEMPTY') {
+            if (attempt === maxRetries - 1) {
+              // Last attempt - log warning but don't throw to avoid test failures
+              console.warn(`Failed to delete temp dir ${dir} after ${maxRetries} attempts`);
+              return;
+            }
+            await new Promise(resolve => setTimeout(resolve, 50));
+          } else {
+            throw err;
+          }
+        }
+      }
     }
   });
 });

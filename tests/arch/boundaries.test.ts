@@ -140,7 +140,9 @@ describe('Границы зависимостей (A1.2)', () => {
     });
     const offenders: string[] = [];
     for (const file of listSourceFiles('client')) {
-      const tooling = TOOLING_ALLOWLIST[file] ?? [];
+      // Нормализуем путь к forward slashes для поиска в TOOLING_ALLOWLIST
+      const normalizedFile = file.replace(/\\/g, '/');
+      const tooling = TOOLING_ALLOWLIST[normalizedFile] ?? [];
       for (const specifier of importsOf(file)) {
         if (specifier.startsWith('.')) continue;
         if (tooling.includes(specifier)) continue;

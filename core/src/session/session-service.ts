@@ -22,7 +22,7 @@ import type { CommandRunner, TxScope, UnitOfWork } from '../domain/ports/index.j
 import { assertTransition } from '../domain/transition.js';
 import { appendOutbox, createEvent } from '../events/outbox.js';
 import type { LocationService, WorldPackData } from '../locations/location-service.js';
-import type { TurnService } from '../turns/turn-service.js';
+import type { TurnServicePort } from '../domain/ports/turn-service.js';
 
 /**
  * SessionService — жизненный цикл сессии и партии (промпт 1.6; v3 §II.2–II.3).
@@ -59,7 +59,7 @@ import type { TurnService } from '../turns/turn-service.js';
 export interface SessionServiceDeps {
   readonly uow: UnitOfWork;
   readonly guard: CommandRunner;
-  readonly turns: TurnService;
+  readonly turns: TurnServicePort;
   readonly locations: LocationService;
   readonly pack: WorldPackData;
   readonly limits: { readonly maxPlayersPerSession: number };
@@ -91,8 +91,8 @@ export interface StartSessionResult {
 
 export class SessionService {
   private readonly uow: UnitOfWork;
+  private readonly turns: TurnServicePort;
   private readonly guard: CommandRunner;
-  private readonly turns: TurnService;
   private readonly locations: LocationService;
   private readonly pack: WorldPackData;
   private readonly maxPlayersPerSession: number;
@@ -392,7 +392,12 @@ export class SessionService {
           idempotencyKey: `start-turn:${input.sessionId}`,
           traceId,
         });
-        return { sessionId: input.sessionId, status: 'ACTIVE' as const, turnId: turn.turnId, turnNumber: turn.number };
+        return {
+          sessionId: input.sessionId,
+          status: 'ACTIVE' as const,
+          turnId: turn.turnId,
+          turnNumber: turn.number,
+        } as StartSessionResult;
       },
     );
     return { ...result.value, replayed: result.replayed };

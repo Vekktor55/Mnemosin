@@ -1,0 +1,190 @@
+{
+  "packId": "test-pack-1",
+  "version": "1",
+  "startLocationId": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
+  "locations": [
+    {
+      "locationId": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
+      "sessionId": "00000000-0000-0000-0000-000000000000",
+      "templateSlug": "loc_start",
+      "name": "Test Start Location",
+      "description": "A minimal test location for integration tests",
+      "atmosphere": "Neutral test atmosphere",
+      "objects": [
+        {
+          "objectId": "11111111-1111-1111-1111-111111111111",
+          "name": "Test Object 1",
+          "description": "First test object in start location",
+          "interactive": true,
+          "takeable": false,
+          "itemMeta": null,
+          "source": "derived"
+        },
+        {
+          "objectId": "22222222-2222-2222-2222-222222222222",
+          "name": "Test Object 2",
+          "description": "Second test object in start location",
+          "interactive": true,
+          "takeable": true,
+          "itemMeta": null,
+          "source": "derived"
+        },
+        {
+          "objectId": "33333333-3333-3333-3333-333333333333",
+          "name": "Test Object 3",
+          "description": "Third test object in start location",
+          "interactive": false,
+          "takeable": false,
+          "itemMeta": null,
+          "source": "derived"
+        }
+      ],
+      "exits": [],
+      "hazards": [],
+      "registeredEventIds": [],
+      "narrativeNotes": "Test narrative notes",
+      "aiGuidance": {
+        "role": "test",
+        "coreInstruction": "Test core instruction",
+        "revelationPacing": [],
+        "forbiddenKnowledgeReveal": [],
+        "supernaturalLimit": null
+      },
+      "gmSecret": null,
+      "tags": ["test", "start"],
+      "meta": {
+        "floor": 0,
+        "indexOnFloor": 0,
+        "floorName": "Test Floor",
+        "batch": 1,
+        "origin": "v3-fixture",
+        "atmosphereParts": null,
+        "actors": {},
+        "items": {}
+      },
+      "updatedAt": "2026-10-14T00:00:00.000Z"
+    },
+    {
+      "locationId": "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb",
+      "sessionId": "00000000-0000-0000-0000-000000000000",
+      "templateSlug": "loc_hall",
+      "name": "Test Hall Location",
+      "description": "Second test location for integration tests",
+      "atmosphere": "Dusty test atmosphere",
+      "objects": [
+        {
+          "objectId": "44444444-4444-4444-4444-444444444444",
+          "name": "Test Object 4",
+          "description": "First test object in hall location",
+          "interactive": true,
+          "takeable": false,
+          "itemMeta": null,
+          "source": "derived"
+        },
+        {
+          "objectId": "55555555-5555-5555-5555-555555555555",
+          "name": "Test Object 5",
+          "description": "Second test object in hall location",
+          "interactive": true,
+          "takeable": true,
+          "itemMeta": null,
+          "source": "derived"
+        },
+        {
+          "objectId": "66666666-6666-6666-6666-666666666666",
+          "name": "Test Object 6",
+          "description": "Third test object in hall location",
+          "interactive": false,
+          "takeable": false,
+          "itemMeta": null,
+          "source": "derived"
+        }
+      ],
+      "exits": [],
+      "hazards": [],
+      "registeredEventIds": [],
+      "narrativeNotes": "Test narrative notes for hall",
+      "aiGuidance": {
+        "role": "test",
+        "coreInstruction": "Test core instruction",
+        "revelationPacing": [],
+        "forbiddenKnowledgeReveal": [],
+        "supernaturalLimit": null
+      },
+      "gmSecret": null,
+      "tags": ["test", "hall"],
+      "meta": {
+        "floor": 0,
+        "indexOnFloor": 1,
+        "floorName": "Test Floor",
+        "batch": 1,
+        "origin": "v3-fixture",
+        "atmosphereParts": null,
+        "actors": {},
+        "items": {}
+      },
+      "updatedAt": "2026-10-14T00:00:00.000Z"
+    },
+    {
+      "locationId": "cccccccc-cccc-cccc-cccc-cccccccccccc",
+      "sessionId": "00000000-0000-0000-0000-000000000000",
+      "templateSlug": "loc_chamber",
+      "name": "Test Chamber Location",
+      "description": "Third test location for integration tests",
+      "atmosphere": "Cold test atmosphere",
+      "objects": [
+        {
+          "objectId": "77777777-7777-7777-7777-777777777777",
+          "name": "Test Object 7",
+          "description": "First test object in chamber location",
+          "interactive": true,
+          "takeable": false,
+          "itemMeta": null,
+          "source": "derived"
+        },
+        {
+          "objectId": "88888888-8888-8888-8888-888888888888",
+          "name": "Test Object 8",
+          "description": "Second test object in chamber location",
+          "interactive": true,
+          "takeable": true,
+          "itemMeta": null,
+          "source": "derived"
+        },
+        {
+          "objectId": "99999999-9999-9999-9999-999999999999",
+          "name": "Test Object 9",
+          "description": "Third test object in chamber location",
+          "interactive": false,
+          "takeable": false,
+          "itemMeta": null,
+          "source": "derived"
+        }
+      ],
+      "exits": [],
+      "hazards": [],
+      "registeredEventIds": [],
+      "narrativeNotes": "Test narrative notes for chamber",
+      "aiGuidance": {
+        "role": "test",
+        "coreInstruction": "Test core instruction",
+        "revelationPacing": [],
+        "forbiddenKnowledgeReveal": [],
+        "supernaturalLimit": null
+      },
+      "gmSecret": null,
+      "tags": ["test", "chamber"],
+      "meta": {
+        "floor": -1,
+        "indexOnFloor": 0,
+        "floorName": "Test Basement",
+        "batch": 1,
+        "origin": "v3-fixture",
+        "atmosphereParts": null,
+        "actors": {},
+        "items": {}
+      },
+      "updatedAt": "2026-10-14T00:00:00.000Z"
+    }
+  ]
+}

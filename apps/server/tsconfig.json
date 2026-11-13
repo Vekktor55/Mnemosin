@@ -11,9 +11,6 @@
       "path": "../../shared/contracts"
     },
     {
-      "path": "../../core"
-    },
-    {
       "path": "../../infrastructure/config"
     },
     {
@@ -23,37 +20,10 @@
       "path": "../../infrastructure/database"
     },
     {
-      "path": "../../infrastructure/jobs"
-    },
-    {
-      "path": "../../infrastructure/ai"
-    },
-    {
-      "path": "../../modules/ai-director"
-    },
-    {
-      "path": "../../modules/turn"
-    },
-    {
-      "path": "../../modules/gm-review"
-    },
-    {
-      "path": "../../modules/chat"
-    },
-    {
-      "path": "../../modules/story"
-    },
-    {
-      "path": "../../modules/gm"
-    },
-    {
-      "path": "../../modules/gm-audit"
-    },
-    {
-      "path": "../../modules/session"
-    },
-    {
       "path": "../../gateways/http"
+    },
+    {
+      "path": "../../gateways/ws"
     }
   ]
 }

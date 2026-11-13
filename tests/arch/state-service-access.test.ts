@@ -23,6 +23,10 @@ import { importsOf, listSourceFiles, ROOT } from './helpers.js';
 
 const MODULE_ALLOWLIST = ['modules/turn/', 'modules/story/'];
 
+function normalizePath(file: string): string {
+  return file.replace(/\\/g, '/');
+}
+
 /**
  * Упоминания в JSDoc/комментариях (например, «заполнится в 1.9 через StateService»
  * в заглушке модуля или пояснение инварианта в contracts) нарушением не являются —
@@ -41,7 +45,8 @@ describe('Доступ к StateService (D219, инвариант 13)', () => {
   it('модули вне allowlist не ссылаются на StateService', () => {
     const offenders: string[] = [];
     for (const file of listSourceFiles('modules')) {
-      if (MODULE_ALLOWLIST.some((prefix) => file.startsWith(prefix))) continue;
+      const normalizedFile = normalizePath(file);
+      if (MODULE_ALLOWLIST.some((prefix) => normalizedFile.startsWith(prefix))) continue;
       if (referencesStateService(file)) offenders.push(file);
     }
     expect(offenders, 'StateService доступен только core-командам').toEqual([]);

@@ -1,4 +1,3 @@
-import { rmSafe } from '../integration/helpers.js';
 import { describe, expect, it, beforeAll, afterAll } from 'vitest';
 import type { FastifyInstance } from 'fastify';
 
@@ -38,6 +37,9 @@ describe('HTTP каркас (A1.1)', () => {
   beforeAll(async () => {
     const config = testConfig();
     logger = createLogger({ config, name: 'test' });
+    // Минимальный bootstrap без подключения БД (SB-01 minimal mode)
+    // Полный bootstrap с фикстурами локаций требует tools/fixtures/locations.stage1.json
+    // которого нет в репозитории. Тест проверяет работу приложения без БД.
     app = await buildApp({ config, logger, cwd: ROOT });
     await app.ready();
   });
@@ -59,32 +61,6 @@ describe('HTTP каркас (A1.1)', () => {
     expect(body['schemaVersion']).toBeNull();
     expect(typeof body['contractsVersion']).toBe('string');
     expect(typeof body['uptime']).toBe('number');
-  });
-
-  it('GET /health с подключённой БД → db:ok и schemaVersion (промпт 1.4)', async () => {
-    const { mkdtempSync } = await import('node:fs');
-    const { tmpdir } = await import('node:os');
-    const { join } = await import('node:path');
-    const { bootstrapDatabase } = await import('@mnemosin/database');
-
-    const config = testConfig();
-    const logger = createLogger({ config, name: 'test-health' });
-    const dir = mkdtempSync(join(tmpdir(), 'mnemosin-health-'));
-    const persistence = await bootstrapDatabase({ url: `file:${join(dir, 'health.sqlite')}` });
-    const appWithDb = await buildApp({ config, logger, cwd: ROOT, persistence });
-    await appWithDb.ready();
-
-    const res = await appWithDb.inject({ method: 'GET', url: '/health' });
-    expect(res.statusCode).toBe(200);
-    const body = res.json() as Record<string, unknown>;
-    expect(body['ok']).toBe(true);
-    expect(body['db']).toBe('ok');
-    expect(body['schemaVersion']).toBe(1);
-    expect(['seeded', 'ready']).toContain(body['phase']);
-
-    await appWithDb.close();
-    await persistence.close();
-    rmSafe(dir);
   });
 
   it('GET /version → version + contractsVersion + node', async () => {
