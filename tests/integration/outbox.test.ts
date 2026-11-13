@@ -240,7 +240,26 @@ describe('outbox · порядок и рестарт (промпт 1.5, п.5.4; 
       expect(await boot2.uow.repos().outbox.countByStatus('PUBLISHED')).toBe(1);
     } finally {
       await boot2.close();
-      rmSync(dir, { recursive: true, force: true });
+      // Windows fix: wait for SQLite handles to be released, then retry deletion
+      const maxRetries = 5;
+      for (let attempt = 0; attempt < maxRetries; attempt++) {
+        try {
+          rmSync(dir, { recursive: true, force: true });
+          return;
+        } catch (err: unknown) {
+          const code = (err as { code?: string }).code;
+          if (code === 'EPERM' || code === 'EBUSY' || code === 'ENOTEMPTY') {
+            if (attempt === maxRetries - 1) {
+              // Last attempt - log warning but don't throw to avoid test failures
+              console.warn(`Failed to delete temp dir ${dir} after ${maxRetries} attempts`);
+              return;
+            }
+            await new Promise(resolve => setTimeout(resolve, 50));
+          } else {
+            throw err;
+          }
+        }
+      }
     }
   });
 });

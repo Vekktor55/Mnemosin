@@ -78,6 +78,52 @@ Coding agent должен использовать следующие докум
 
 ---
 
+## P00 Audit Results (2026-11-13)
+
+**Branch:** `arch-v2` | **HEAD:** `eb15ccf` | **Archive:** `main`@`fc62c57` (`stage1-final` tag)
+
+### Dual-Status Matrix (Actual State / Readiness)
+
+| Phase | Actual State | Readiness | Key Evidence |
+|-------|--------------|-----------|--------------|
+| P00 | PARTIAL (Steps 1-5) | READY | Git baseline, docs validated, inventory complete |
+| P01 | NOT STARTED | BLOCKED BY DECISION | Turn Engine wired in core/services.ts, session-service.ts, contracts, DB |
+| P02 | NOT STARTED | READY WITH PROVISIONAL DETAILS | No World Pack code; depends on P01 contracts |
+| P03 | NOT STARTED | READY WITH PROVISIONAL DETAILS | Depends on P01/P02 |
+| P04 | NOT STARTED | READY WITH PROVISIONAL DETAILS | Depends on P02/P03 |
+| P05 | NOT STARTED | READY WITH PROVISIONAL DETAILS | Legacy WS/client exist but use v1 protocol |
+| P06 | NOT STARTED | READY (prototype) / BLOCKED (production) | Durability decisions HC-06–HC-10 open |
+| P07 | NOT STARTED | READY WITH PROVISIONAL DETAILS | Depends on P03–P06 |
+| P08A (Doll Baseline) | NOT STARTED | READY WITH PROVISIONAL DETAILS | Sensor model undecided (DOLL-OPEN-01–03) |
+| P08B (Capture Integration) | NOT STARTED | BLOCKED BY DECISION | Requires P10 Captured/Stasis states |
+| P09 | NOT STARTED | READY WITH PROVISIONAL DETAILS | `chat`, `story`, `gm-audit` modules exist as bases |
+| P10 | NOT STARTED | BLOCKED BY DECISION | Role distribution (7–10), progression rules ML-01–ML-20 open |
+| P11 | NOT STARTED | READY (read-only) / BLOCKED (actions) | `gm-audit` partial base |
+| P12 | NOT STARTED | READY WITH PROVISIONAL DETAILS | Scripted fallback first; dialog rules open |
+| P13 | NOT STARTED | DEFERRED | Requires P10/P12; ending conditions open |
+| P14 (Parallel) | NOT STARTED | READY WITH PROVISIONAL DETAILS | Can start after P02 World Pack schema stabilizes |
+| P15 | NOT STARTED | DEFERRED | Requires all prior phases |
+
+### Critical Blockers (must resolve in P01)
+1. `core/src/services.ts` creates deleted `TurnService` — TS2307 + build fails
+2. `core/src/session/session-service.ts` calls `this.turns.openTurn()` — broken
+3. DB schema: `turns`, `actions.turn_id`, `journal_entries.turn_id`, `sessions.currentTurnId`
+4. `shared/contracts/domain/{turn,gm,gm-review}.ts` legacy schemas still present
+5. WS Gateway declares `WsTurnOps`, `WsGmOps`, `WsGmReviewOps`
+6. Client `GameShell.svelte` / `PlayerApp.svelte` reference deleted `TurnPanel`
+
+### Component Decisions Summary
+- **KEEP (4):** `modules/chat`, `gm-audit`, `session`, `story` | `infrastructure/database`, `core/src/turns/index.ts` (as Journal)
+- **ADAPT:** `apps/server/src/app.ts`, `gateways/ws-gateway`, `client/src/net/WSClient.ts`, `shared/contracts` (v4 schemas)
+- **REPLACE:** `core/src/services.ts`, `core/src/session/session-service.ts`, `data/migrations/0000_init.sql`, `client/src/shell/GameShell.svelte`, `client/src/player/PlayerApp.svelte`, `client/src/player/VisualPanel.svelte`
+- **REMOVE (done):** `modules/turn`, `gm`, `gm-review`, `ai-director`, `core/src/turns/turn-service.ts`
+- **REMOVE (pending):** `shared/contracts/domain/{turn,gm,gm-review}.ts`, `core/src/domain/ports/turn-service.ts`
+
+### Full Audit Report
+📄 **See: `docs/implementation/REPOSITORY_AUDIT.md`** — contains complete baseline, migration table, test classification, report validity check, risks, and P01 task list.
+
+---
+
 # 1. Целевой результат реализации
 
 ## 1.1. Продуктовая цель
