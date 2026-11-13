@@ -58,7 +58,27 @@ export async function openTempDb(label: string, options: { seed?: boolean } = {}
     path,
     async close(): Promise<void> {
       await boot.close();
-      rmSync(dir, { recursive: true, force: true });
+      // Windows fix: wait for SQLite handles to be released, then retry deletion
+      // Use simple retry - Windows needs time to release file handles
+      const maxRetries = 5;
+      const delayMs = 100;
+      for (let attempt = 0; attempt < maxRetries; attempt++) {
+        try {
+          rmSync(dir, { recursive: true, force: true });
+          return;
+        } catch (err: any) {
+          if (err.code === 'EPERM' || err.code === 'EBUSY' || err.code === 'ENOTEMPTY') {
+            if (attempt === maxRetries - 1) {
+              // Last attempt - log warning but don't throw to avoid test failures
+              console.warn(`Failed to delete temp dir ${dir} after ${maxRetries} attempts: ${err.message}`);
+              return;
+            }
+            await new Promise(resolve => setTimeout(resolve, 50));
+          } else {
+            throw err;
+          }
+        }
+      }
     },
   };
 }
