@@ -80,47 +80,55 @@ Coding agent должен использовать следующие докум
 
 ## P00 Audit Results (2026-11-13)
 
-**Branch:** `arch-v2` | **HEAD:** `eb15ccf` | **Archive:** `main`@`fc62c57` (`stage1-final` tag)
+**Branch:** `arch-v2` | **Audited HEAD:** `eb15ccff58a49dc1854ad5b5672c5e1cca60084e` | **Current HEAD:** `a1491af` | **Archive:** `main`@`fc62c57` (`stage1-final` tag, commit "довел проект до стадии end_stage_1")
 
 ### Dual-Status Matrix (Actual State / Readiness)
 
 | Phase | Actual State | Readiness | Key Evidence |
 |-------|--------------|-----------|--------------|
-| P00 | PARTIAL (Steps 1-5) | READY | Git baseline, docs validated, inventory complete |
-| P01 | NOT STARTED | BLOCKED BY DECISION | Turn Engine wired in core/services.ts, session-service.ts, contracts, DB |
+| P00 | PARTIAL (Steps 1-8) | READY | Git baseline, CI verified at audited SHA, docs validated, inventory complete |
+| P01 | NOT STARTED | **READY WITH PROVISIONAL DETAILS** | Original roadmap: collect open decisions, classify BLOCKER/PROTOTYPE/CONTENT/DEFERRED. No separate blocker found by audit beyond existing open questions in specs. |
 | P02 | NOT STARTED | READY WITH PROVISIONAL DETAILS | No World Pack code; depends on P01 contracts |
 | P03 | NOT STARTED | READY WITH PROVISIONAL DETAILS | Depends on P01/P02 |
 | P04 | NOT STARTED | READY WITH PROVISIONAL DETAILS | Depends on P02/P03 |
 | P05 | NOT STARTED | READY WITH PROVISIONAL DETAILS | Legacy WS/client exist but use v1 protocol |
-| P06 | NOT STARTED | READY (prototype) / BLOCKED (production) | Durability decisions HC-06–HC-10 open |
+| P06 | NOT STARTED | READY (prototype) / BLOCKED BY DECISION (production) | Durability decisions HC-06–HC-10 open |
 | P07 | NOT STARTED | READY WITH PROVISIONAL DETAILS | Depends on P03–P06 |
 | P08A (Doll Baseline) | NOT STARTED | READY WITH PROVISIONAL DETAILS | Sensor model undecided (DOLL-OPEN-01–03) |
-| P08B (Capture Integration) | NOT STARTED | BLOCKED BY DECISION | Requires P10 Captured/Stasis states |
+| P08B (Capture Integration) | NOT STARTED | **BLOCKED BY DECISION** | Requires P10 Captured/Stasis states |
 | P09 | NOT STARTED | READY WITH PROVISIONAL DETAILS | `chat`, `story`, `gm-audit` modules exist as bases |
-| P10 | NOT STARTED | BLOCKED BY DECISION | Role distribution (7–10), progression rules ML-01–ML-20 open |
-| P11 | NOT STARTED | READY (read-only) / BLOCKED (actions) | `gm-audit` partial base |
+| P10 | NOT STARTED | **BLOCKED BY DECISION** | Role distribution (7–10), progression rules ML-01–ML-20 open |
+| P11 | NOT STARTED | READY (read-only) / BLOCKED BY DECISION (actions) | `gm-audit` partial base |
 | P12 | NOT STARTED | READY WITH PROVISIONAL DETAILS | Scripted fallback first; dialog rules open |
 | P13 | NOT STARTED | DEFERRED | Requires P10/P12; ending conditions open |
-| P14 (Parallel) | NOT STARTED | READY WITH PROVISIONAL DETAILS | Can start after P02 World Pack schema stabilizes |
-| P15 | NOT STARTED | DEFERRED | Requires all prior phases |
+| P14 (Parallel) | NOT STARTED | READY WITH PROVISIONAL DETAILS | **Explicit start conditions:** (1) World Pack schema stabilized, (2) resource IDs/references defined, (3) client display interfaces stable, (4) production World Packs use server-authoritative geometry. Can start after P02/P03; does NOT wait for P08/P10/P12/P13. |
+| P15 | NOT STARTED | DEFERRED | Requires all prior phases. First vertical slice = P03–P05. |
 
-### Critical Blockers (must resolve in P01)
-1. `core/src/services.ts` creates deleted `TurnService` — TS2307 + build fails
-2. `core/src/session/session-service.ts` calls `this.turns.openTurn()` — broken
-3. DB schema: `turns`, `actions.turn_id`, `journal_entries.turn_id`, `sessions.currentTurnId`
-4. `shared/contracts/domain/{turn,gm,gm-review}.ts` legacy schemas still present
-5. WS Gateway declares `WsTurnOps`, `WsGmOps`, `WsGmReviewOps`
-6. Client `GameShell.svelte` / `PlayerApp.svelte` reference deleted `TurnPanel`
+### Critical Blockers (must resolve in P02, not P01)
+1. `core/src/session/session-service.ts` calls `this.turns.openTurn()` — broken (requires P10 rewrite or P02 stub)
+2. DB schema: `turns`, `actions.turn_id`, `journal_entries.turn_id`, `sessions.currentTurnId` — new migrations needed (P02/P10)
+3. `shared/contracts/domain/{turn,gm,gm-review}.ts` legacy schemas still present — delete in P02
+4. WS Gateway declares `WsTurnOps`, `WsGmOps`, `WsGmReviewOps` — strip legacy ops in P05
+5. Client `GameShell.svelte` / `PlayerApp.svelte` reference deleted `TurnPanel` — rewrite in P05
+6. No World Pack schema / loader / validator — design in P03
+7. No HOT Runtime — implement in P04
+8. No HOT/COLD bridge — implement in P06
+9. Doll AI perception/sensor model undecided — decision for P08A production
+10. Participant states (Captured/Stasis) not defined — decision in P10
+11. Ending conditions / priority table not decided — decision for P13
+12. Role distribution rules for 7–10 players — decision for P10 (ML-01–ML-20)
+
+**Note:** `core/src/services.ts` at audited HEAD **receives `TurnServicePort` via DI** (does not create it); `core/src/domain/ports/turn-service.ts` **exists** as a minimal Port interface (`openTurn` only). TypeScript `typecheck` **PASSES** at audited SHA `eb15ccf`. The blocker is architectural (legacy Port still wired), not a compile error.
 
 ### Component Decisions Summary
-- **KEEP (4):** `modules/chat`, `gm-audit`, `session`, `story` | `infrastructure/database`, `core/src/turns/index.ts` (as Journal)
-- **ADAPT:** `apps/server/src/app.ts`, `gateways/ws-gateway`, `client/src/net/WSClient.ts`, `shared/contracts` (v4 schemas)
-- **REPLACE:** `core/src/services.ts`, `core/src/session/session-service.ts`, `data/migrations/0000_init.sql`, `client/src/shell/GameShell.svelte`, `client/src/player/PlayerApp.svelte`, `client/src/player/VisualPanel.svelte`
-- **REMOVE (done):** `modules/turn`, `gm`, `gm-review`, `ai-director`, `core/src/turns/turn-service.ts`
+- **KEEP:** `modules/chat`, `gm-audit`, `session`, `story` | `infrastructure/database`, `core/src/turns/journal.ts` (JournalService — standalone, no TurnEngine dep)
+- **ADAPT:** `apps/server/src/app.ts`, `gateways/ws-gateway`, `client/src/net/WSClient.ts`, `shared/contracts` (v4 schemas), `core/src/services.ts` (remove TurnServicePort param)
+- **REPLACE:** `core/src/session/session-service.ts`, `infrastructure/database/migrations/0000_init.sql`, `client/src/shell/GameShell.svelte`, `client/src/player/PlayerApp.svelte`, `client/src/player/VisualPanel.svelte`
+- **REMOVE (done):** `modules/turn`, `gm`, `gm-review`, `ai-director`
 - **REMOVE (pending):** `shared/contracts/domain/{turn,gm,gm-review}.ts`, `core/src/domain/ports/turn-service.ts`
 
 ### Full Audit Report
-📄 **See: `docs/implementation/REPOSITORY_AUDIT.md`** — contains complete baseline, migration table, test classification, report validity check, risks, and P01 task list.
+📄 **See: `docs/implementation/REPOSITORY_AUDIT.md`** — contains complete baseline, migration table, test classification, CI failure classification, report validity check, risks, and corrected P01/P02 scope.
 
 ---
 
