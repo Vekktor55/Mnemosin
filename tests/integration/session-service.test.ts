@@ -184,21 +184,21 @@ describe('joinSession / startSession / жизненный цикл', () => {
         displayName: 'Игрок',
         idempotencyKey: testKey('join-start'),
       });
-      
+
       const started = await solo.sessions.startSession({
         sessionId: created.sessionId,
         idempotencyKey: testKey('start-turn'),
       });
-      
+
       // Проверяем что openTurn был вызван и вернул корректные данные
       expect(started.turnId).toBeDefined();
       expect(started.turnNumber).toBe(1);
       expect(started.status).toBe('ACTIVE');
-      
+
       const session = await solo.sessions.getSession(created.sessionId);
       expect(session.currentTurnId).toBe(started.turnId);
       expect(session.status).toBe('ACTIVE');
-      
+
       // Проверяем что ход реально создан в БД
       const turn = await soloDb.boot.uow.repos().turns.findById(started.turnId);
       expect(turn).not.toBeNull();
@@ -224,7 +224,7 @@ describe('joinSession / startSession / жизненный цикл', () => {
         displayName: 'Игрок',
         idempotencyKey: testKey('join-start-idem'),
       });
-      
+
       const key = testKey('start-idem');
       const first = await solo.sessions.startSession({
         sessionId: created.sessionId,
@@ -234,11 +234,11 @@ describe('joinSession / startSession / жизненный цикл', () => {
         sessionId: created.sessionId,
         idempotencyKey: key,
       });
-      
+
       expect(second.replayed).toBe(true);
       expect(second.turnId).toBe(first.turnId);
       expect(second.turnNumber).toBe(first.turnNumber);
-      
+
       // Проверяем что в БД только один ход
       const turns = await soloDb.boot.uow.repos().turns.listBySession(created.sessionId);
       expect(turns).toHaveLength(1);
@@ -257,7 +257,7 @@ describe('joinSession / startSession / жизненный цикл', () => {
           throw new Error('SIMULATED_TURN_FAILURE');
         },
       };
-      
+
       const { createCoreServices } = await import('@mnemosin/core');
       const services = createCoreServices({
         uow: soloDb.boot.uow,
@@ -266,7 +266,7 @@ describe('joinSession / startSession / жизненный цикл', () => {
         turns: failingTurns,
         limits: { maxPlayersPerSession: 12, actionsPerPlayerPerTurn: 5 },
       });
-      
+
       const created = await services.sessions.createSession({
         title: 'Fail Turn Test',
         gmDisplayName: 'Ведущий',
@@ -277,18 +277,18 @@ describe('joinSession / startSession / жизненный цикл', () => {
         displayName: 'Игрок',
         idempotencyKey: testKey('join-fail'),
       });
-      
+
       // startSession должен упасть с ошибкой openTurn
       const code = await errorCodeOf(() =>
-        services.sessions.startSession({ sessionId: created.sessionId, idempotencyKey: testKey('start-fail') })
+        services.sessions.startSession({ sessionId: created.sessionId, idempotencyKey: testKey('start-fail') }),
       );
       expect(code).not.toBeNull(); // Ошибка должна прокинуться
-      
+
       // Сессия должна остаться в LOBBY (rollback транзакции)
       const session = await services.sessions.getSession(created.sessionId);
       expect(session.status).toBe('LOBBY');
       expect(session.currentTurnId).toBeNull();
-      
+
       // Ход не должен быть создан
       const turns = await soloDb.boot.uow.repos().turns.listBySession(created.sessionId);
       expect(turns).toHaveLength(0);

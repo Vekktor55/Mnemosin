@@ -61,19 +61,19 @@ export async function openTempDb(label: string, options: { seed?: boolean } = {}
       // Windows fix: wait for SQLite handles to be released, then retry deletion
       // Use simple retry - Windows needs time to release file handles
       const maxRetries = 5;
-      const delayMs = 100;
       for (let attempt = 0; attempt < maxRetries; attempt++) {
         try {
           rmSync(dir, { recursive: true, force: true });
           return;
-        } catch (err: any) {
-          if (err.code === 'EPERM' || err.code === 'EBUSY' || err.code === 'ENOTEMPTY') {
+        } catch (err: unknown) {
+          const code = (err as { code?: string }).code;
+          if (code === 'EPERM' || code === 'EBUSY' || code === 'ENOTEMPTY') {
             if (attempt === maxRetries - 1) {
               // Last attempt - log warning but don't throw to avoid test failures
-              console.warn(`Failed to delete temp dir ${dir} after ${maxRetries} attempts: ${err.message}`);
+              console.warn(`Failed to delete temp dir ${dir} after ${maxRetries} attempts`);
               return;
             }
-            await new Promise(resolve => setTimeout(resolve, 50));
+            await new Promise((resolve) => setTimeout(resolve, 50));
           } else {
             throw err;
           }
@@ -342,28 +342,28 @@ export function buildTestServices(
   // Идемпотентность обрабатывается на уровне репозитория через findByKey/finish
   const turnsPort = {
     async openTurn(input: { sessionId: string; idempotencyKey: string; traceId: string }) {
-      const { sessionId, idempotencyKey, traceId } = input;
+      const { sessionId, idempotencyKey } = input;
       const uow = db.boot.uow;
-      
+
       return await uow.runInTx(async (scope) => {
         // Проверяем идемпотентность через репозиторий
-        const existing = await scope.repos.idempotency.findByKey(idempotencyKey as any);
+        const existing = await scope.repos.idempotency.findByKey(idempotencyKey as IdempotencyKey);
         if (existing) {
           if (existing.status === 'DONE' && existing.resultJson) {
             return JSON.parse(existing.resultJson);
           }
         }
-        
+
         const turnRepo = scope.repos.turns;
         const sessionRepo = scope.repos.sessions;
-        
+
         // Получаем номер следующего хода
-        const latest = await turnRepo.findLatestBySession(sessionId as any);
+        const latest = await turnRepo.findLatestBySession(sessionId as SessionId);
         const nextNumber = (latest?.number ?? 0) + 1;
-        
-        const turnId = randomUUID() as any;
+
+        const turnId = randomUUID() as TurnId;
         const now = nowIso();
-        
+
         const newTurn = {
           turnId,
           sessionId,
@@ -378,26 +378,26 @@ export function buildTestServices(
           createdAt: now,
           updatedAt: now,
         };
-        
+
         await turnRepo.insert(newTurn);
-        
+
         // Обновляем currentTurnId в сессии
-        await sessionRepo.patchPhase(sessionId as any, { currentTurnId: turnId, updatedAt: now });
-        
+        await sessionRepo.patchPhase(sessionId as SessionId, { currentTurnId: turnId, updatedAt: now });
+
         const result = { turnId, number: nextNumber };
-        
+
         // Записываем результат идемпотентности
         await scope.repos.idempotency.finish({
-          key: idempotencyKey as any,
+          key: idempotencyKey as IdempotencyKey,
           resultJson: JSON.stringify(result),
           resultHash: hashResult(result),
         });
-        
+
         return { turnId, number: nextNumber };
       });
     },
   };
-  
+
   return createCoreServices({
     uow: db.boot.uow,
     guard: db.boot.idempotency,
