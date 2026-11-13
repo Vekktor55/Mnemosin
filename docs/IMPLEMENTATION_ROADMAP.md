@@ -80,16 +80,21 @@ Coding agent должен использовать следующие докум
 
 ## P00 Audit Results (2026-11-13)
 
-**Branch:** `arch-v2` | **Audited HEAD:** `eb15ccff58a49dc1854ad5b5672c5e1cca60084e` | **Current HEAD:** `a1491af` | **Archive:** `main`@`fc62c57` (`stage1-final` tag, commit "довел проект до стадии end_stage_1")
+**Branch:** `arch-v2`  
+**Audited Baseline HEAD:** `eb15ccff58a49dc1854ad5b5672c5e1cca60084e` ("Выполнена доработка тестов")  
+**First P00 Results Commit:** `a1491af7dbc138ec0b8087cbb09c070b78354f37` (child of `eb15ccf`; "Удалены старые тесты" + audit docs + test changes)  
+**Corrections Commit:** `55ddad6f6c53ae7baabc9c1f753f4c682aec51ea` (child of `a1491af`; audit/roadmap corrections only)  
+**Current HEAD:** `55ddad6` (`arch-v2`)  
+**Archive Point:** `main`@`fc62c57` (`stage1-final` tag, commit "довел проект до стадии end_stage_1") — **confirmed Git rollback point; full app restoration not tested**
 
 ### Dual-Status Matrix (Actual State / Readiness)
 
 | Phase | Actual State | Readiness | Key Evidence |
 |-------|--------------|-----------|--------------|
-| P00 | PARTIAL (Steps 1-8) | READY | Git baseline, CI verified at audited SHA, docs validated, inventory complete |
+| P00 | **PARTIAL** (Steps 1–8 done; audit report created, matrix complete) | READY | Git baseline, CI verified at audited SHA, docs validated, inventory complete, report delivered |
 | P01 | NOT STARTED | **READY WITH PROVISIONAL DETAILS** | Original roadmap: collect open decisions, classify BLOCKER/PROTOTYPE/CONTENT/DEFERRED. No separate blocker found by audit beyond existing open questions in specs. |
 | P02 | NOT STARTED | READY WITH PROVISIONAL DETAILS | No World Pack code; depends on P01 contracts |
-| P03 | NOT STARTED | READY WITH PROVISIONAL DETAILS | Depends on P01/P02 |
+| P03 | NOT STARTED | READY WITH PROVISIONAL DETAILS | Depends on P02 contracts |
 | P04 | NOT STARTED | READY WITH PROVISIONAL DETAILS | Depends on P02/P03 |
 | P05 | NOT STARTED | READY WITH PROVISIONAL DETAILS | Legacy WS/client exist but use v1 protocol |
 | P06 | NOT STARTED | READY (prototype) / BLOCKED BY DECISION (production) | Durability decisions HC-06–HC-10 open |
@@ -101,8 +106,28 @@ Coding agent должен использовать следующие докум
 | P11 | NOT STARTED | READY (read-only) / BLOCKED BY DECISION (actions) | `gm-audit` partial base |
 | P12 | NOT STARTED | READY WITH PROVISIONAL DETAILS | Scripted fallback first; dialog rules open |
 | P13 | NOT STARTED | DEFERRED | Requires P10/P12; ending conditions open |
-| P14 (Parallel) | NOT STARTED | READY WITH PROVISIONAL DETAILS | **Explicit start conditions:** (1) World Pack schema stabilized, (2) resource IDs/references defined, (3) client display interfaces stable, (4) production World Packs use server-authoritative geometry. Can start after P02/P03; does NOT wait for P08/P10/P12/P13. |
+| P14 (Parallel) | NOT STARTED | READY WITH PROVISIONAL DETAILS | **Explicit start conditions:** (1) World Pack schema stabilized (P03), (2) resource IDs/references defined (P02/P03), (3) client display interfaces stable (P05), (4) production World Packs use server-authoritative geometry. **Formal dependencies:** P03, P05, P07. Does NOT wait for P08/P10/P12/P13. |
 | P15 | NOT STARTED | DEFERRED | Requires all prior phases. First vertical slice = P03–P05. |
+
+### CI Baseline (Verified at Audited SHA `eb15ccf` — CI #18, PR workflow head `eb15ccf` / merge `5d263f5`)
+
+| Run | SHA | npm ci | lint | typecheck | test:unit | test:integration | Subsequent Steps |
+|-----|-----|--------|------|-----------|-----------|------------------|------------------|
+| CI #18 | `eb15ccf` (head) | **PASS** | **PASS** | **PASS** (95 unit tests pass) | 95 PASS | **FAIL** (classified below) | NOT RUN (blocked) |
+| CI #19 | `a1491af` | **PASS** | **FAIL** | NOT RUN | NOT RUN | NOT RUN | NOT RUN |
+| CI #20 | `55ddad6` (HEAD) | **PASS** | **FAIL** (3 `no-unsafe-finally` in `tests/integration/outbox.test.ts`:248,255,259) | NOT RUN | NOT RUN | NOT RUN | NOT RUN |
+
+**Integration Failure Classification (CI #18):**
+- Missing `@mnemosin/module-turn` — **stale test dependency**
+- `services.turns.submitAction is not a function` — **stale test dependency**
+- `buildAIStack is not a function` — **stale test dependency**
+- Missing fixtures `locations.stage1.json`, `resolution.ok.json` — **missing fixture**
+- Location service: expected `Шлюз`, got `Test Start Location` — **test/fixture mismatch**
+- Location service: missing expected exits — **UNKNOWN**
+- Location service: `undefined` passed to DB query — **implementation defect (likely)**
+- Other location service assertions — **UNKNOWN**
+
+No `contract mismatch` failures identified.
 
 ### Critical Blockers (must resolve in P02, not P01)
 1. `core/src/session/session-service.ts` calls `this.turns.openTurn()` — broken (requires P10 rewrite or P02 stub)
@@ -122,7 +147,7 @@ Coding agent должен использовать следующие докум
 
 ### Component Decisions Summary
 - **KEEP:** `modules/chat`, `gm-audit`, `session`, `story` | `infrastructure/database`, `core/src/turns/journal.ts` (JournalService — standalone, no TurnEngine dep)
-- **ADAPT:** `apps/server/src/app.ts`, `gateways/ws-gateway`, `client/src/net/WSClient.ts`, `shared/contracts` (v4 schemas), `core/src/services.ts` (remove TurnServicePort param)
+- **ADAPT:** `apps/server/src/app.ts`, `gateways/ws-gateway`, `client/src/net/WSClient.ts`, `shared/contracts` (v4 schemas), `core/src/services.ts` (remove TurnServicePort param in P02)
 - **REPLACE:** `core/src/session/session-service.ts`, `infrastructure/database/migrations/0000_init.sql`, `client/src/shell/GameShell.svelte`, `client/src/player/PlayerApp.svelte`, `client/src/player/VisualPanel.svelte`
 - **REMOVE (done):** `modules/turn`, `gm`, `gm-review`, `ai-director`
 - **REMOVE (pending):** `shared/contracts/domain/{turn,gm,gm-review}.ts`, `core/src/domain/ports/turn-service.ts`
