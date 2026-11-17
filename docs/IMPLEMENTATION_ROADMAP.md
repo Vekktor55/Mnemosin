@@ -116,9 +116,10 @@ Coding agent должен использовать следующие докум
 | CI #18 | `eb15ccf` (head) | **PASS** | **PASS** | **PASS** (95 unit tests pass) | 95 PASS | **FAIL** (classified below) | NOT RUN (blocked) |
 | CI #19 | `a1491af` | **PASS** | **FAIL** | NOT RUN | NOT RUN | NOT RUN | NOT RUN |
 | CI #20 | `55ddad6` (audited source-tree snapshot) | **PASS** | **FAIL** (3 `no-unsafe-finally` in `tests/integration/outbox.test.ts`:248,255,259) | NOT RUN | NOT RUN | NOT RUN | NOT RUN |
-| CI #21 | `9bd1448` (PR head) | **IN_PROGRESS** (at check time) | — | — | — | — | — |
+| CI #21 | `9bd1448` (PR head) | **PASS** | **FAIL** (3 `no-unsafe-finally` in `tests/integration/outbox.test.ts`:248,255,259) | NOT RUN | NOT RUN | NOT RUN | NOT RUN |
+| CI #22 | `5c3b6cd` (PR head) | **PASS** | **FAIL** (3 `no-unsafe-finally` in `tests/integration/outbox.test.ts`:248,255,259) | NOT RUN | NOT RUN | NOT RUN | NOT RUN |
 
-> CI #21 (PR workflow, head SHA `9bd1448`) was `IN_PROGRESS` at the time of this check; its final result will be recorded separately once available.
+> CI #21 (PR workflow, head SHA `9bd1448`) and CI #22 (PR workflow, head SHA `5c3b6cd`) both FAIL lint with 3 `no-unsafe-finally` errors in `tests/integration/outbox.test.ts` (lines 248, 255, 259); typecheck, tests and build were not run. Run references: https://github.com/Vekktor55/Mnemosin/actions/runs/43489582778 and https://github.com/Vekktor55/Mnemosin/actions/runs/44047334921.
 
 **Integration Failure Classification (CI #18):**
 - Missing `@mnemosin/module-turn` — **stale test dependency**
@@ -881,7 +882,7 @@ Observer видит скрытую игровую картину, Player не п
 ## P14. Production art/content pipeline и World Packs
 
 **Статус:** READY WITH PROVISIONAL DETAILS.  
-**Зависимости:** P03, P05, P07; детальная сенсорика не обязательна для базового art export.
+**Зависимости:** формальные — P03, P05, P07. P02 — предварительное условие для стабилизации общих contracts/schemas. Production-геометрия остаётся server-authoritative. Нет зависимости от P08/P10/P12/P13.
 
 ### Работа
 

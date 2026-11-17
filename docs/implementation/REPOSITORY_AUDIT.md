@@ -16,7 +16,7 @@
 |----------|-------|
 | Current branch | `arch-v2` |
 | **Audited baseline (P00 target)** | `eb15ccff58a49dc1854ad5b5672c5e1cca60084e` — "Выполнена доработка тестов" |
-| **First P00 results commit** | `a1491af7dbc138ec0b8087cbb09c070b78354f37` — child of `eb15ccf`; contains: 19 deleted test files, 5 modified test files, 2 audit/roadmap documents |
+| **First P00 results commit** | `a1491af7dbc138ec0b8087cbb09c070b78354f37` — child of `eb15ccf`; contains: 19 deleted test files, 4 modified test files, 2 audit/roadmap documents |
 | **Audited source-tree snapshot** | `55ddad6f6c53ae7baabc9c1f753f4c682aec51ea` — child of `a1491af`; audit/roadmap corrections only |
 | **P00 documentation correction commit** | `9bd1448cf1c7c411e5f8d7d3ee50840bbf5518fc` — child of `55ddad6`; "Доработка docs"; modifies only the two audit/roadmap documents; does not change the audited source tree |
 | `main` branch HEAD | `fc62c57` |
@@ -26,11 +26,11 @@
 
 **Git baseline attribution note:** The initial `git status --porcelain=v1` snapshot was **not saved** before P00 began.  
 By history, commit `a1491af` records:
-- 19 deleted test files (`tests/integration/turn*`, `gm*`, `ai-director*`, `gm-review*`)
-- 5 modified test files: `tests/arch/boundaries.test.ts`, `tests/arch/core-manifest.json`, `tests/arch/state-service-access.test.ts`, `tests/integration/outbox.test.ts`, `tests/unit/turn-transitions.test.ts`
+- 19 deleted test files (2 contract + 17 integration; full per-file list in §5)
+- 4 modified test files: `tests/arch/boundaries.test.ts`, `tests/arch/core-manifest.json`, `tests/arch/state-service-access.test.ts`, `tests/integration/outbox.test.ts`
 - 2 new/updated documents: `docs/implementation/REPOSITORY_AUDIT.md`, `docs/IMPLEMENTATION_ROADMAP.md`
 
-**However, the absence of a saved pre-P00 `git status` means the origin of these test changes cannot be independently proven.** They may have already been present in the working tree/index before P00, or some may have been created during P00; either way their provenance is **unconfirmed**. This audit neither claims them as P00 actions nor asserts that they already existed before the audit.
+Commit `a1491af` contains 19 test-file deletions. The origin of these changes relative to the start of P00 is unestablished, since the initial `git status` was not saved. This audit classifies their actual state and recommended fate, but does not attribute them to a specific actor. They may have already been present in the working tree/index before P00, or some may have been created during P00; either way their provenance is **unconfirmed**. This audit neither claims them as P00 actions nor asserts that they already existed before the audit.
 
 Commit `55ddad6` modified **only** the two documents (`REPOSITORY_AUDIT.md`, `IMPLEMENTATION_ROADMAP.md`).
 
@@ -76,7 +76,18 @@ Commit `9bd1448` ("Доработка docs") likewise modifies **only** the two 
 ### CI #21 — SHA `9bd1448` (PR workflow, head SHA)
 | Step | Status | Notes |
 |------|--------|-------|
-| All steps | **IN_PROGRESS** | At the time of this check; final result not yet available — will be recorded separately after completion |
+| `npm ci` | **PASS** | |
+| `lint` | **FAIL** | 3 errors: `no-unsafe-finally` in `tests/integration/outbox.test.ts` (lines 248, 255, 259) |
+| `typecheck`, `test:*`, `build`, etc. | NOT RUN | Blocked by lint failure |
+
+### CI #22 — SHA `5c3b6cd` (PR workflow, head SHA)
+| Step | Status | Notes |
+|------|--------|-------|
+| `npm ci` | **PASS** | |
+| `lint` | **FAIL** | 3 errors: `no-unsafe-finally` in `tests/integration/outbox.test.ts` (lines 248, 255, 259) |
+| `typecheck`, `test:*`, `build`, etc. | NOT RUN | Blocked by lint failure |
+
+**CI run references:** https://github.com/Vekktor55/Mnemosin/actions/runs/43489582778 (CI #21) and https://github.com/Vekktor55/Mnemosin/actions/runs/44047334921 (CI #22).
 
 ---
 
@@ -86,7 +97,7 @@ Commit `9bd1448` ("Доработка docs") likewise modifies **only** the two 
 |---------|---------------|----------------|-----------|
 | Missing `@mnemosin/module-turn` | Multiple integration test files | **stale test dependency** | Module deleted in commit `5debed6`; tests not updated |
 | `services.turns.submitAction is not a function` | `tests/integration/session-service.test.ts` | **stale test dependency** | `TurnService` port interface changed; test uses old method name |
-| `buildAIStack is not a function` | `tests/integration/ai-director*.test.ts` | **stale test dependency** | Module deleted; test references removed factory |
+| `buildAIStack is not a function` | `tests/integration/ai-director.test.ts` | **stale test dependency** | Module deleted; test references removed factory |
 | Missing fixture `locations.stage1.json` | `tests/integration/location-service.test.ts` | **missing fixture** | Fixture file not present in repo |
 | Missing fixture `resolution.ok.json` | `tests/integration/location-service.test.ts` | **missing fixture** | Fixture file not present in repo |
 | Location service: expected name `Шлюз`, got `Test Start Location` | `tests/integration/location-service.test.ts` | **test/fixture mismatch** (stale test or missing fixture) | Test expects hardcoded location name; actual data differs |
@@ -172,7 +183,7 @@ Mnemosin/
 │       └── ...
 ├── tests/
 │   ├── unit/
-│   ├── integration/             # 19 test files deleted in commit a1491af; pre-P00 provenance unconfirmed (turn/gm/ai-director/gm-review)
+│   ├── integration/             # 19 test files deleted in commit a1491af; pre-P00 provenance unconfirmed (full per-file list in §5)
 │   ├── arch/
 │   └── contract/
 └── tools/
@@ -216,22 +227,53 @@ Mnemosin/
 
 ## 5. Test Classification
 
-| Test Suite / File | Current State (HEAD `55ddad6`) | Migration Classification | Rationale |
-|-------------------|--------------------------------|--------------------------|-----------|
-| `tests/integration/turn*` | Deleted in `a1491af` | **DELETE** | Turn Engine removed; no v4 equivalent yet |
-| `tests/integration/gm*` | Deleted in `a1491af` | **DELETE** | GM module removed; Observer/Dev tooling is P11 |
-| `tests/integration/ai-director*` | Deleted in `a1491af` | **DELETE** | AI Director removed; Doll AI is P08A |
-| `tests/integration/gm-review*` | Deleted in `a1491af` | **DELETE** | GM Review removed; not in v4 |
-| `tests/unit/turn-transitions.test.ts` | **PRESENT** (not deleted) | **DELETE** (after confirming no v4 equivalent) | Turn Engine logic — currently exists and passes in CI #18 |
+**Audited Source-Tree Snapshot (55ddad6).** Deleted files confirmed via `git diff eb15ccf..55ddad6 -- tests/`.
+
+### 5.1 Deleted Test Files (19 — commit `a1491af`)
+
+#### Contract (2)
+
+| File | Actual State | Functional Area | Related Module / Boundary | Decision | v4 Replacement | Rationale |
+|------|-------------|-----------------|---------------------------|----------|----------------|-----------|
+| `tests/contract/ai-port.test.ts` | DELETED in `a1491af` | AI Director port contract | `modules/ai-director` (deleted) | **DELETE** | None yet — Doll AI (P08A) uses a different, LLM-free port | Module removed; contract no longer valid |
+| `tests/contract/module-contracts.test.ts` | DELETED in `a1491af` | Module contract boundaries | `modules/turn`, `gm`, `gm-review`, `ai-director` (deleted) | **DELETE** | P02 will define new module contracts | Modules removed; contract superseded |
+
+#### Integration (17)
+
+| File | Actual State | Functional Area | Related Module / Boundary | Decision | v4 Replacement | Rationale |
+|------|-------------|-----------------|---------------------------|----------|----------------|-----------|
+| `tests/integration/ai-director.test.ts` | DELETED in `a1491af` | AI Director orchestration | `modules/ai-director` (deleted) | **DELETE** | P08A Doll AI (deterministic, no LLM) | Module removed |
+| `tests/integration/chat.test.ts` | DELETED in `a1491af` | Chat/whisper | `modules/chat` (**KEEP**) | **ADAPT** | P09 chat/whisper COLD domain | Module kept but test deleted — re-author test for v4 |
+| `tests/integration/story.test.ts` | DELETED in `a1491af` | Story/Journal | `modules/story` (**KEEP**) | **ADAPT** | P09 story/journal COLD domain | Module kept but test deleted — re-author test for v4 |
+| `tests/integration/gm-audit.test.ts` | DELETED in `a1491af` | GM audit trail | `modules/gm-audit` (**KEEP** as P11 base) | **ADAPT** | P11 Observer/Developer audit trail | Module kept as P11 base but test deleted — re-author for v4 |
+| `tests/integration/gm.test.ts` | DELETED in `a1491af` | GM orchestration | `modules/gm` (deleted) | **DELETE** | P11 Observer role (read-only + god actions) | Module removed |
+| `tests/integration/gm-review.test.ts` | DELETED in `a1491af` | GM review | `modules/gm-review` (deleted) | **DELETE** | None — GM review removed from v4 | Module removed |
+| `tests/integration/location-service.test.ts` | DELETED in `a1491af` | Location loading/state | `core/src/locations` | **DELETE** | P03 World Pack loader/validator tests | Location model replaced by World Pack; had fixture mismatches (CI #18) |
+| `tests/integration/persistence.test.ts` | DELETED in `a1491af` | Database persistence | `infrastructure/database` | **ADAPT** | P02/P10 v4 schema + migration tests | DB schema being replaced; persistence logic still relevant |
+| `tests/integration/http-gateway.test.ts` | DELETED in `a1491af` | HTTP gateway | `apps/server` HTTP bootstrap | **ADAPT** | P02 HTTP bootstrap (Fastify) | HTTP transport retained; test needs v4 update |
+| `tests/integration/ws-gateway.test.ts` | DELETED in `a1491af` | WebSocket gateway | `gateways/ws-gateway` | **ADAPT** | P05 WebSocket protocol | WS transport retained; test needs v4 update |
+| `tests/integration/ws-privacy.property.test.ts` | DELETED in `a1491af` | WS privacy isolation (property test) | `gateways/ws-gateway` projections | **ADAPT** | P05/P11 projection privacy | Privacy property is a v4 invariant; re-author after projections defined |
+| `tests/integration/crash.test.ts` | DELETED in `a1491af` | Crash recovery | `core` runtime | **DEFER** | P06 crash/restart harness | Recovery semantics not yet defined (HC-06–HC-10) |
+| `tests/integration/reconcile-boot.test.ts` | DELETED in `a1491af` | Reconciliation boot | `core` state | **INVESTIGATE** | P06 recovery/snapshot | Unclear which reconciliation semantics it covers — inspect before deciding |
+| `tests/integration/http-helpers.ts` | DELETED in `a1491af` | **Helper (support file, not a suite)** | HTTP gateway tests | **ADAPT** (tied to `http-gateway.test.ts`) | P02 HTTP test helpers | Helper for deleted `http-gateway.test.ts` |
+| `tests/integration/ws-helpers.ts` | DELETED in `a1491af` | **Helper (support file, not a suite)** | WS gateway tests | **ADAPT** (tied to `ws-gateway.test.ts`) | P05 WS test helpers | Helper for deleted `ws-gateway.test.ts` |
+| `tests/integration/modules-helpers.ts` | DELETED in `a1491af` | **Helper (support file, not a suite)** | Module tests | **DELETE** | P02 module test helpers | Helper for deleted module tests |
+| `tests/integration/crash-child.ts` | DELETED in `a1491af` | **Helper (child-process fixture, not a suite)** | Crash recovery tests | **DEFER** (tied to `crash.test.ts`) | P06 crash harness | Helper for deferred `crash.test.ts` |
+
+### 5.2 Present Test Files (at audited source-tree snapshot)
+
+| File | Actual State | Decision | Rationale |
+|------|-------------|----------|-----------|
+| `tests/unit/turn-transitions.test.ts` | **PRESENT** (not deleted; passed in CI #18) | **DELETE** (after confirming no v4 equivalent) | Turn Engine logic — currently exists and passes in CI #18 |
 | `tests/arch/boundaries.test.ts` | Modified in `a1491af` | **ADAPT** | Update for v4 boundaries in P02 |
 | `tests/arch/core-manifest.json` | Modified in `a1491af` | **ADAPT** | Update for v4 core manifest in P02 |
 | `tests/arch/state-service-access.test.ts` | Modified in `a1491af` | **ADAPT** | Update for v4 state service in P02 |
-| `tests/integration/outbox.test.ts` | Modified in `a1491af`; lint errors in CI #20 | **ADAPT** | Lint errors (`no-unsafe-finally`) at lines 248, 255, 259; align with v4 outbox in P02 |
-| `tests/contract/*` | Exist | **ADAPT** | Align with v4 contracts in P02 |
-| `tests/unit/` (other) | Exist | **KEEP** | Pure logic tests reusable |
+| `tests/integration/outbox.test.ts` | Modified in `a1491af`; lint errors (`no-unsafe-finally`) at 248, 255, 259 | **ADAPT** | Fix lint; align with v4 outbox in P02 |
+| `tests/contract/ai-port-compliance.ts`, `catalogs.test.ts`, `real-content.test.ts`, `schemas.test.ts` | Present | **ADAPT** | Align with v4 contracts in P02 |
+| `tests/unit/` (other) | Present | **KEEP** | Pure logic tests reusable |
 | E2E tests | Not found | **DEFER** | Create with P05 vertical slice |
 
-**Note:** No test deletions performed in P00 — only classification. Actual deletion is a post-audit task.
+**Note on test deletions:** Commit `a1491af` contains 19 test-file deletions. The origin of these changes relative to the start of P00 is unestablished, since the initial `git status` was not saved. This audit classifies their actual state and recommended fate, but does not attribute them to a specific actor. No tests were restored or deleted during this audit.
 
 ---
 
