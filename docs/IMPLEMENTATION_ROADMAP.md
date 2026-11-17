@@ -92,7 +92,7 @@ Coding agent должен использовать следующие докум
 | Phase | Actual State | Readiness | Key Evidence |
 |-------|--------------|-----------|--------------|
 | P00 | **PARTIAL** — audit deliverables are complete, but the initial working-tree provenance was not captured and cannot be independently verified | READY | Git baseline, CI verified at audited SHA, docs validated, inventory complete, report delivered |
-| P01 | NOT STARTED | **READY WITH PROVISIONAL DETAILS** | Original roadmap: collect open decisions, classify BLOCKER/PROTOTYPE/CONTENT/DEFERRED. No separate blocker found by audit beyond existing open questions in specs. |
+| P01 | **PARTIAL** — `DECISION_REGISTER.md` delivered: all 136 numbered IDs and 78 inline `ОТКРЫТО` items classified; awaiting owner review of the decision queue | READY (for owner review) | See `docs/implementation/DECISION_REGISTER.md` |
 | P02 | NOT STARTED | READY WITH PROVISIONAL DETAILS | No World Pack code; depends on P01 contracts |
 | P03 | NOT STARTED | READY WITH PROVISIONAL DETAILS | Depends on P02 contracts |
 | P04 | NOT STARTED | READY WITH PROVISIONAL DETAILS | Depends on P02/P03 |
@@ -343,7 +343,9 @@ No `contract mismatch` failures identified.
 
 ## P01. Реестр решений и уточнение архитектурных блокеров
 
-**Статус:** READY WITH PROVISIONAL DETAILS.
+**Статус:** **PARTIAL** — реестр подготовлен и ожидает рассмотрения владельцем проекта.
+
+**Результат (2026-11-17):** создан [`docs/implementation/DECISION_REGISTER.md`](implementation/DECISION_REGISTER.md). Проверены все 136 пронумерованных вопросов (WS 22, HC 14, DOLL-OPEN 19, NET 20, ML 38, AND-OPEN 23) и 78 inline-положений `ОТКРЫТО`; дубли сведены в 53 группы без удаления исходных ID; классификация — 71 BLOCKER / 46 PROTOTYPE / 22 CONTENT / 18 DEFERRED; блокеры первого вертикального среза P03–P05 отделены от production-блокеров; ADR не создавались, поскольку в репозитории отсутствует структура ADR.
 
 ### Цель
 
