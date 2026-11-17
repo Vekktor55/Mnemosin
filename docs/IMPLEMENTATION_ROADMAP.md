@@ -83,15 +83,15 @@ Coding agent должен использовать следующие докум
 **Branch:** `arch-v2`  
 **Audited Baseline HEAD:** `eb15ccff58a49dc1854ad5b5672c5e1cca60084e` ("Выполнена доработка тестов")  
 **First P00 Results Commit:** `a1491af7dbc138ec0b8087cbb09c070b78354f37` (child of `eb15ccf`; "Удалены старые тесты" + audit docs + test changes)  
-**Corrections Commit:** `55ddad6f6c53ae7baabc9c1f753f4c682aec51ea` (child of `a1491af`; audit/roadmap corrections only)  
-**Current HEAD:** `55ddad6` (`arch-v2`)  
+**Audited Source-Tree Snapshot:** `55ddad6f6c53ae7baabc9c1f753f4c682aec51ea` (child of `a1491af`; audit/roadmap corrections only)  
+**P00 Documentation Correction Commit:** `9bd1448cf1c7c411e5f8d7d3ee50840bbf5518fc` (child of `55ddad6`; "Доработка docs"; modifies only the two audit/roadmap documents; does not change the audited source tree)  
 **Archive Point:** `main`@`fc62c57` (`stage1-final` tag, commit "довел проект до стадии end_stage_1") — **confirmed Git rollback point; full app restoration not tested**
 
 ### Dual-Status Matrix (Actual State / Readiness)
 
 | Phase | Actual State | Readiness | Key Evidence |
 |-------|--------------|-----------|--------------|
-| P00 | **PARTIAL** (Steps 1–8 done; audit report created, matrix complete) | READY | Git baseline, CI verified at audited SHA, docs validated, inventory complete, report delivered |
+| P00 | **PARTIAL** — audit deliverables are complete, but the initial working-tree provenance was not captured and cannot be independently verified | READY | Git baseline, CI verified at audited SHA, docs validated, inventory complete, report delivered |
 | P01 | NOT STARTED | **READY WITH PROVISIONAL DETAILS** | Original roadmap: collect open decisions, classify BLOCKER/PROTOTYPE/CONTENT/DEFERRED. No separate blocker found by audit beyond existing open questions in specs. |
 | P02 | NOT STARTED | READY WITH PROVISIONAL DETAILS | No World Pack code; depends on P01 contracts |
 | P03 | NOT STARTED | READY WITH PROVISIONAL DETAILS | Depends on P02 contracts |
@@ -106,7 +106,7 @@ Coding agent должен использовать следующие докум
 | P11 | NOT STARTED | READY (read-only) / BLOCKED BY DECISION (actions) | `gm-audit` partial base |
 | P12 | NOT STARTED | READY WITH PROVISIONAL DETAILS | Scripted fallback first; dialog rules open |
 | P13 | NOT STARTED | DEFERRED | Requires P10/P12; ending conditions open |
-| P14 (Parallel) | NOT STARTED | READY WITH PROVISIONAL DETAILS | **Explicit start conditions:** (1) World Pack schema stabilized (P03), (2) resource IDs/references defined (P02/P03), (3) client display interfaces stable (P05), (4) production World Packs use server-authoritative geometry. **Formal dependencies:** P03, P05, P07. Does NOT wait for P08/P10/P12/P13. |
+| P14 (Parallel) | NOT STARTED | READY WITH PROVISIONAL DETAILS | **Formal dependencies:** P03, P05, P07. P02 is a prerequisite for stabilizing the common contracts/schemas. **Start conditions:** (1) World Pack schema stabilized, (2) resource IDs/references defined, (3) client display interfaces stable, (4) production World Packs use server-authoritative geometry. Does NOT wait for P08/P10/P12/P13. |
 | P15 | NOT STARTED | DEFERRED | Requires all prior phases. First vertical slice = P03–P05. |
 
 ### CI Baseline (Verified at Audited SHA `eb15ccf` — CI #18, PR workflow head `eb15ccf` / merge `5d263f5`)
@@ -115,7 +115,10 @@ Coding agent должен использовать следующие докум
 |-----|-----|--------|------|-----------|-----------|------------------|------------------|
 | CI #18 | `eb15ccf` (head) | **PASS** | **PASS** | **PASS** (95 unit tests pass) | 95 PASS | **FAIL** (classified below) | NOT RUN (blocked) |
 | CI #19 | `a1491af` | **PASS** | **FAIL** | NOT RUN | NOT RUN | NOT RUN | NOT RUN |
-| CI #20 | `55ddad6` (HEAD) | **PASS** | **FAIL** (3 `no-unsafe-finally` in `tests/integration/outbox.test.ts`:248,255,259) | NOT RUN | NOT RUN | NOT RUN | NOT RUN |
+| CI #20 | `55ddad6` (audited source-tree snapshot) | **PASS** | **FAIL** (3 `no-unsafe-finally` in `tests/integration/outbox.test.ts`:248,255,259) | NOT RUN | NOT RUN | NOT RUN | NOT RUN |
+| CI #21 | `9bd1448` (PR head) | **IN_PROGRESS** (at check time) | — | — | — | — | — |
+
+> CI #21 (PR workflow, head SHA `9bd1448`) was `IN_PROGRESS` at the time of this check; its final result will be recorded separately once available.
 
 **Integration Failure Classification (CI #18):**
 - Missing `@mnemosin/module-turn` — **stale test dependency**

@@ -4,8 +4,8 @@
 **Branch:** `arch-v2`  
 **Audited Baseline HEAD:** `eb15ccff58a49dc1854ad5b5672c5e1cca60084e` (commit message: "Выполнена доработка тестов")  
 **First P00 Results Commit:** `a1491af7dbc138ec0b8087cbb09c070b78354f37` (child of `eb15ccf`; "Удалены старые тесты" + audit docs + test changes)  
-**Corrections Commit:** `55ddad6f6c53ae7baabc9c1f753f4c682aec51ea` (child of `a1491af`; audit/roadmap corrections only)  
-**Current HEAD:** `55ddad6` (`arch-v2`)  
+**Audited Source-Tree Snapshot:** `55ddad6f6c53ae7baabc9c1f753f4c682aec51ea` (child of `a1491af`; audit/roadmap corrections)  
+**P00 Documentation Correction Commit:** `9bd1448cf1c7c411e5f8d7d3ee50840bbf5518fc` (child of `55ddad6`; "Доработка docs"; modifies only the two audit/roadmap documents; does not change the audited source tree)  
 **Auditor:** Coding Agent (P00 execution)
 
 ---
@@ -17,8 +17,8 @@
 | Current branch | `arch-v2` |
 | **Audited baseline (P00 target)** | `eb15ccff58a49dc1854ad5b5672c5e1cca60084e` — "Выполнена доработка тестов" |
 | **First P00 results commit** | `a1491af7dbc138ec0b8087cbb09c070b78354f37` — child of `eb15ccf`; contains: 19 deleted test files, 5 modified test files, 2 audit/roadmap documents |
-| **Corrections commit** | `55ddad6f6c53ae7baabc9c1f753f4c682aec51ea` — child of `a1491af`; modifies only the two audit/roadmap documents |
-| **Current HEAD** | `55ddad6` (`arch-v2`) |
+| **Audited source-tree snapshot** | `55ddad6f6c53ae7baabc9c1f753f4c682aec51ea` — child of `a1491af`; audit/roadmap corrections only |
+| **P00 documentation correction commit** | `9bd1448cf1c7c411e5f8d7d3ee50840bbf5518fc` — child of `55ddad6`; "Доработка docs"; modifies only the two audit/roadmap documents; does not change the audited source tree |
 | `main` branch HEAD | `fc62c57` |
 | Tag `stage1-final` | Points to `main` at `fc62c57` (commit message: "довел проект до стадии end_stage_1") |
 
@@ -30,9 +30,11 @@ By history, commit `a1491af` records:
 - 5 modified test files: `tests/arch/boundaries.test.ts`, `tests/arch/core-manifest.json`, `tests/arch/state-service-access.test.ts`, `tests/integration/outbox.test.ts`, `tests/unit/turn-transitions.test.ts`
 - 2 new/updated documents: `docs/implementation/REPOSITORY_AUDIT.md`, `docs/IMPLEMENTATION_ROADMAP.md`
 
-**However, the absence of a saved pre-P00 `git status` means the origin of these test changes cannot be independently proven.** They may be pre-existing staged changes, or some may have been created during P00. Their provenance is **unconfirmed**. This audit does not claim them as P00 actions, nor as proven pre-existing.
+**However, the absence of a saved pre-P00 `git status` means the origin of these test changes cannot be independently proven.** They may have already been present in the working tree/index before P00, or some may have been created during P00; either way their provenance is **unconfirmed**. This audit neither claims them as P00 actions nor asserts that they already existed before the audit.
 
 Commit `55ddad6` modified **only** the two documents (`REPOSITORY_AUDIT.md`, `IMPLEMENTATION_ROADMAP.md`).
+
+Commit `9bd1448` ("Доработка docs") likewise modifies **only** the two audit/roadmap documents and does **not** change the audited source tree (code, tests, contracts, CI, migrations remain at `55ddad6`).
 
 ---
 
@@ -64,12 +66,17 @@ Commit `55ddad6` modified **only** the two documents (`REPOSITORY_AUDIT.md`, `IM
 | `lint` | **FAIL** | |
 | `typecheck`, `test:*`, `build`, etc. | NOT RUN | Blocked by lint failure |
 
-### CI #20 — SHA `55ddad6` (Current HEAD)
+### CI #20 — SHA `55ddad6` (audited source-tree snapshot)
 | Step | Status | Notes |
 |------|--------|-------|
 | `npm ci` | **PASS** | |
 | `lint` | **FAIL** | 3 errors: `no-unsafe-finally` in `tests/integration/outbox.test.ts` (lines 248, 255, 259) |
 | `typecheck`, `test:*`, `build`, etc. | NOT RUN | Blocked by lint failure |
+
+### CI #21 — SHA `9bd1448` (PR workflow, head SHA)
+| Step | Status | Notes |
+|------|--------|-------|
+| All steps | **IN_PROGRESS** | At the time of this check; final result not yet available — will be recorded separately after completion |
 
 ---
 
@@ -165,7 +172,7 @@ Mnemosin/
 │       └── ...
 ├── tests/
 │   ├── unit/
-│   ├── integration/             # 19 files staged for deletion in a1491af (turn/gm/ai-director/gm-review)
+│   ├── integration/             # 19 test files deleted in commit a1491af; pre-P00 provenance unconfirmed (turn/gm/ai-director/gm-review)
 │   ├── arch/
 │   └── contract/
 └── tools/
@@ -237,7 +244,7 @@ Mnemosin/
 
 | Phase | Actual State | Readiness | Evidence / Justification |
 |-------|--------------|-----------|--------------------------|
-| **P00** Repository Audit | **PARTIAL** (Steps 1–8 done; audit report created, matrix complete) | READY | Git baseline, CI verified at audited SHA, docs validated, inventory complete, report delivered |
+| **P00** Repository Audit | **PARTIAL** — audit deliverables are complete, but the initial working-tree provenance was not captured and cannot be independently verified | READY | Git baseline, CI verified at audited SHA, docs validated, inventory complete, report delivered |
 | **P01** Decision Register & ADR | NOT STARTED | **READY WITH PROVISIONAL DETAILS** | Original roadmap: collect open decisions, classify BLOCKER/PROTOTYPE/CONTENT/DEFERRED. No separate blocker found by audit beyond existing open questions in specs. |
 | **P02** Contracts & Architecture Foundation | NOT STARTED | READY WITH PROVISIONAL DETAILS | No World Pack code exists. Schema design needed. Depends on P01 contracts. |
 | **P03** World Pack & Coordinate Model | NOT STARTED | READY WITH PROVISIONAL DETAILS | No World Pack code. Depends on P02 contracts. |
@@ -252,7 +259,7 @@ Mnemosin/
 | **P11** Observer & Developer Tooling | NOT STARTED | READY (read-only) / BLOCKED BY DECISION (actions) | `gm-audit` module is a partial base. Depends on P05/P10. |
 | **P12** Andrey & LLM | NOT STARTED | READY WITH PROVISIONAL DETAILS | No Andrey code. Scripted fallback first (per master plan). Depends on P10 narrative triggers. |
 | **P13** Finale & Ending Resolver | NOT STARTED | DEFERRED | Requires P10 Match completion, P12 Andrey narrative triggers. Ending conditions open. |
-| **P14** Art & Content Pipeline (Parallel) | NOT STARTED | READY WITH PROVISIONAL DETAILS | **Explicit start conditions:** (1) World Pack schema stabilized (P03), (2) resource IDs/references defined (P02/P03), (3) client display interfaces stable (P05), (4) production World Packs use server-authoritative geometry. Can start after P02/P03; **does NOT wait for P08/P10/P12/P13**. Formal dependencies from roadmap: P03, P05, P07. |
+| **P14** Art & Content Pipeline (Parallel) | NOT STARTED | READY WITH PROVISIONAL DETAILS | **Formal dependencies:** P03, P05, P07. P02 is a prerequisite for stabilizing the common contracts/schemas. **Start conditions:** (1) World Pack schema stabilized, (2) resource IDs/references defined, (3) client display interfaces stable, (4) production World Packs use server-authoritative geometry. **Does NOT wait for P08/P10/P12/P13.** |
 | **P15** End-to-End Integration & Playable Alpha | NOT STARTED | DEFERRED | Requires all prior phases. First vertical slice = P03–P05. |
 
 ---
@@ -280,9 +287,9 @@ Mnemosin/
 
 | Report | Branch | Commit SHA | Date | Valid for Audited HEAD `eb15ccf`? |
 |--------|--------|------------|------|-----------------------------------|
-| `CORE-01_AUDIT_REPORT.md` | `arch-v2` | `5debed6` | Earlier | **NO** — Assumed P01 applied; Turn Engine fully wired in `main.ts`, `modules.ts`, `core/services.ts` at that SHA. Current HEAD has SB-01 minimal `main.ts` but Core receives `TurnServicePort` via DI. |
-| `CORE-01A-R1_CONTEXT.md` | `arch-v2` | `5debed6` | Earlier | **PARTIAL** — Correctly identifies that `turn-service.ts` was deleted and `services.ts`/`session-service.ts` reference it. Current HEAD has `turn-service.ts` as a Port interface (not deleted at `eb15ccf`). |
-| `SB-01_SERVER_BOOTSTRAP_REPORT.md` | `arch-v2` | `5740ada` | Earlier | **YES** — `apps/server/src/main.ts` at current HEAD matches SB-01 minimal bootstrap exactly. |
+| `CORE-01_AUDIT_REPORT.md` | `arch-v2` | `5debed6` | Earlier | **NO** — Assumed P01 applied; Turn Engine fully wired in `main.ts`, `modules.ts`, `core/services.ts` at that SHA. Audited source-tree snapshot has SB-01 minimal `main.ts` but Core receives `TurnServicePort` via DI. |
+| `CORE-01A-R1_CONTEXT.md` | `arch-v2` | `5debed6` | Earlier | **PARTIAL** — Correctly identifies that `turn-service.ts` was deleted and `services.ts`/`session-service.ts` reference it. Audited source-tree snapshot has `turn-service.ts` as a Port interface (not deleted at `eb15ccf`). |
+| `SB-01_SERVER_BOOTSTRAP_REPORT.md` | `arch-v2` | `5740ada` | Earlier | **YES** — `apps/server/src/main.ts` at the audited source-tree snapshot matches SB-01 minimal bootstrap exactly. |
 | `SB-01_CONTEXT.md` | `arch-v2` | `5740ada` | Earlier | **YES** — Context accurate for SB-01 changes. |
 | `REUSE_AUDIT_v4.md` | `main` | `5debed6` | Earlier | **PARTIAL** — Written against `main` at `5debed6` (before SB-01). Current `arch-v2` has further test deletions. Component statuses need re-verification against actual files. |
 
@@ -299,7 +306,7 @@ Mnemosin/
 | Client rewrite scope (GameShell, PlayerApp, VisualPanel) | High | P05 vertical slice delay | Minimal viable PixiJS scene in P05; defer polish to P14. |
 | Doll AI sensor model undecided | High | P08A cannot reach VERIFIED | Prototype with provisional model (P08A READY WITH PROVISIONAL DETAILS); finalize before VERIFIED. |
 | LLM integration for Andrey over-engineered | Medium | Unnecessary complexity | Enforce scripted fallback first (P12); LLM only for permitted speech. |
-| CI not re-run at current HEAD | Medium | False confidence | Re-run CI after P01 fixes; require green at each phase commit. |
+| CI not re-run at the audited source-tree snapshot | Medium | False confidence | Re-run CI after P01 fixes; require green at each phase commit. |
 
 ---
 
