@@ -22,7 +22,8 @@ export function listSourceFiles(dir: string, exts = ['.ts']): string[] {
       if (entry === 'node_modules' || entry === 'dist' || entry.startsWith('.')) continue;
       const stat = statSync(full);
       if (stat.isDirectory()) walk(full);
-      else if (exts.some((ext) => full.endsWith(ext)) && !full.endsWith('.d.ts')) out.push(relative(ROOT, full).replace(/\\/g, '/'));
+      else if (exts.some((ext) => full.endsWith(ext)) && !full.endsWith('.d.ts'))
+        out.push(relative(ROOT, full).replace(/\\/g, '/'));
     }
   };
   walk(abs);

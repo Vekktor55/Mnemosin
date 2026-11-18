@@ -119,16 +119,29 @@ describe('оптимистичная блокировка game_state', () => {
     const { world } = await seedWorld(db);
     const repos = db.boot.uow.repos();
 
-    await expect(repos.state.updateWithVersion(bump(world.state, { weather: 'дождь' }), 0)).resolves.toBeDefined();
+    // Первое успешное обновление в транзакции
+    await db.boot.uow.runInTx(async (_scope) => {
+      const result = await repos.state.updateWithVersion(bump(world.state, { weather: 'дождь' }), 0);
+      expect(result).toEqual({ kind: 'ok', version: 1 });
+    });
 
-    // специально роняем транзакцию — вторая попытка с той же версией даст conflict
-    const conflictResult = await repos.state.updateWithVersion(bump(world.state, { weather: 'провал' }), 0);
-    expect(conflictResult.kind).toBe('conflict');
+    // Проверяем, что версия обновилась после успешной транзакции
+    let reread = await repos.state.findBySession(world.session.sessionId);
+    expect(reread?.version).toBe(1);
+    expect(reread?.worldState.weather).toBe('дождь');
 
-    // версия не должна была подняться
+    // Теперь специально роняем транзакцию внутри новой транзакции
+    await expect(
+      db.boot.uow.runInTx(async (_scope) => {
+        await repos.state.updateWithVersion(bump(world.state, { weather: 'провал' }), 1);
+        throw new Error('simulated rollback');
+      }),
+    ).rejects.toThrow('simulated rollback');
+
+    // версия не должна была подняться — транзакция откатилась
     const reread = await repos.state.findBySession(world.session.sessionId);
     expect(reread?.version).toBe(1);
-    expect(reread?.worldState.weather).toBe('дождь'); // первое обновление прошло
+    expect(reread?.worldState.weather).toBe('дождь'); // первое обновление прошло, второе откатилось
 
     await db.close();
   });
