@@ -117,31 +117,38 @@ describe('оптимистичная блокировка game_state', () => {
   it('откат транзакции не поднимает версию', async () => {
     db = await openTempDb('lock-rollback', { seed: false });
     const { world } = await seedWorld(db);
-    const repos = db.boot.uow.repos();
 
-    // Первое успешное обновление в транзакции
-    await db.boot.uow.runInTx(async (_scope) => {
-      const result = await repos.state.updateWithVersion(bump(world.state, { weather: 'дождь' }), 0);
+    // 1. Первое успешное обновление в транзакции: версия 0 → 1
+    await db.boot.uow.runInTx(async (scope) => {
+      const result = await scope.repos.state.updateWithVersion(bump(world.state, { weather: 'дождь' }), 0);
       expect(result).toEqual({ kind: 'ok', version: 1 });
     });
 
-    // Проверяем, что версия обновилась после успешной транзакции
-    let reread = await repos.state.findBySession(world.session.sessionId);
+    // 2. Проверяем, что версия обновилась после успешной транзакции
+    const reread = await db.boot.uow.repos().state.findBySession(world.session.sessionId);
     expect(reread?.version).toBe(1);
     expect(reread?.worldState.weather).toBe('дождь');
 
-    // Теперь специально роняем транзакцию внутри новой транзакции
+    // 3. Теперь специально роняем транзакцию: пробуем обновить 1 → 2, но выбрасываем исключение
     await expect(
-      db.boot.uow.runInTx(async (_scope) => {
-        await repos.state.updateWithVersion(bump(world.state, { weather: 'провал' }), 1);
+      db.boot.uow.runInTx(async (scope) => {
+        // Используем reread (версия 1) как основу для следующего обновления
+        const nextState = bump(reread!, { weather: 'провал' });
+        const result = await scope.repos.state.updateWithVersion(nextState, 1);
+        expect(result).toEqual({ kind: 'ok', version: 2 });
+        // Намеренно выбрасываем ошибку — должна произойти откатка
         throw new Error('simulated rollback');
       }),
     ).rejects.toThrow('simulated rollback');
 
-    // версия не должна была подняться — транзакция откатилась
-    const reread = await repos.state.findBySession(world.session.sessionId);
-    expect(reread?.version).toBe(1);
-    expect(reread?.worldState.weather).toBe('дождь'); // первое обновление прошло, второе откатилось
+    // 4. После отката версия должна остаться 1 (первое обновление зафиксировалось, второе откатилось)
+    const afterRollback = await db.boot.uow.repos().state.findBySession(world.session.sessionId);
+    expect(afterRollback?.version).toBe(1);
+    expect(afterRollback?.worldState.weather).toBe('дождь');
+
+    // 5. Проверяем, что world_state_version также не сохранил версию 2
+    const versionRecord = await db.boot.uow.repos().state.currentVersion(world.session.sessionId);
+    expect(versionRecord).toBe(1);
 
     await db.close();
   });
