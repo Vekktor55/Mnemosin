@@ -50,7 +50,7 @@ export async function openTempDb(label: string, options: { seed?: boolean } = {}
   const dir = mkdtempSync(join(tmpdir(), `mnemosin-${label}-`));
   const path = join(dir, 'test.sqlite');
   const url = `file:${path}`;
-  const boot = await bootstrapDatabase({ url, ...(options.seed === undefined ? {} : { seed: options.seed }) });
+  const boot = await bootstrapDatabase({ url, seed: options.seed ?? false });
   return {
     boot,
     url,
@@ -207,8 +207,8 @@ export function makeWorld(at: string = nowIso()): SampleWorld {
   return { session, gm, gmCharacter, players, characters, state };
 }
 
-/** Записывает мир в БД одной транзакцией и возвращает его. */
-export async function seedWorld(db: TempDb, at: string = nowIso()): Promise<SampleWorld> {
+/** Записывает мир в БД одной транзакцией и возвращает его вместе с БД. */
+export async function seedWorld(db: TempDb, at: string = nowIso()): Promise<{ world: SampleWorld; db: TempDb }> {
   const world = makeWorld(at);
   await db.boot.uow.runInTx(async (scope) => {
     for (const location of fixtures.locations) await scope.repos.locations.upsert(location);
@@ -217,7 +217,7 @@ export async function seedWorld(db: TempDb, at: string = nowIso()): Promise<Samp
     for (const player of world.players) await scope.repos.players.insert(player);
     await scope.repos.state.insert(world.state);
   });
-  return world;
+  return { world, db };
 }
 
 export function makeTurn(sessionId: SessionId, number: number, at: string = nowIso()): Turn {

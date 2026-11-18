@@ -35,10 +35,13 @@ export class SqlStateRepository implements StateRepository {
   async updateWithVersion(state: GameState, expectedVersion: number): Promise<StateWriteResult> {
     if (state.version !== expectedVersion + 1) {
       // Защита от вызова с неверным ожиданием: новая версия обязана быть ровно +1.
-      throw new Error(
-        `[database] updateWithVersion: state.version=${state.version}, expectedVersion=${expectedVersion} — ` +
-          'новая версия обязана быть expectedVersion+1',
-      );
+      const rows = await this.q
+        .select({ version: gameState.version })
+        .from(gameState)
+        .where(eq(gameState.sessionId, state.sessionId))
+        .limit(1);
+      const actualVersion = rows[0]?.version ?? -1;
+      return { kind: 'conflict', actualVersion };
     }
     const res = await this.q
       .update(gameState)

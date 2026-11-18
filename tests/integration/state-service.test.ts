@@ -34,7 +34,7 @@ beforeAll(async () => {
   db = await openTempDb('state-service', { seed: false });
   services = buildTestServices(db);
   // Мир из хелперов 1.4: сессия ACTIVE, состояние version 0, объекты фикстур.
-  const world = await seedWorld(db);
+  const { world } = await seedWorld(db);
   sessionId = world.session.sessionId;
   playerId = world.players[1]!.playerId;
   objectId = Object.keys(world.state.objectStates)[0] as ObjectId;

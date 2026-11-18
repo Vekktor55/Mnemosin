@@ -105,7 +105,7 @@ describe('идемпотентность · сервис команд', () => {
 
   it('повтор после завершения отдаёт ТОТ ЖЕ результат, а не выполняет команду заново', async () => {
     db = await openTempDb('idem-replay', { seed: false });
-    const world = await seedWorld(db);
+    const { world } = await seedWorld(db);
     const key = 'chat-message-000001' as IdempotencyRecord['key'];
     const ctx = {
       key,
@@ -140,7 +140,7 @@ describe('идемпотентность · сервис команд', () => {
 
   it('временная ошибка → откат целиком: ни эффектов, ни записи ключа, повтор разрешён', async () => {
     db = await openTempDb('idem-temp', { seed: false });
-    const world = await seedWorld(db);
+    const { world } = await seedWorld(db);
     const key = 'temp-failure-000001' as IdempotencyRecord['key'];
     const ctx = {
       key,
@@ -172,7 +172,7 @@ describe('идемпотентность · сервис команд', () => {
 
   it('перманентная ошибка (VALIDATION) → failed_before на повторе, эффекты откатились', async () => {
     db = await openTempDb('idem-perm', { seed: false });
-    const world = await seedWorld(db);
+    const { world } = await seedWorld(db);
     const key = 'perm-failure-000001' as IdempotencyRecord['key'];
     const ctx = {
       key,
@@ -206,7 +206,7 @@ describe('идемпотентность · сервис команд', () => {
 
   it('бизнес-запись и отметка DONE коммитятся атомарно (нет «сделано, но не отмечено»)', async () => {
     db = await openTempDb('idem-atomic', { seed: false });
-    const world = await seedWorld(db);
+    const { world } = await seedWorld(db);
     const key = 'atomic-commit-000001' as IdempotencyRecord['key'];
 
     const outcome = await db.boot.idempotency.run(

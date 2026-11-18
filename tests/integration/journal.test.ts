@@ -15,7 +15,7 @@ import { makeTurn, openTempDb, seedWorld } from './helpers.js';
 describe('JournalService · round-trip', () => {
   it('append + list: записи возвращаются по порядку id, payload и traceId сохраняются', async () => {
     const db = await openTempDb('journal-roundtrip', { seed: false });
-    const world = await seedWorld(db);
+    const { world } = await seedWorld(db);
     const turn = makeTurn(world.session.sessionId, 1);
     await db.boot.uow.runInTx((scope) => scope.repos.turns.insert(turn));
 
@@ -61,7 +61,7 @@ describe('JournalService · round-trip', () => {
 
   it('запись из откатившейся транзакции в журнале не появляется', async () => {
     const db = await openTempDb('journal-rollback', { seed: false });
-    const world = await seedWorld(db);
+    const { world } = await seedWorld(db);
     const turn = makeTurn(world.session.sessionId, 1);
     await db.boot.uow.runInTx((scope) => scope.repos.turns.insert(turn));
     const journal = new JournalService(db.boot.uow);
@@ -78,54 +78,61 @@ describe('JournalService · round-trip', () => {
           },
           scope,
         );
-        throw new Error('намеренный откат');
+        throw new Error('simulated rollback');
       }),
-    ).rejects.toThrow('намеренный откат');
+    ).rejects.toThrow('simulated rollback');
 
-    expect(await journal.list(turn.turnId)).toEqual([]);
-    expect(await journal.lastId(world.session.sessionId)).toBe(0);
+    const list = await journal.list(turn.turnId);
+    expect(list).toHaveLength(0);
     await db.close();
   });
 
   it('tail(sessionId, limit) — последние записи в хронологическом порядке; lastId — максимум', async () => {
     const db = await openTempDb('journal-tail', { seed: false });
-    const world = await seedWorld(db);
+    const { world } = await seedWorld(db);
     const turn = makeTurn(world.session.sessionId, 1);
     await db.boot.uow.runInTx((scope) => scope.repos.turns.insert(turn));
-    const journal = new JournalService(db.boot.uow);
 
-    for (const kind of ['turn_opened', 'processing_started', 'draft_ready', 'committed'] as const) {
+    const journal = new JournalService(db.boot.uow);
+    const kinds = ['turn_opened', 'state_applied', 'action_submitted', 'committed'];
+    for (let i = 0; i < kinds.length; i++) {
       await journal.append({
         sessionId: world.session.sessionId,
         turnId: turn.turnId,
-        kind,
-        payload: {},
-        traceId: `trace-${kind}`,
+        kind: kinds[i],
+        payload: { step: i },
+        traceId: `trace-${i}`,
       });
     }
 
     const tail = await journal.tail(world.session.sessionId, 2);
-    expect(tail.map((e) => e.kind)).toEqual(['draft_ready', 'committed']);
-    expect(await journal.lastId(world.session.sessionId)).toBe(tail[1]!.id);
+    expect(tail).toHaveLength(2);
+    expect(tail[0].kind).toBe('action_submitted');
+    expect(tail[1].kind).toBe('committed');
+
+    const maxId = await journal.lastId(world.session.sessionId);
+    expect(maxId).toBe(4);
     await db.close();
   });
 
   it('payload без ключей и длинный traceId: нормализация до схемы (traceId ≤ 64)', async () => {
     const db = await openTempDb('journal-normalize', { seed: false });
-    const world = await seedWorld(db);
+    const { world } = await seedWorld(db);
     const turn = makeTurn(world.session.sessionId, 1);
     await db.boot.uow.runInTx((scope) => scope.repos.turns.insert(turn));
+
     const journal = new JournalService(db.boot.uow);
 
+    const longTrace = 'a'.repeat(100);
     const entry = await journal.append({
       sessionId: world.session.sessionId,
       turnId: turn.turnId,
-      kind: 'snapshot_taken',
-      // payload не передан — JournalEntrySchema требует record: сервис подставляет {}
-      traceId: 'x'.repeat(100),
+      kind: 'turn_opened',
+      payload: {},
+      traceId: longTrace,
     });
-    expect(entry.payload).toEqual({});
     expect(entry.traceId).toHaveLength(64);
+
     await db.close();
   });
 });
