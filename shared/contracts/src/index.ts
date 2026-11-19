@@ -59,6 +59,9 @@ export * from './transport/http.js';
 export * from './transport/envelope.js';
 export * from './transport/spatial.js';
 
+// --- World Pack (P03)
+export * from './worldpack.js';
+
 // --- конфигурация (D162): доменные понятия CapabilitySchema и ProviderPolicySchema
 //     определены в ./capability.js; env-схема и limits.yaml остаются в
 //     @mnemosin/config, который ИМПОРТИРУЕТ их отсюда (contracts — leaf).
