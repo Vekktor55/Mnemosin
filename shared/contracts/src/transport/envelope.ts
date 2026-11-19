@@ -39,14 +39,18 @@ export const WSEnvelopeSchema = z.object({
   worldEpoch: WorldEpoch.optional(),
   projectionRevision: ProjectionRevision.optional(),
   connectionEpoch: ConnectionEpoch.optional(),
-  clientSentAt: z.number().int().nonnegative().optional(), // только для диагностики
+  clientSentAt: z.number().int().nonnegative().safe().optional(), // только для диагностики
   payload: z.unknown(),
 });
 export type WSEnvelope = z.infer<typeof WSEnvelopeSchema>;
 
 /**
  * Client → Server message types (P02 minimal catalog per NETWORK_PROTOCOL.md §6.1).
- * Состав union отражает реальные реализованные команды. Не добавлять несуществующие функции.
+ *
+ * P03–P05 scope (active): connection lifecycle, scene input/resync.
+ * DEFERRED (contract placeholder only, runtime NOT in P02/P03–P05):
+ *   interaction:command (P07), chat:send (P09), andrew:ask (P12),
+ *   domain:command (P09+), observer:command (P11).
  */
 export const WSClientMessageType = z.enum([
   'connection:client-ready',
@@ -63,6 +67,11 @@ export type WSClientMessageType = z.infer<typeof WSClientMessageType>;
 
 /**
  * Server → Client message types (P02 minimal catalog per NETWORK_PROTOCOL.md §6.2).
+ *
+ * P03–P05 scope (active): connection lifecycle, scene keyframe/delta, input ack, resync.
+ * DEFERRED (contract placeholder only): command:result (P07+), domain:event (P06+),
+ *   chat:message/delivery (P09), andrew:status/reply (P12),
+ *   match:projection (P10), observer:projection (P11), developer:diagnostic (P11/P12).
  */
 export const WSServerMessageType = z.enum([
   'connection:welcome',
@@ -94,7 +103,7 @@ export const HotGameplayEventEnvelopeSchema = z.object({
   matchId: MatchId,
   worldEpoch: WorldEpoch,
   simulationTick: SimulationTick,
-  simulationTimeMs: z.number().int().nonnegative(),
+  simulationTimeMs: z.number().int().nonnegative().safe(),
   eventSequence: EventSequence,
   type: z.string().min(1).max(64),
   entityIds: z.array(z.string().uuid()).min(1),
@@ -111,7 +120,7 @@ export const ColdToHotCommandEnvelopeSchema = z.object({
   schemaVersion: z.number().int().positive(),
   commandId: CommandId,
   matchId: MatchId,
-  coldRevision: z.number().int().nonnegative(),
+  coldRevision: z.number().int().nonnegative().safe(),
   issuedAtEventId: EventId.optional(),
   type: z.string().min(1).max(64),
   payload: z.unknown(),
@@ -127,7 +136,7 @@ export const SceneKeyframePayloadSchema = z.object({
   snapshotId: z.string().uuid(),
   sceneSequence: SceneSequence,
   simulationTick: SimulationTick,
-  serverTimeMs: z.number().int().nonnegative(),
+  serverTimeMs: z.number().int().nonnegative().safe(),
   projectionRevision: ProjectionRevision,
   worldPackVersion: z.string().max(20),
   ownActorState: z.unknown().optional(), // OwnActorSceneState — определяется в scene.ts
@@ -148,7 +157,7 @@ export const SceneDeltaPayloadSchema = z.object({
   sceneSequence: SceneSequence,
   baseSceneSequence: SceneSequence,
   simulationTick: SimulationTick,
-  serverTimeMs: z.number().int().nonnegative(),
+  serverTimeMs: z.number().int().nonnegative().safe(),
   projectionRevision: ProjectionRevision,
   entityUpserts: z.array(z.unknown()), // ProjectedSceneEntity[]
   entityRemovals: z.array(z.string().uuid()),
@@ -162,19 +171,21 @@ export const SceneDeltaPayloadSchema = z.object({
 export type SceneDeltaPayload = z.infer<typeof SceneDeltaPayloadSchema>;
 
 /**
- * Interaction command payload (P02, per NETWORK_PROTOCOL.md §11.1).
+ * Interaction command payload (per NETWORK_PROTOCOL.md §11.1).
+ * @deferred P07 (environment interactions) — runtime not part of P02/P03–P05.
  */
 export const InteractionCommandPayloadSchema = z.object({
   commandId: CommandId,
   targetId: z.string().uuid(),
   action: z.string().min(1).max(64),
-  expectedObjectRevision: z.number().int().nonnegative().optional(),
+  expectedObjectRevision: z.number().int().nonnegative().safe().optional(),
   parameters: z.record(z.string(), z.unknown()).optional(),
 });
 export type InteractionCommandPayload = z.infer<typeof InteractionCommandPayloadSchema>;
 
 /**
- * Chat send payload (P02, per NETWORK_PROTOCOL.md §12.2).
+ * Chat send payload (per NETWORK_PROTOCOL.md §12.2).
+ * @deferred P09 (social/chat) — runtime not part of P02/P03–P05.
  */
 export const ChatSendPayloadSchema = z.object({
   commandId: CommandId,
@@ -186,7 +197,8 @@ export const ChatSendPayloadSchema = z.object({
 export type ChatSendPayload = z.infer<typeof ChatSendPayloadSchema>;
 
 /**
- * Andrew ask payload (P02, per NETWORK_PROTOCOL.md §14.1).
+ * Andrew ask payload (per NETWORK_PROTOCOL.md §14.1).
+ * @deferred P12 (Andrew AI) — runtime not part of P02/P03–P05.
  */
 export const AndrewAskPayloadSchema = z.object({
   commandId: CommandId,
@@ -196,7 +208,8 @@ export const AndrewAskPayloadSchema = z.object({
 export type AndrewAskPayload = z.infer<typeof AndrewAskPayloadSchema>;
 
 /**
- * Domain command payload wrapper (P02, per NETWORK_PROTOCOL.md §13.1).
+ * Domain command payload wrapper (per NETWORK_PROTOCOL.md §13.1).
+ * @deferred P09+ (COLD gameplay domains) — runtime not part of P02/P03–P05.
  * Конкретные commands добавляются через discriminated union в domain/commands.ts.
  */
 export const DomainCommandPayloadSchema = z.object({
@@ -207,7 +220,11 @@ export const DomainCommandPayloadSchema = z.object({
 export type DomainCommandPayload = z.infer<typeof DomainCommandPayloadSchema>;
 
 /**
- * Observer command payload (P02, per NETWORK_PROTOCOL.md §15.3).
+ * Observer command payload (per NETWORK_PROTOCOL.md §15.3).
+ * @deferred P11 (Observer God Actions) — OWNER INPUT REQUIRED: допустимый каталог
+ * God Actions не утверждён. Контракт является пустым placeholder'ом, НЕ списком
+ * разрешённых действий. GM-only и Developer-only операции НЕ переносятся сюда
+ * автоматически.
  */
 export const ObserverCommandPayloadSchema = z.object({
   commandId: CommandId,

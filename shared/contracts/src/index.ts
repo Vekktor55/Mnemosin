@@ -11,8 +11,10 @@
  *           промпт 1.9: CommandName += sendPublicMessage/sendPrivateMessage/
  *           sendSystemMessage/sendGMMessage/addNote/grantKnowledge (D246),
  *           EVENT_SUBSCRIBERS.TURN_COMMITTED += 'gm' (D245, F-3.8)
+ *   0.6.0 — P02: общие идентификаторы v4, message envelope, пространственные
+ *           примитивы (G1/G2/G3), Player/Observer/Developer projections
  */
-export const CONTRACTS_VERSION = '0.5.0';
+export const CONTRACTS_VERSION = '0.6.0';
 
 // --- базовые
 export * from './ids.js';

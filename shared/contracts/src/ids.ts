@@ -99,8 +99,13 @@ export type FloorId = z.infer<typeof FloorId>;
 export const WorldSpaceId = z.string().uuid().brand<'WorldSpaceId'>();
 export type WorldSpaceId = z.infer<typeof WorldSpaceId>;
 
-/** Версия/эпоха активного экземпляра игрового мира (инкрементируется при смене этажа/World Pack). */
-export const WorldEpoch = z.number().int().nonnegative().brand<'WorldEpoch'>();
+/**
+ * Поколение активного пространственного состояния (NETWORK_PROTOCOL.md §5.2, §9.2).
+ * Инкрементируется при переходе/сбросе пространственного мира (смена этажа, resync).
+ * НЕ является версией World Pack: `worldPackVersion` описывает содержимое/формат
+ * pack'а и остаётся отдельным строковым значением.
+ */
+export const WorldEpoch = z.number().int().nonnegative().safe().brand<'WorldEpoch'>();
 export type WorldEpoch = z.infer<typeof WorldEpoch>;
 
 /** Идентификатор команды (COLD command) — для идемпотентности и корреляции. */
@@ -112,27 +117,27 @@ export const InputStreamId = z.string().uuid().brand<'InputStreamId'>();
 export type InputStreamId = z.infer<typeof InputStreamId>;
 
 /** Порядковый номер ввода в пределах одного input stream (monotonic). */
-export const InputSequence = z.number().int().nonnegative().brand<'InputSequence'>();
+export const InputSequence = z.number().int().nonnegative().safe().brand<'InputSequence'>();
 export type InputSequence = z.infer<typeof InputSequence>;
 
 /** Порядковый номер scene replication update (monotonic per projection stream). */
-export const SceneSequence = z.number().int().nonnegative().brand<'SceneSequence'>();
+export const SceneSequence = z.number().int().nonnegative().safe().brand<'SceneSequence'>();
 export type SceneSequence = z.infer<typeof SceneSequence>;
 
 /** Номер HOT simulation tick. */
-export const SimulationTick = z.number().int().nonnegative().brand<'SimulationTick'>();
+export const SimulationTick = z.number().int().nonnegative().safe().brand<'SimulationTick'>();
 export type SimulationTick = z.infer<typeof SimulationTick>;
 
 /** Ревизия COLD projection / read model. */
-export const ProjectionRevision = z.number().int().nonnegative().brand<'ProjectionRevision'>();
+export const ProjectionRevision = z.number().int().nonnegative().safe().brand<'ProjectionRevision'>();
 export type ProjectionRevision = z.infer<typeof ProjectionRevision>;
 
 /** Порядковый номер durable event в пределах match/world epoch. */
-export const EventSequence = z.number().int().nonnegative().brand<'EventSequence'>();
+export const EventSequence = z.number().int().nonnegative().safe().brand<'EventSequence'>();
 export type EventSequence = z.infer<typeof EventSequence>;
 
 /** Поколение соединения (connection epoch). */
-export const ConnectionEpoch = z.number().int().nonnegative().brand<'ConnectionEpoch'>();
+export const ConnectionEpoch = z.number().int().nonnegative().safe().brand<'ConnectionEpoch'>();
 export type ConnectionEpoch = z.infer<typeof ConnectionEpoch>;
 
 export function newId(): string {

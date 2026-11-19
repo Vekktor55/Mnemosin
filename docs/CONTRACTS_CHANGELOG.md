@@ -2,6 +2,29 @@
 
 Все изменения публичных контрактов фиксируются здесь. Версия пакета повышается при любом изменении схем.
 
+## Versioning policy
+
+`shared/contracts` помечен `private: true` и не публикуется в npm registry.
+
+Разграничиваются два независимых номера:
+
+| Номер                         | Источник                                       | Назначение                                                                                                                                                                                                 |
+| ----------------------------- | ---------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Workspace package version** | `shared/contracts/package.json` (`0.4.0`)      | Идентификатор npm-воркспейс-пакета; не публикуется, меняется по правилам npm-версионирования только при необходимости сборки/публикации                                                                    |
+| **Public contracts version**  | `CONTRACTS_VERSION` в `src/index.ts` (`0.6.0`) | Версия набора публичных контрактов (schemas/types/IDs), передаваемая в `HELLO`/`connection:welcome` и используемая для проверки совместимости клиент/сервер. Повышается при любом изменении публичных схем |
+
+**Правила повышения `CONTRACTS_VERSION`:**
+
+- **Major** (`X+1.0.0`) — breaking changes: удаление/переименование полей, изменение типа, удаление message type.
+- **Minor** (`X.Y+1.0`) — добавление новых схем/типов без изменения существующих.
+- **Patch** (`X.Y.Z+1`) — уточнение валидации без изменения формы.
+
+**Текущее состояние:** `package.json` `0.4.0` отстаёт от `CONTRACTS_VERSION` `0.6.0` —
+это **pre-existing mismatch**, не требующий исправления, пока пакет `private` и не публикуется.
+`CONTRACTS_VERSION` `0.6.0` синхронизирован с записью `## 0.6.0` ниже.
+
+---
+
 ## 0.6.0 — 2026-11-19 (P02: Shared Contracts Foundation)
 
 ### Added
@@ -12,7 +35,7 @@
 - `ParticipantId` — идентификатор участника матча (player/observer/developer в контексте матча)
 - `WorldId` — идентификатор игрового мира/комплекса
 - `FloorId` — идентификатор этажа
-- `WorldEpoch` — версия/эпоха активного экземпляра игрового мира
+- `WorldEpoch` — поколение активного пространственного состояния (инкрементируется при переходе/сбросе мира); НЕ версия World Pack (см. `worldPackVersion` в scene keyframe)
 - `CommandId` — идентификатор COLD команды (для идемпотентности и корреляции)
 - `InputStreamId` — идентификатор потока ввода движения (connection epoch)
 - `InputSequence` — порядковый номер ввода в пределах одного input stream
@@ -61,26 +84,33 @@
 
 ### Migration mapping (old WS messages → v4)
 
-| Old message type                                                  | Target Action | Migration Status                                                                                                                          | v4 equivalent                                                          |
-| ----------------------------------------------------------------- | ------------- | ----------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------- |
-| `TURN_*` family (OPEN_TURN, LOCK_TURN, COMMIT_TURN, etc.)         | REMOVE        | **Deferred** — старые схемы сохранены в domain/turn.ts, domain/gm.js, domain/resolution.js до переноса потребителей и безопасной миграции | Turn Engine удалён в v4; заменяется `domain:command` + HOT/COLD events |
-| `GM_*` family (GM_OPEN_TURN, GM_LOCK_TURN, GM_EDIT_APPROVE, etc.) | REMOVE        | **Deferred** — GM workflow сообщения сохранены в WS каталоге; перенос потребителей требуется                                              | GM workflow только в development; production v4 без GM                 |
-| `GM_MOVE_GROUP`                                                   | REPLACE       | **Deferred** — схема сохранена, потребует переноса потребителей                                                                           | `interaction:command` (action=move_group) или `domain:command`         |
-| `GM_SET_FLAG`                                                     | REPLACE       | **Deferred** — схема сохранена, потребует переноса потребителей                                                                           | `domain:command` (action=set_story_flag)                               |
-| `GM_KICK_PLAYER` / `GM_END_SESSION` / `GM_PAUSE` / `GM_RESUME`    | REPLACE       | **Deferred** — сохранены, потребуют миграции в Observer/Domain commands                                                                   | `observer:command` (God Actions) / `domain:command`                    |
-| `GM_SYSTEM_MESSAGE` / `GM_ADD_NOTE` / `GM_ACTIVATE_EVENT`         | REPLACE       | **Deferred** — сохранены, потребуют миграции                                                                                              | `domain:command` / `observer:command`                                  |
-| `GM_REQUEST_SCENE` / `GM_CANCEL_MEDIA_JOB`                        | REPLACE       | **Deferred** — сохранены                                                                                                                  | `domain:command` / `observer:command`                                  |
-| `ACTION_SUBMIT`                                                   | REPLACE       | **Deferred** — схема сохранена в WS каталоге                                                                                              | `scene:input` (movement) + `interaction:command` + `domain:command`    |
-| `CHAT_PUBLIC` / `CHAT_PRIVATE`                                    | REPLACE       | **Deferred** — схемы сохранены                                                                                                            | `chat:send` с mode enum                                                |
-| `STATE_PROJECTION` / `STATE_PROJECTION_PRIVATE`                   | REPLACE       | **Deferred** — схемы сохранены в views.ts (legacy)                                                                                        | `scene:keyframe` / `scene:delta` с PlayerProjection                    |
-| `GM_STATE`                                                        | REPLACE       | **Deferred** — схема сохранена в views.ts (legacy)                                                                                        | `observer:projection` (Observer получает полную)                       |
-| `TURN_DRAFT_READY` / `TURN_RESOLUTION_GM` / `TURN_COMMITTED`      | REMOVE        | **Deferred** — legacy turn resolution схемы сохранены                                                                                     | Legacy turn resolution flow                                            |
-| `TURN_PRIVATE_RESOLUTION` / `TURN_FAILED`                         | REMOVE        | **Deferred** — legacy turn resolution схемы сохранены                                                                                     | Legacy turn resolution flow                                            |
-| `GM_ACTION_ACK` / `GM_NOTE_ACK` / `GM_AI_CONTEXT`                 | REMOVE        | **Deferred** — legacy GM workflow схемы сохранены                                                                                         | Legacy GM workflow                                                     |
-| `CAPABILITY_CHANGED` / `BUDGET_WARNING` / `BUDGET_EXCEEDED`       | PRESERVE      | Active                                                                                                                                    | Остаются (provider capabilities)                                       |
-| `MEDIA_*` / `AUDIO_*`                                             | PRESERVE      | Active                                                                                                                                    | Остаются (media generation)                                            |
-| `ERROR`                                                           | PRESERVE      | Active                                                                                                                                    | Остаётся (transport errors)                                            |
-| `PING` / `PONG`                                                   | REPLACE       | **Deferred** — старые схемы сохранены                                                                                                     | `connection:ping` / `connection:pong` с timing metadata                |
+> Категории v4: `scene:keyframe`/`scene:delta` — ПРОСТРАНСТВЕННОЕ состояние
+> (replication, NETWORK_PROTOCOL.md §9); `match:projection`/`observer:projection` —
+> ИГРОВОЕ состояние (COLD read model, §10). Старые `STATE_PROJECTION`/`GM_STATE` —
+> игровые проекции, а НЕ эквивалент scene replication. GM-команды НЕ переносятся
+> в `observer:command` автоматически (God Actions не утверждены — P11, OWNER INPUT REQUIRED).
+
+| Old message type                                                      | Target Action | Migration Status                                                                 | v4 equivalent                                                                  |
+| --------------------------------------------------------------------- | ------------- | -------------------------------------------------------------------------------- | ------------------------------------------------------------------------------ |
+| `TURN_*` family (OPEN_TURN, LOCK_TURN, COMMIT_TURN, etc.)             | REMOVE        | **Deferred** — схемы сохранены (domain/turn.ts, ws.ts)                           | Turn Engine удалён в v4; заменяется `domain:command` + HOT/COLD events         |
+| `GM_OPEN_TURN` / `GM_LOCK_TURN` / `GM_UNLOCK_TURN` / `GM_COMMIT_TURN` | REMOVE        | **Deferred** — сохранены (ws.ts)                                                 | Turn Engine flow — development only                                            |
+| `GM_EDIT_APPROVE` / `GM_REJECT_TURN` / `GM_RETRY_AI`                  | REMOVE        | **Deferred** — сохранены (ws.ts)                                                 | GM Review — development only                                                   |
+| `GM_MOVE_GROUP`                                                       | REPLACE       | **Deferred** — схема сохранена                                                   | `domain:command` (move_group), НЕ `observer:command`                           |
+| `GM_SET_FLAG`                                                         | REPLACE       | **Deferred** — схема сохранена                                                   | `domain:command` (set_story_flag), НЕ `observer:command`                       |
+| `GM_KICK_PLAYER` / `GM_END_SESSION` / `GM_PAUSE` / `GM_RESUME`        | REPLACE       | **OWNER INPUT REQUIRED** — session management; роль GM vs Observer не определена | DEFERRED (P10 Match lifecycle) — НЕ `observer:command`                         |
+| `GM_SYSTEM_MESSAGE` / `GM_ADD_NOTE` / `GM_ACTIVATE_EVENT`             | REPLACE       | **OWNER INPUT REQUIRED** — GM-only действия                                      | DEFERRED (P09/P11) — НЕ `observer:command`                                     |
+| `GM_REQUEST_SCENE` / `GM_CANCEL_MEDIA_JOB`                            | REPLACE       | **OWNER INPUT REQUIRED** — GM-only действия                                      | DEFERRED (P12 media) — НЕ `observer:command`                                   |
+| `ACTION_SUBMIT`                                                       | REPLACE       | **Deferred** — схема сохранена (ws.ts)                                           | `scene:input` (movement) + `domain:command` (P09+)                             |
+| `CHAT_PUBLIC` / `CHAT_PRIVATE`                                        | REPLACE       | **Deferred** — схемы сохранены (ws.ts)                                           | `chat:send` (P09)                                                              |
+| `STATE_PROJECTION` / `STATE_PROJECTION_PRIVATE`                       | REPLACE       | **Deferred** — схемы сохранены (views.ts, legacy)                                | `match:projection` (PlayerProjection) — игровая проекция, НЕ scene replication |
+| `GM_STATE`                                                            | REPLACE       | **Deferred** — схема сохранена (views.ts, legacy)                                | `observer:projection` (ObserverProjection) — read-only omniscient view         |
+| `TURN_DRAFT_READY` / `TURN_RESOLUTION_GM` / `TURN_COMMITTED`          | REMOVE        | **Deferred** — legacy turn resolution сохранены                                  | Legacy turn resolution flow                                                    |
+| `TURN_PRIVATE_RESOLUTION` / `TURN_FAILED`                             | REMOVE        | **Deferred** — legacy turn resolution сохранены                                  | Legacy turn resolution flow                                                    |
+| `GM_ACTION_ACK` / `GM_NOTE_ACK` / `GM_AI_CONTEXT`                     | REMOVE        | **Deferred** — legacy GM workflow сохранены                                      | Legacy GM workflow                                                             |
+| `CAPABILITY_CHANGED` / `BUDGET_WARNING` / `BUDGET_EXCEEDED`           | PRESERVE      | Active                                                                           | Остаются (provider capabilities)                                               |
+| `MEDIA_*` / `AUDIO_*`                                                 | PRESERVE      | Active                                                                           | Остаются (media generation)                                                    |
+| `ERROR`                                                               | PRESERVE      | Active                                                                           | Остаётся (transport errors)                                                    |
+| `PING` / `PONG`                                                       | REPLACE       | **Deferred** — старые схемы сохранены                                            | `connection:ping` / `connection:pong` с timing metadata                        |
 
 ### Notes
 

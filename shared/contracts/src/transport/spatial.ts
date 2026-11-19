@@ -1,5 +1,16 @@
 import { z } from 'zod';
-import { WorldId, FloorId, WorldSpaceId } from '../ids.js';
+import {
+  WorldId,
+  FloorId,
+  WorldSpaceId,
+  InputStreamId,
+  InputSequence,
+  SimulationTick,
+  SceneSequence,
+  WorldEpoch,
+  ConnectionEpoch,
+  ProjectionRevision,
+} from '../ids.js';
 
 /**
  * Пространственные примитивы для P03–P05 (G1–G3, WORLD_SIMULATION.md §2.3).
@@ -38,25 +49,32 @@ export type SpatialPosition = z.infer<typeof SpatialPositionSchema>;
 /**
  * Movement input от клиента (G1, NETWORK_PROTOCOL.md §7.3, HOT_COLD_DESIGN.md §5.2).
  *
- * - Клиент отправляет удерживаемое направление, НЕ целевую позицию.
- * - directionX/Y нормализованы сервером (длина ≤ 1).
- * - Скорость, спринт и режимы движения определяются серверными правилами, не контрактом.
- * - inputSequence монотонно возрастает в пределах inputStreamId.
+ * ДОМЕННОЕ СОДЕРЖИМОЕ движения: только удерживаемое направление (held direction).
+ * - Клиент отправляет намерение направления, НЕ целевую позицию и НЕ скорость.
+ * - directionX/Y — компоненты направления; сервер нормализует вектор (длина ≤ 1).
+ * - Скорость, спринт, click-to-move и режимы движения НЕ утверждены (G1) и сюда не входят.
+ *
+ * Транспортные метаданные (inputStreamId, inputSequence, clientSentAt) находятся
+ * на уровне транспортного сообщения (SceneInputMessageSchema), а не в этом типе.
  */
 export const MovementInputSchema = z.object({
-  inputStreamId: z.string().uuid(), // InputStreamId (branded) — но в payload кладём строку для простоты сериализации
-  inputSequence: z.number().int().nonnegative(),
   directionX: z.number().finite().min(-1).max(1),
   directionY: z.number().finite().min(-1).max(1),
-  clientSentAt: z.number().int().nonnegative().optional(), // только диагностика
 });
 export type MovementInput = z.infer<typeof MovementInputSchema>;
 
 /**
  * Scene input message (client → server, NETWORK_PROTOCOL.md §6.1: scene:input).
+ *
+ * Транспортный уровень: переносит доменное MovementInput вместе с потоком ввода
+ * и порядковым номером (NETWORK_PROTOCOL.md §7.2). `inputSequence` монотонно
+ * возрастает в пределах одного `inputStreamId`.
  */
 export const SceneInputMessageSchema = z.object({
+  inputStreamId: InputStreamId,
+  inputSequence: InputSequence,
   input: MovementInputSchema,
+  clientSentAt: z.number().int().nonnegative().safe().optional(), // только диагностика
 });
 export type SceneInputMessage = z.infer<typeof SceneInputMessageSchema>;
 
@@ -64,8 +82,8 @@ export type SceneInputMessage = z.infer<typeof SceneInputMessageSchema>;
  * Scene resync request (client → server, NETWORK_PROTOCOL.md §6.1: scene:resync).
  */
 export const SceneResyncMessageSchema = z.object({
-  lastAppliedSceneSequence: z.number().int().nonnegative().optional(),
-  worldEpoch: z.number().int().nonnegative().optional(),
+  lastAppliedSceneSequence: SceneSequence.optional(),
+  worldEpoch: WorldEpoch.optional(),
   reason: z.enum(['sequence_gap', 'invalid_delta', 'projection_reset', 'client_recovery']),
   snapshotId: z.string().uuid().optional(),
 });
@@ -84,7 +102,7 @@ export type ConnectionClientReadyMessage = z.infer<typeof ConnectionClientReadyM
  */
 export const ConnectionPingMessageSchema = z.object({
   pingId: z.string().min(8).max(64),
-  clientTimeMs: z.number().int().nonnegative(),
+  clientTimeMs: z.number().int().nonnegative().safe(),
 });
 export type ConnectionPingMessage = z.infer<typeof ConnectionPingMessageSchema>;
 
@@ -98,7 +116,7 @@ export const ConnectionWelcomeMessageSchema = z.object({
   matchId: z.string().uuid(),
   sessionId: z.string().uuid(),
   connectionId: z.string().uuid(),
-  connectionEpoch: z.number().int().nonnegative(),
+  connectionEpoch: ConnectionEpoch,
   actorType: z.enum(['player', 'observer', 'developer']),
   permissions: z.array(z.string()),
   isReconnect: z.boolean(),
@@ -119,8 +137,8 @@ export type ConnectionReadyMessage = z.infer<typeof ConnectionReadyMessageSchema
  */
 export const ConnectionPongMessageSchema = z.object({
   pingId: z.string().min(8).max(64),
-  serverTimeMs: z.number().int().nonnegative(),
-  simulationTick: z.number().int().nonnegative(),
+  serverTimeMs: z.number().int().nonnegative().safe(),
+  simulationTick: SimulationTick,
 });
 export type ConnectionPongMessage = z.infer<typeof ConnectionPongMessageSchema>;
 
@@ -139,9 +157,9 @@ export type ConnectionErrorMessage = z.infer<typeof ConnectionErrorMessageSchema
  * Scene input ack (server → client, NETWORK_PROTOCOL.md §6.2: scene:input-ack).
  */
 export const SceneInputAckMessageSchema = z.object({
-  inputStreamId: z.string().uuid(),
-  lastProcessedInputSequence: z.number().int().nonnegative(),
-  simulationTick: z.number().int().nonnegative(),
+  inputStreamId: InputStreamId,
+  lastProcessedInputSequence: InputSequence,
+  simulationTick: SimulationTick,
   authoritativePosition: WorldPositionSchema,
   authoritativeVelocity: WorldPositionSchema.optional(),
 });
@@ -152,7 +170,7 @@ export type SceneInputAckMessage = z.infer<typeof SceneInputAckMessageSchema>;
  */
 export const SceneResyncRequiredMessageSchema = z.object({
   reason: z.enum(['sequence_gap', 'invalid_delta', 'projection_reset', 'client_recovery']),
-  lastValidSceneSequence: z.number().int().nonnegative().optional(),
+  lastValidSceneSequence: SceneSequence.optional(),
 });
 export type SceneResyncRequiredMessage = z.infer<typeof SceneResyncRequiredMessageSchema>;
 
@@ -163,8 +181,8 @@ export const CommandResultMessageSchema = z.object({
   commandId: z.string().uuid(),
   status: z.enum(['accepted', 'rejected', 'conflict', 'already_processed']),
   resultCode: z.string().max(64).optional(),
-  objectRevision: z.number().int().nonnegative().optional(),
-  projectionRevision: z.number().int().nonnegative().optional(),
+  objectRevision: z.number().int().nonnegative().safe().optional(),
+  projectionRevision: ProjectionRevision.optional(),
   eventId: z.string().uuid().optional(),
 });
 export type CommandResultMessage = z.infer<typeof CommandResultMessageSchema>;
@@ -176,7 +194,7 @@ export const DomainEventMessageSchema = z.object({
   eventId: z.string().uuid(),
   type: z.string().min(1).max(64),
   payload: z.unknown(),
-  projectionRevision: z.number().int().nonnegative().optional(),
+  projectionRevision: ProjectionRevision.optional(),
 });
 export type DomainEventMessage = z.infer<typeof DomainEventMessageSchema>;
 
@@ -185,7 +203,7 @@ export type DomainEventMessage = z.infer<typeof DomainEventMessageSchema>;
  */
 export const MatchProjectionMessageSchema = z.object({
   matchId: z.string().uuid(),
-  projectionRevision: z.number().int().nonnegative(),
+  projectionRevision: ProjectionRevision,
   payload: z.unknown(),
 });
 export type MatchProjectionMessage = z.infer<typeof MatchProjectionMessageSchema>;
@@ -195,7 +213,7 @@ export type MatchProjectionMessage = z.infer<typeof MatchProjectionMessageSchema
  */
 export const ObserverProjectionMessageSchema = z.object({
   matchId: z.string().uuid(),
-  projectionRevision: z.number().int().nonnegative(),
+  projectionRevision: ProjectionRevision,
   payload: z.unknown(), // полная скрытая игровая projection
 });
 export type ObserverProjectionMessage = z.infer<typeof ObserverProjectionMessageSchema>;
