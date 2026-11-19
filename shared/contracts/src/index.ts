@@ -54,6 +54,8 @@ export * from './ai.js';
 export * from './transport/views.js';
 export * from './transport/ws.js';
 export * from './transport/http.js';
+export * from './transport/envelope.js';
+export * from './transport/spatial.js';
 
 // --- конфигурация (D162): доменные понятия CapabilitySchema и ProviderPolicySchema
 //     определены в ./capability.js; env-схема и limits.yaml остаются в
