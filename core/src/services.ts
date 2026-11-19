@@ -3,7 +3,6 @@ import { JournalService } from './turns/journal.js';
 import { StateService } from './state/state-service.js';
 import { LocationService, type WorldPackData } from './locations/location-service.js';
 import { SessionService } from './session/session-service.js';
-import type { TurnServicePort } from './domain/ports/turn-service.js';
 
 /**
  * Core Services — фабрика доменных сервисов.
@@ -13,7 +12,7 @@ import type { TurnServicePort } from './domain/ports/turn-service.js';
  */
 
 /**
- * Сборка доменных сервисов core (промпт 1.6).
+ * Сборка доменных сервисов core (промпт 1.6, адаптировано под v4).
  *
  * Одна точка wiring'а для apps/server, проб (tools/verify) и интеграционных
  * тестов: зависимости (UnitOfWork, CommandRunner=IdempotencyService, pack,
@@ -21,7 +20,8 @@ import type { TurnServicePort } from './domain/ports/turn-service.js';
  * (инварианты 1–3, D216/D221).
  *
  * Граф зависимостей сервисов (ациклический):
- *   JournalService ← StateService ← LocationService ← SessionService → TurnService
+ *   JournalService ← StateService ← LocationService ← SessionService
+ * (TurnServicePort удалён: Turn Engine больше не входит в v4.)
  */
 
 export interface CoreLimits {
@@ -38,14 +38,11 @@ export interface CreateCoreServicesOptions {
   /** Данные world-pack (этап 1: фикстуры locations.stage1.json, D204/D221). */
   readonly pack: WorldPackData;
   readonly limits: CoreLimits;
-  /** Порт зависимостей Turn Engine (внедряется извне). */
-  readonly turns: TurnServicePort;
 }
 
 export interface CoreServices {
   readonly journal: JournalService;
   readonly state: StateService;
-  readonly turns: TurnServicePort;
   readonly locations: LocationService;
   readonly sessions: SessionService;
 }
@@ -62,10 +59,9 @@ export function createCoreServices(options: CreateCoreServicesOptions): CoreServ
   const sessions = new SessionService({
     uow: options.uow,
     guard: options.guard,
-    turns: options.turns,
     locations,
     pack: options.pack,
     limits: { maxPlayersPerSession: options.limits.maxPlayersPerSession },
   });
-  return { journal, state, turns: options.turns, locations, sessions };
+  return { journal, state, locations, sessions };
 }

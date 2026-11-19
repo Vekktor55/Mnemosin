@@ -15,12 +15,14 @@ export default defineConfig({
     coverage: {
       provider: 'v8',
       reporter: ['text', 'html'],
-      include: ['core/src/**', 'modules/*/src/**', 'infrastructure/*/src/**', 'gateways/*/src/**'],
+      // Переходный этап v4: строгий порог остаётся на активном ядре (core),
+      // замороженные/немигрированные пакеты без тестов исключены из расчёта
+      // до их подключения в P04–P09 (modules/*, gateways/*, database CLI).
+      include: ['core/src/**', 'infrastructure/*/src/**'],
+      exclude: ['modules/*/src/**', 'gateways/*/src/**', 'infrastructure/*/src/cli/**'],
       thresholds: {
         'core/src/**': { lines: 90, statements: 90, branches: 90, functions: 90 },
-        'modules/*/src/**': { lines: 75, statements: 75, branches: 75, functions: 75 },
         'infrastructure/*/src/**': { lines: 60, statements: 60, branches: 60, functions: 60 },
-        'gateways/*/src/**': { lines: 60, statements: 60, branches: 60, functions: 60 },
       },
     },
     projects: [

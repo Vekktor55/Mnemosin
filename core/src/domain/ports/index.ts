@@ -29,4 +29,3 @@ export type {
   AiDecisionRecord,
   AiDecisionStatus,
 } from './ai-decision-repository.js';
-export type { TurnServicePort } from './turn-service.js';

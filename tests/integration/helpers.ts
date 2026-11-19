@@ -29,7 +29,7 @@ import {
   type Turn,
   type TurnId,
 } from '@mnemosin/contracts';
-import { bootstrapDatabase, type BootstrapResult, hashResult } from '@mnemosin/database';
+import { bootstrapDatabase, type BootstrapResult } from '@mnemosin/database';
 
 /**
  * Общие фабрики и временные БД для интеграционных тестов (промпт 1.4).
@@ -329,80 +329,19 @@ export function makeLocation(patch: Partial<LocationDefinition> = {}): LocationD
 // ---------------------------------------------------------------- промпт 1.6
 
 /**
- * Сборка доменных сервисов core на временной БД (промпт 1.6).
+ * Сборка доменных сервисов core на временной БД (промпт 1.6, v4).
  * guard — IdempotencyService из bootstrap (порт CommandRunner, D216);
  * pack — те же фикстуры, что использует bootstrap dev-сессии.
- * turns — тестовый TurnServicePort с реализацией openTurn().
+ * TurnServicePort удалён: Turn Engine больше не входит в v4.
  */
 export function buildTestServices(
   db: TempDb,
   limits: { maxPlayersPerSession?: number; actionsPerPlayerPerTurn?: number } = {},
 ): CoreServices {
-  // Тестовый TurnServicePort: реализует только openTurn()
-  // Идемпотентность обрабатывается на уровне репозитория через findByKey/finish
-  const turnsPort = {
-    async openTurn(input: { sessionId: string; idempotencyKey: string; traceId: string }) {
-      const { sessionId, idempotencyKey } = input;
-      const uow = db.boot.uow;
-
-      return await uow.runInTx(async (scope) => {
-        // Проверяем идемпотентность через репозиторий
-        const existing = await scope.repos.idempotency.findByKey(idempotencyKey as IdempotencyKey);
-        if (existing) {
-          if (existing.status === 'DONE' && existing.resultJson) {
-            return JSON.parse(existing.resultJson);
-          }
-        }
-
-        const turnRepo = scope.repos.turns;
-        const sessionRepo = scope.repos.sessions;
-
-        // Получаем номер следующего хода
-        const latest = await turnRepo.findLatestBySession(sessionId as SessionId);
-        const nextNumber = (latest?.number ?? 0) + 1;
-
-        const turnId = randomUUID() as TurnId;
-        const now = nowIso();
-
-        const newTurn = {
-          turnId,
-          sessionId,
-          number: nextNumber,
-          status: 'OPEN' as const,
-          resolution: null,
-          lockedAt: null,
-          processingStartedAt: null,
-          reviewReadyAt: null,
-          committedAt: null,
-          failed: null,
-          createdAt: now,
-          updatedAt: now,
-        };
-
-        await turnRepo.insert(newTurn);
-
-        // Обновляем currentTurnId в сессии
-        await sessionRepo.patchPhase(sessionId as SessionId, { currentTurnId: turnId, updatedAt: now });
-
-        const result = { turnId, number: nextNumber };
-
-        // Записываем результат идемпотентности
-        await scope.repos.idempotency.finish({
-          key: idempotencyKey as IdempotencyKey,
-          resultJson: JSON.stringify(result),
-          resultHash: hashResult(result),
-        });
-
-        return { turnId, number: nextNumber };
-      });
-    },
-  };
-
   return createCoreServices({
     uow: db.boot.uow,
     guard: db.boot.idempotency,
     pack: fixtures,
-    turns: turnsPort,
     limits: {
       maxPlayersPerSession: limits.maxPlayersPerSession ?? 12,
       actionsPerPlayerPerTurn: limits.actionsPerPlayerPerTurn ?? 5,
@@ -422,12 +361,11 @@ export interface LobbyWorld {
   readonly sessionId: SessionId;
   readonly gmPlayerId: PlayerId;
   readonly playerIds: PlayerId[];
-  readonly turnId: TurnId | null;
 }
 
 /**
- * Полный путь лобби: createSession → join × N → startSession (открывает ход №1).
- * Возвращает id сессии, GM, игроков и первого хода.
+ * Полный путь лобби: createSession → join × N → startSession.
+ * Возвращает id сессии, GM и игроков. (Ход больше не открывается — v4.)
  */
 export async function bootLobby(
   services: CoreServices,
@@ -448,15 +386,13 @@ export async function bootLobby(
     });
     playerIds.push(joined.playerId);
   }
-  let turnId: TurnId | null = null;
   if (options.start !== false) {
-    const started = await services.sessions.startSession({
+    await services.sessions.startSession({
       sessionId: created.sessionId,
       idempotencyKey: testKey('start'),
     });
-    turnId = started.turnId as TurnId;
   }
-  return { sessionId: created.sessionId, gmPlayerId: created.gmPlayerId, playerIds, turnId };
+  return { sessionId: created.sessionId, gmPlayerId: created.gmPlayerId, playerIds };
 }
 
 export interface OutboxEventView {
