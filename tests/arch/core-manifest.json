@@ -29,7 +29,7 @@
   "core/src/events/index.ts": "8294c97f1ec7deac6eaad8f708f3dff73025f8d0ccfbb6f3036cffe696845174",
   "core/src/events/metrics.ts": "19d39ee9c6ca38ebd1f257e6673799689db671091acf8509a9381a1d5d812210",
   "core/src/events/outbox.ts": "1acd6a7b94c1dfe7e35e2973dc9d123b623695a0db7e4b03a6f34301b498c615",
-  "core/src/index.ts": "8511e7a14c15f3258a9c3a0e6fbb5e5a39c66c7466a730645f4ac2c67a9bfb33",
+  "core/src/index.ts": "bde2baec5e0683b1af877059967daaae5f5d395b9033d14248fad01f5ac3e910",
   "core/src/locations/index.ts": "b54fb5b0f5d27398fd871fc396c26ce4720819d5c616dbd282152f0d8c1b42c0",
   "core/src/locations/location-service.ts": "c093a74f1081dd798a3446b7a04a5be2e40aefa82f4eb069daa1af789f71e9a7",
   "core/src/services.ts": "642ab7295f07d8756ee8ec003fe9e447105a41fe19603ca71579eb1e7c52e863",
@@ -39,5 +39,8 @@
   "core/src/state/state-service.ts": "01a3e9f5105ca3fb1a45da2a54a5622011c5d9aee227667155a2f78177215cd0",
   "core/src/turns/index.ts": "acb7c5169057b00bc84fff3c86e5db8a68672669f3708a2da26196d9ebfceda7",
   "core/src/turns/journal.ts": "dc5f99e356e3b550aba9c80c987d1ae583557de2f507f28ff630c2aa236932dd",
-  "core/src/views/location-views.ts": "fc23649bcf4932ce46c60f79e4c2f260f065a7630a34cf1a9be81684221e4bf4"
+  "core/src/views/location-views.ts": "fc23649bcf4932ce46c60f79e4c2f260f065a7630a34cf1a9be81684221e4bf4",
+  "core/src/worldpack/index.ts": "ee64aa090845fd73e3857796ec02e419390a1b8d64be099c36a67786649873f7",
+  "core/src/worldpack/loader.ts": "e2990d5b3e1db6effd2a0b727fa2498bbb9ea4ca344a815a4a18ddc76ff78d96",
+  "core/src/worldpack/validator.ts": "61c8884a3a012690c6783f98d0787d5108a11dc77f4fe21535b7cb1f470b02fa"
 }
