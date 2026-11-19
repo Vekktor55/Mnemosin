@@ -6,7 +6,9 @@
    */
   import GameShell from '../shell/GameShell.svelte';
   import LoginScreen from './LoginScreen.svelte';
-  import TurnPanel from './TurnPanel.svelte';
+  import TurnStatus from './TurnStatus.svelte';
+  import ActionsInput from './ActionsInput.svelte';
+  import MyActions from './MyActions.svelte';
   import { connectionStore } from '../stores/index.js';
   import { startConnection } from '../app-context.js';
   import { loadIdentity, type ClientIdentity } from '../lib/privacy.js';
@@ -45,7 +47,11 @@
 {#if phase === 'game'}
   <GameShell role="player">
     {#snippet center()}
-      <TurnPanel />
+      <div class="turn-panel">
+        <TurnStatus />
+        <ActionsInput />
+        <MyActions />
+      </div>
     {/snippet}
   </GameShell>
 {:else}

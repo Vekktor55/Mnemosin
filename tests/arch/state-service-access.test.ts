@@ -15,13 +15,14 @@ import { importsOf, listSourceFiles, ROOT } from './helpers.js';
  *     `@mnemosin/core/domain/ports` (правило слоя 1.3) — barrel им недоступен,
  *     значит StateService для них недостижим типами;
  *  3. модули могут импортировать barrel, поэтому здесь проверяется whitelist:
- *     ссылки на StateService разрешены только в modules/turn (владелец commitTurn,
- *     промпт 1.8) и modules/story (D120/F-8.4, промпт 1.9: setFlag/grantKnowledge
- *     пишут состояние ТОЛЬКО через StateService.apply). Остальные модули получают
- *     изменения состояния событиями или командами core-сервисов через wiring.
+ *     ссылки на StateService разрешены только в modules/story (D120/F-8.4,
+ *     промпт 1.9: setFlag/grantKnowledge пишут состояние ТОЛЬКО через
+ *     StateService.apply). modules/turn удалён вместе с Turn Engine
+ *     (Legacy cleanup, v3 → v4); остальные модули получают изменения состояния
+ *     событиями или командами core-сервисов через wiring.
  */
 
-const MODULE_ALLOWLIST = ['modules/turn/', 'modules/story/'];
+const MODULE_ALLOWLIST = ['modules/story/'];
 
 function normalizePath(file: string): string {
   return file.replace(/\\/g, '/');
