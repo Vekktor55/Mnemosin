@@ -40,7 +40,7 @@ export type SpatialPosition = z.infer<typeof SpatialPositionSchema>;
  *
  * - Клиент отправляет удерживаемое направление, НЕ целевую позицию.
  * - directionX/Y нормализованы сервером (длина ≤ 1).
- * - sprintRequested — запрос бега (доступность определяется правилами, не контрактом).
+ * - Скорость, спринт и режимы движения определяются серверными правилами, не контрактом.
  * - inputSequence монотонно возрастает в пределах inputStreamId.
  */
 export const MovementInputSchema = z.object({
@@ -48,7 +48,6 @@ export const MovementInputSchema = z.object({
   inputSequence: z.number().int().nonnegative(),
   directionX: z.number().finite().min(-1).max(1),
   directionY: z.number().finite().min(-1).max(1),
-  sprintRequested: z.boolean().optional(),
   clientSentAt: z.number().int().nonnegative().optional(), // только диагностика
 });
 export type MovementInput = z.infer<typeof MovementInputSchema>;
