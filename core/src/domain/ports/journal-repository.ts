@@ -2,7 +2,7 @@ import type { JournalEntry, JournalKind } from '@mnemosin/contracts';
 import type { SessionId, TurnId } from '@mnemosin/contracts';
 
 export interface JournalDraft {
-  readonly turnId: TurnId;
+  readonly turnId: TurnId | null;
   readonly sessionId: SessionId;
   readonly traceId: string;
   readonly kind: JournalKind;

@@ -41,7 +41,7 @@ export interface AIGenerateInput {
    * Input = unknown: branded-схемы (PlayerId/EventId) парсят небрендированный
    * ввод, `z.ZodType<AIResponse>` такие схемы не принимал бы (TS-вариантность).
    */
-  readonly schema: z.ZodType<AIResponse, z.ZodTypeDef, unknown>;
+  readonly schema: z.ZodType<AIResponse, unknown>;
   readonly deadline: AIDeadline;
   /** Сигнал отмены: регистр прерывает попытку по таймауту политики. */
   readonly signal?: AbortSignal;

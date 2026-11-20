@@ -13,17 +13,8 @@ import {
   type OutboxRecord,
   type Snapshot,
 } from '@mnemosin/contracts';
-import type { AiDecisionRecord } from '@mnemosin/core/domain/ports';
 
-import type {
-  aiDecisions,
-  chatMessages,
-  gmAuditLog,
-  gmNotes,
-  journalEntries,
-  eventOutbox,
-  snapshots,
-} from '../schema.js';
+import type { chatMessages, gmAuditLog, gmNotes, journalEntries, eventOutbox, snapshots } from '../schema.js';
 import { asJson, assertMatches, parseBody } from './index.js';
 
 export function chatFromRow(row: typeof chatMessages.$inferSelect): ChatMessage {
@@ -134,23 +125,5 @@ export function snapshotToRow(snapshot: Snapshot): typeof snapshots.$inferInsert
     checksum: snapshot.checksum,
     createdAt: snapshot.createdAt,
     stateJson: asJson(snapshot.state as unknown, 'snapshots.insert'),
-  };
-}
-
-export function aiDecisionFromRow(row: typeof aiDecisions.$inferSelect): AiDecisionRecord {
-  return {
-    id: row.id,
-    sessionId: row.sessionId,
-    turnId: row.turnId,
-    providerId: row.providerId,
-    model: row.model,
-    status: row.status as AiDecisionRecord['status'],
-    promptHash: row.promptHash,
-    responseJson: row.responseJson === null ? null : JSON.stringify(row.responseJson),
-    violationsCount: row.violationsCount,
-    latencyMs: row.latencyMs,
-    errorCode: row.errorCode,
-    traceId: row.traceId,
-    createdAt: row.createdAt,
   };
 }

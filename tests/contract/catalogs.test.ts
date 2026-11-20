@@ -30,9 +30,14 @@ import {
 type Shape = Record<string, z.ZodTypeAny>;
 
 function shapeOf(schema: z.ZodTypeAny): Shape | null {
-  const maybe = schema as unknown as { _def?: { shape?: () => Shape; typeName?: string } };
-  if (typeof maybe._def?.shape === 'function') return maybe._def.shape();
-  return null;
+  const maybe = schema as unknown as {
+    shape?: Shape;
+    _def?: { shape?: Shape | (() => Shape) };
+  };
+  if (maybe.shape !== undefined) return maybe.shape;
+  const shape = maybe._def?.shape;
+  if (typeof shape === 'function') return shape();
+  return shape ?? null;
 }
 
 /** Ключи схемы payload на глубину 2 (достаточно для поиска запрещённых полей). */

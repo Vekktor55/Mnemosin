@@ -63,7 +63,7 @@ export function isTurnTransitionAllowed(from: TurnStatus, to: TurnStatus): boole
 export const TurnFailureSchema = z.object({
   code: ErrorCode,
   message: z.string().max(500),
-  meta: z.record(z.string(), z.unknown()).default({}),
+  meta: z.record(z.string(), z.unknown()).prefault({}),
   at: IsoDateTime,
 });
 export type TurnFailure = z.infer<typeof TurnFailureSchema>;

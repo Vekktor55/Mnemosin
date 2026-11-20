@@ -1,4 +1,3 @@
-
 /**
  * Design Tokens — Gothic Analog Horror (промпт 1.12, эт. B).
  * Централизованная система визуальных токенов: цвета, типографика,
@@ -24,52 +23,52 @@
   /* --------------------- Цветовая палитра --------------------- */
 
   /* Фон */
-  --mn-bg-deep:        #050506;   /* почти чёрный, холодный графит */
-  --mn-bg-panel:       #0d0c10;   /* тёмный угольный */
-  --mn-bg-raised:      #141218;   /* состаренное дерево / raised panel */
-  --mn-bg-sunken:      #070709;   /* углублённые поверхности */
+  --mn-bg-deep: #050506; /* почти чёрный, холодный графит */
+  --mn-bg-panel: #0d0c10; /* тёмный угольный */
+  --mn-bg-raised: #141218; /* состаренное дерево / raised panel */
+  --mn-bg-sunken: #070709; /* углублённые поверхности */
 
   /* Рамки и границы */
-  --mn-border-iron:    #2a2428;   /* тёмный состаренный металл */
-  --mn-border-brass:   #7a5c3a;   /* патинированная латунь */
-  --mn-border-bronze:  #4a3a2a;   /* тёмная бронза */
-  --mn-border-blood:   #5a1a1a;   /* тусклый бордовый */
+  --mn-border-iron: #2a2428; /* тёмный состаренный металл */
+  --mn-border-brass: #7a5c3a; /* патинированная латунь */
+  --mn-border-bronze: #4a3a2a; /* тёмная бронза */
+  --mn-border-blood: #5a1a1a; /* тусклый бордовый */
 
   /* Акценты */
-  --mn-accent-blood:   #8b0000;   /* засохшая кровь — основной акцент */
+  --mn-accent-blood: #8b0000; /* засохшая кровь — основной акцент */
   --mn-accent-blood-dim: #5a0d0d; /* приглушённый бордовый */
-  --mn-accent-warn:    #c9a45c;   /* старое золото / предупреждение */
-  --mn-accent-ok:      #6a8a6a;   /* приглушёная зелёнь / успех */
+  --mn-accent-warn: #c9a45c; /* старое золото / предупреждение */
+  --mn-accent-ok: #6a8a6a; /* приглушёная зелёнь / успех */
 
   /* Текст */
-  --mn-text-parchment: #d4c8b8;   /* состаренный пергамент — основной текст */
-  --mn-text-dim:       #9a8f85;   /* второстепенный текст / подсказки */
-  --mn-text-faint:     #6a625a;   /* подписи, мета-данные, выцветший */
+  --mn-text-parchment: #d4c8b8; /* состаренный пергамент — основной текст */
+  --mn-text-dim: #9a8f85; /* второстепенный текст / подсказки */
+  --mn-text-faint: #6a625a; /* подписи, мета-данные, выцветший */
 
   /* Заголовки (Cinzel-style) — более светлый контраст */
-  --mn-text-headline:  #e8dcc8;   /* крупные заголовки */
+  --mn-text-headline: #e8dcc8; /* крупные заголовки */
 
   /* Четкие оттенки для состояний */
-  --mn-state-error:    #a00000;   /* ошибка — чисто-красный accent */
-  --mn-state-success:  #2a5a3a;   /* успех — темно-зелёный */
-  --mn-state-warning:  #8b5a00;   /* предупреждение — золото */
+  --mn-state-error: #a00000; /* ошибка — чисто-красный accent */
+  --mn-state-success: #2a5a3a; /* успех — темно-зелёный */
+  --mn-state-warning: #8b5a00; /* предупреждение — золото */
 
   /* --------------------- Типографика --------------------- */
 
-  --mn-font-display:   'Cinzel', 'Palatino Linotype', 'Book Antiqua', Palatino, Georgia, serif;
-  --mn-font-ui:        'JetBrains Mono', 'Cascadia Code', ui-monospace, 'SF Mono', Menlo, monospace;
-  --mn-font-mono:      'JetBrains Mono', 'Cascadia Code', ui-monospace, 'SF Mono', Menlo, monospace;
+  --mn-font-display: 'Cinzel', 'Palatino Linotype', 'Book Antiqua', Palatino, Georgia, serif;
+  --mn-font-ui: 'JetBrains Mono', 'Cascadia Code', ui-monospace, 'SF Mono', Menlo, monospace;
+  --mn-font-mono: 'JetBrains Mono', 'Cascadia Code', ui-monospace, 'SF Mono', Menlo, monospace;
 
-  --mn-text-xxsmall:   0.65rem;   /* мелкие подписи внутри компонентов */
-  --mn-text-xsmall:    0.7rem;
-  --mn-text-small:     0.85rem;
-  --mn-text-base:      1rem;      /* базовый размер основного текста */
-  --mn-text-medium:    1.15rem;
-  --mn-text-large:     1.4rem;
-  --mn-text-xlarge:    1.8rem;
+  --mn-text-xxsmall: 0.65rem; /* мелкие подписи внутри компонентов */
+  --mn-text-xsmall: 0.7rem;
+  --mn-text-small: 0.85rem;
+  --mn-text-base: 1rem; /* базовый размер основного текста */
+  --mn-text-medium: 1.15rem;
+  --mn-text-large: 1.4rem;
+  --mn-text-xlarge: 1.8rem;
 
-  --mn-line-height:    1.5;       /* базовый line-height */
-  --mn-line-height-tight: 1.3;   /* для заголовков */
+  --mn-line-height: 1.5; /* базовый line-height */
+  --mn-line-height-tight: 1.3; /* для заголовков */
 
   --mn-font-weight-normal: 400;
   --mn-font-weight-medium: 500;
@@ -77,78 +76,78 @@
   --mn-font-weight-bold: 700;
 
   /* Радиусы границ */
-  --mn-radius-none:    0px;
-  --mn-radius-sm:      4px;
-  --mn-radius-md:      6px;
-  --mn-radius-lg:      8px;
-  --mn-radius-full:    9999px;
+  --mn-radius-none: 0px;
+  --mn-radius-sm: 4px;
+  --mn-radius-md: 6px;
+  --mn-radius-lg: 8px;
+  --mn-radius-full: 9999px;
 
   /* Тени */
-  --mn-shadow-deep:    rgba(0, 0, 0, 0.7);
-  --mn-shadow-medium:  rgba(0, 0, 0, 0.5);
-  --mn-shadow-inner:   rgba(255, 255, 255, 0.02) 0px 0px 0px 0px inset;
-  --mn-shadow-sm:      rgba(0, 0, 0, 0.4);
-  --mn-shadow-lg:      rgba(0, 0, 0, 0.8);
+  --mn-shadow-deep: rgba(0, 0, 0, 0.7);
+  --mn-shadow-medium: rgba(0, 0, 0, 0.5);
+  --mn-shadow-inner: rgba(255, 255, 255, 0.02) 0px 0px 0px 0px inset;
+  --mn-shadow-sm: rgba(0, 0, 0, 0.4);
+  --mn-shadow-lg: rgba(0, 0, 0, 0.8);
 
   /* Границы */
-  --mn-border-width:   1px;
+  --mn-border-width: 1px;
   --mn-border-width-strong: 2px;
 
   /* Плотность /不透明度 для декоративных слоев */
-  --mn-opacity-thin:   0.08;
+  --mn-opacity-thin: 0.08;
   --mn-opacity-medium: 0.15;
-  --mn-opacity-thick:  0.25;
+  --mn-opacity-thick: 0.25;
 
   /* Анимации */
-  --mn-dur-fast:       120ms;
-  --mn-dur-base:       200ms;
-  --mn-dur-slow:       400ms;
-  --mn-dur-slower:     700ms;
-  --mn-dur-slowest:    1200ms;
+  --mn-dur-fast: 120ms;
+  --mn-dur-base: 200ms;
+  --mn-dur-slow: 400ms;
+  --mn-dur-slower: 700ms;
+  --mn-dur-slowest: 1200ms;
 
-  --mn-ei-base:        cubic-bezier(0.25, 0.46, 0.45, 0.94); /* organic */
-  --mn-ei-sharp:       cubic-bezier(0.4, 0, 0.2, 1);
-  --mn-ei-spring:      cubic-bezier(0.34, 1.56, 0.64, 1);    /* springy */
-  --mn-ei-bounce:      cubic-bezier(0.68, -0.55, 0.27, 1.55); /* bounce */
+  --mn-ei-base: cubic-bezier(0.25, 0.46, 0.45, 0.94); /* organic */
+  --mn-ei-sharp: cubic-bezier(0.4, 0, 0.2, 1);
+  --mn-ei-spring: cubic-bezier(0.34, 1.56, 0.64, 1); /* springy */
+  --mn-ei-bounce: cubic-bezier(0.68, -0.55, 0.27, 1.55); /* bounce */
 
   /* Animation keyframes names (для синхронизации) */
-  --mn-anim-fade-in:          fadeIn var(--mn-dur-base) var(--mn-ei-base);
-  --mn-anim-fade-out:         fadeOut var(--mn-dur-base) var(--mn-ei-base);
-  --mn-anim-slide-up:         slideUp var(--mn-dur-slow) var(--mn-ei-spring);
-  --mn-anim-slide-down:       slideDown var(--mn-dur-slow) var(--mn-ei-spring);
-  --mn-anim-scale-in:         scaleIn var(--mn-dur-base) var(--mn-ei-spring);
-  --mn-anim-pulse:            pulse var(--mn-dur-slower) ease-in-out infinite;
-  --mn-anim-glow-pulse:       glowPulse 3s ease-in-out infinite;
-  --mn-anim-shimmer:          shimmer 2s ease-in-out infinite;
-  --mn-anim-float:            float 6s ease-in-out infinite;
-  --mn-anim-rotate-slow:      rotateSlow 20s linear infinite;
-  --mn-anim-breath:           breath 4s ease-in-out infinite;
-  --mn-anim-flicker:          flicker 0.15s steps(3) infinite;
+  --mn-anim-fade-in: fadeIn var(--mn-dur-base) var(--mn-ei-base);
+  --mn-anim-fade-out: fadeOut var(--mn-dur-base) var(--mn-ei-base);
+  --mn-anim-slide-up: slideUp var(--mn-dur-slow) var(--mn-ei-spring);
+  --mn-anim-slide-down: slideDown var(--mn-dur-slow) var(--mn-ei-spring);
+  --mn-anim-scale-in: scaleIn var(--mn-dur-base) var(--mn-ei-spring);
+  --mn-anim-pulse: pulse var(--mn-dur-slower) ease-in-out infinite;
+  --mn-anim-glow-pulse: glowPulse 3s ease-in-out infinite;
+  --mn-anim-shimmer: shimmer 2s ease-in-out infinite;
+  --mn-anim-float: float 6s ease-in-out infinite;
+  --mn-anim-rotate-slow: rotateSlow 20s linear infinite;
+  --mn-anim-breath: breath 4s ease-in-out infinite;
+  --mn-anim-flicker: flicker 0.15s steps(3) infinite;
 
   /* Z-index слои */
-  --mn-z-base:         0;
-  --mn-z-panel:        10;
-  --mn-z-tooltip:      100;
-  --mn-z-modal:        1000;
-  --mn-z-toast:        1100;
+  --mn-z-base: 0;
+  --mn-z-panel: 10;
+  --mn-z-tooltip: 100;
+  --mn-z-modal: 1000;
+  --mn-z-toast: 1100;
 
   /* ----------------------------------------------------------------
      Глобальные keyframes (доступны всем компонентам)
      ---------------------------------------------------------------- */
 
   /* Базовые цвета из старой палитры (для обратной совместимости импортеров) */
-  --bg-dark:           var(--mn-bg-deep);
-  --bg-panel:          var(--mn-bg-panel);
-  --accent-red:        var(--mn-accent-blood);
-  --text-main:         var(--mn-text-parchment);
-  --text-danger:       var(--mn-state-error);
+  --bg-dark: var(--mn-bg-deep);
+  --bg-panel: var(--mn-bg-panel);
+  --accent-red: var(--mn-accent-blood);
+  --text-main: var(--mn-text-parchment);
+  --text-danger: var(--mn-state-error);
 
   /* Служебные токены, оставшиеся из старой системы (фиксированы через var()) */
-  --blood-bright:      var(--mn-accent-blood);
-  --ember:             var(--mn-accent-warn);
-  --frame-dark:        var(--mn-border-iron);
-  --frame-darker:      #1a0808; /* оставляем константой, тёмнее 철 */
-  --chat-veil:         rgba(18, 17, 22, 0.85);
+  --blood-bright: var(--mn-accent-blood);
+  --ember: var(--mn-accent-warn);
+  --frame-dark: var(--mn-border-iron);
+  --frame-darker: #1a0808; /* оставляем константой, тёмнее 철 */
+  --chat-veil: rgba(18, 17, 22, 0.85);
 }
 
 /* ----------------------------------------------------------------
@@ -207,15 +206,21 @@ button {
 button:hover:not(:disabled) {
   border-color: var(--mn-border-brass);
   background: #201a22;
-  box-shadow: 0 0 10px rgba(122, 92, 58, 0.3), 0 2px 8px rgba(0, 0, 0, 0.3);
+  box-shadow:
+    0 0 10px rgba(122, 92, 58, 0.3),
+    0 2px 8px rgba(0, 0, 0, 0.3);
   transform: translateY(-1px);
 }
 
 /* Active — нажатие (вдавливание) */
 button:active:not(:disabled) {
   transform: translateY(1px) scale(0.98);
-  box-shadow: 0 0 6px rgba(122, 92, 58, 0.2), inset 0 2px 4px rgba(0, 0, 0, 0.4);
-  transition: transform 50ms var(--mn-ei-sharp), box-shadow 50ms var(--mn-ei-sharp);
+  box-shadow:
+    0 0 6px rgba(122, 92, 58, 0.2),
+    inset 0 2px 4px rgba(0, 0, 0, 0.4);
+  transition:
+    transform 50ms var(--mn-ei-sharp),
+    box-shadow 50ms var(--mn-ei-sharp);
 }
 
 /* Focus-visible — клавиатурная навигация (a11y) */
@@ -561,9 +566,7 @@ pre {
    ---------------------------------------------------------------- */
 
 .panel {
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.015), transparent 30%),
-    var(--mn-bg-panel);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.015), transparent 30%), var(--mn-bg-panel);
   border: 1px solid var(--mn-border);
   border-radius: var(--mn-radius);
   padding: 10px 12px;
@@ -582,8 +585,9 @@ pre {
     0 12px 40px var(--mn-shadow-deep),
     inset 0 1px 0 rgba(255, 255, 255, 0.03),
     0 0 20px rgba(122, 92, 58, 0.1);
-  transition: border-color var(--mn-dur-base) var(--mn-ei-base),
-              box-shadow var(--mn-dur-base) var(--mn-ei-base);
+  transition:
+    border-color var(--mn-dur-base) var(--mn-ei-base),
+    box-shadow var(--mn-dur-base) var(--mn-ei-base);
 }
 
 /* Panel focus-within (для доступности) */
@@ -626,8 +630,17 @@ pre {
   border: 2px solid transparent;
   border-radius: calc(var(--mn-radius-lg) + 2px);
   pointer-events: none;
-  background: linear-gradient(45deg, var(--mn-border-iron), var(--mn-border-brass), var(--mn-border-iron), var(--mn-border-brass)) border-box;
-  -webkit-mask: linear-gradient(#fff 0 0) padding-box, linear-gradient(#fff 0 0);
+  background: linear-gradient(
+      45deg,
+      var(--mn-border-iron),
+      var(--mn-border-brass),
+      var(--mn-border-iron),
+      var(--mn-border-brass)
+    )
+    border-box;
+  -webkit-mask:
+    linear-gradient(#fff 0 0) padding-box,
+    linear-gradient(#fff 0 0);
   -webkit-mask-composite: xor;
   mask-composite: exclude;
   opacity: 0;
@@ -689,18 +702,38 @@ pre {
    ---------------------------------------------------------------- */
 
 /* Оставляем старые алиасы для совместимости — они ссылаются на новые токены */
-.badge.ok { border-color: rgba(126, 168, 130, 0.55); } /* уже определен выше */
-.badge.warn { border-color: rgba(201, 164, 92, 0.55); } /* уже определен выше */
+.badge.ok {
+  border-color: rgba(126, 168, 130, 0.55);
+} /* уже определен выше */
+.badge.warn {
+  border-color: rgba(201, 164, 92, 0.55);
+} /* уже определен выше */
 
 /* Micro-helpers, которые часто использовали в компонентах */
-.text-center { text-align: center; }
-.text-right { text-align: right; }
-.mb-0 { margin-bottom: 0; }
-.mb-2 { margin-bottom: 0.5rem; }
-.mb-4 { margin-bottom: 1rem; }
-.pb-2 { padding-bottom: 0.5rem; }
-.pl-2 { padding-left: 0.5rem; }
-.pr-2 { padding-right: 0.5rem; }
+.text-center {
+  text-align: center;
+}
+.text-right {
+  text-align: right;
+}
+.mb-0 {
+  margin-bottom: 0;
+}
+.mb-2 {
+  margin-bottom: 0.5rem;
+}
+.mb-4 {
+  margin-bottom: 1rem;
+}
+.pb-2 {
+  padding-bottom: 0.5rem;
+}
+.pl-2 {
+  padding-left: 0.5rem;
+}
+.pr-2 {
+  padding-right: 0.5rem;
+}
 
 /* ----------------------------------------------------------------
    Активность/состояния кнопок (адаптировано под новую палитру)
@@ -759,9 +792,7 @@ button.primary:disabled {
   outline-offset: 3px;
   border-radius: var(--mn-radius-sm); /* было 2px, now variable */
   padding: 6px;
-  background:
-    radial-gradient(120% 90% at 50% 0%, rgba(139, 0, 0, 0.1), transparent 60%),
-    var(--mn-bg-sunken);
+  background: radial-gradient(120% 90% at 50% 0%, rgba(139, 0, 0, 0.1), transparent 60%), var(--mn-bg-sunken);
   box-shadow: inset 0 0 24px rgba(0, 0, 0, 0.75);
 }
 
@@ -770,88 +801,189 @@ button.primary:disabled {
    ---------------------------------------------------------------- */
 
 @keyframes fadeIn {
-  from { opacity: 0; }
-  to { opacity: 1; }
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
 }
 
 @keyframes fadeOut {
-  from { opacity: 1; }
-  to { opacity: 0; }
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
 }
 
 @keyframes slideUp {
-  from { opacity: 0; transform: translateY(20px); }
-  to { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 @keyframes slideDown {
-  from { opacity: 0; transform: translateY(-20px); }
-  to { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 @keyframes scaleIn {
-  from { opacity: 0; transform: scale(0.92); }
-  to { opacity: 1; transform: scale(1); }
+  from {
+    opacity: 0;
+    transform: scale(0.92);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
 }
 
 @keyframes pulse {
-  0%, 100% { opacity: 0.6; transform: scale(1); }
-  50% { opacity: 1; transform: scale(1.02); }
+  0%,
+  100% {
+    opacity: 0.6;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.02);
+  }
 }
 
 @keyframes glowPulse {
-  0%, 100% { box-shadow: 0 0 4px var(--mn-accent-blood), 0 0 8px var(--mn-accent-blood); }
-  50% { box-shadow: 0 0 12px var(--mn-accent-blood), 0 0 24px var(--mn-accent-blood), 0 0 36px var(--mn-accent-blood); }
+  0%,
+  100% {
+    box-shadow:
+      0 0 4px var(--mn-accent-blood),
+      0 0 8px var(--mn-accent-blood);
+  }
+  50% {
+    box-shadow:
+      0 0 12px var(--mn-accent-blood),
+      0 0 24px var(--mn-accent-blood),
+      0 0 36px var(--mn-accent-blood);
+  }
 }
 
 @keyframes shimmer {
-  0% { background-position: -200% 0; }
-  100% { background-position: 200% 0; }
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
 }
 
 @keyframes float {
-  0%, 100% { transform: translateY(0) rotate(0deg); }
-  50% { transform: translateY(-8px) rotate(0.5deg); }
+  0%,
+  100% {
+    transform: translateY(0) rotate(0deg);
+  }
+  50% {
+    transform: translateY(-8px) rotate(0.5deg);
+  }
 }
 
 @keyframes rotateSlow {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 @keyframes breath {
-  0%, 100% { transform: scale(1); opacity: 0.8; }
-  50% { transform: scale(1.03); opacity: 1; }
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 0.8;
+  }
+  50% {
+    transform: scale(1.03);
+    opacity: 1;
+  }
 }
 
 @keyframes flicker {
-  0% { opacity: 1; }
-  33% { opacity: 0.6; }
-  66% { opacity: 0.9; }
-  100% { opacity: 1; }
+  0% {
+    opacity: 1;
+  }
+  33% {
+    opacity: 0.6;
+  }
+  66% {
+    opacity: 0.9;
+  }
+  100% {
+    opacity: 1;
+  }
 }
 
 /* ----------------------------------------------------------------
    Утилитарные анимационные классы
    ---------------------------------------------------------------- */
 
-.anim-fade-in { animation: var(--mn-anim-fade-in); }
-.anim-slide-up { animation: var(--mn-anim-slide-up); }
-.anim-scale-in { animation: var(--mn-anim-scale-in); }
-.anim-pulse { animation: var(--mn-anim-pulse); }
-.anim-glow-pulse { animation: var(--mn-anim-glow-pulse); }
-.anim-shimmer { animation: var(--mn-anim-shimmer); }
-.anim-float { animation: var(--mn-anim-float); }
-.anim-breath { animation: var(--mn-anim-breath); }
-.anim-flicker { animation: var(--mn-anim-flicker); }
+.anim-fade-in {
+  animation: var(--mn-anim-fade-in);
+}
+.anim-slide-up {
+  animation: var(--mn-anim-slide-up);
+}
+.anim-scale-in {
+  animation: var(--mn-anim-scale-in);
+}
+.anim-pulse {
+  animation: var(--mn-anim-pulse);
+}
+.anim-glow-pulse {
+  animation: var(--mn-anim-glow-pulse);
+}
+.anim-shimmer {
+  animation: var(--mn-anim-shimmer);
+}
+.anim-float {
+  animation: var(--mn-anim-float);
+}
+.anim-breath {
+  animation: var(--mn-anim-breath);
+}
+.anim-flicker {
+  animation: var(--mn-anim-flicker);
+}
 
 /* Stagger delays для списков */
-.anim-stagger-1 { animation-delay: 50ms; }
-.anim-stagger-2 { animation-delay: 100ms; }
-.anim-stagger-3 { animation-delay: 150ms; }
-.anim-stagger-4 { animation-delay: 200ms; }
-.anim-stagger-5 { animation-delay: 250ms; }
-.anim-stagger-6 { animation-delay: 300ms; }
+.anim-stagger-1 {
+  animation-delay: 50ms;
+}
+.anim-stagger-2 {
+  animation-delay: 100ms;
+}
+.anim-stagger-3 {
+  animation-delay: 150ms;
+}
+.anim-stagger-4 {
+  animation-delay: 200ms;
+}
+.anim-stagger-5 {
+  animation-delay: 250ms;
+}
+.anim-stagger-6 {
+  animation-delay: 300ms;
+}
 
 /* ----------------------------------------------------------------
    Доступность: prefers-reduced-motion
@@ -871,7 +1003,7 @@ button.primary:disabled {
   }
 
   /* Отключаем наши новые анимации */
-  [class*="anim-"] {
+  [class*='anim-'] {
     animation: none !important;
     transition: none !important;
   }

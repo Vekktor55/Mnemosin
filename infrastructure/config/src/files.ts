@@ -52,7 +52,7 @@ export const CapabilityConfigSchema = z.object({
 export type CapabilityConfig = z.infer<typeof CapabilityConfigSchema>;
 
 export const CapabilitiesConfigSchema = z.object({
-  capabilities: z.record(CapabilitySchema, CapabilityConfigSchema),
+  capabilities: z.partialRecord(CapabilitySchema, CapabilityConfigSchema),
 });
 export type CapabilitiesConfig = z.infer<typeof CapabilitiesConfigSchema>;
 
@@ -75,7 +75,7 @@ export const LimitsConfigSchema = z.object({
       CHAT_PUBLIC: z.number().int().positive().default(10),
       DEFAULT: z.number().int().positive().default(20),
     })
-    .default({}),
+    .prefault({}),
   wsMaxConnectionsPerIp: z.number().int().positive().default(20),
   wsMaxConnectionsPerPlayer: z.number().int().positive().default(4),
   wsMaxPayloadBytes: z.number().int().positive().default(65_536),
@@ -85,7 +85,7 @@ export const LimitsConfigSchema = z.object({
       intervalMs: z.number().int().positive().default(20_000),
       idleTimeoutMs: z.number().int().positive().default(45_000),
     })
-    .default({}),
+    .prefault({}),
   reconnect: z
     .object({
       baseMs: z.number().int().positive().default(500),
@@ -94,7 +94,7 @@ export const LimitsConfigSchema = z.object({
       jitter: z.number().min(0).max(1).default(0.2),
       maxAttempts: z.number().int().positive().default(8),
     })
-    .default({}),
+    .prefault({}),
   dedupeTtlMs: z.number().int().positive().default(300_000),
 
   // --- идемпотентность и outbox
@@ -143,7 +143,7 @@ export const LimitsConfigSchema = z.object({
       /** Ёмкость ведра (burst); default = publicPerSecond (одна секунда запаса). */
       burstSeconds: z.number().min(0.1).max(10).default(1),
     })
-    .default({}),
+    .prefault({}),
 
   // --- HTTP rate limit
   httpRatePerIpPerMin: z.number().int().positive().default(100),
@@ -179,7 +179,7 @@ export const LimitsConfigSchema = z.object({
       teleportAllowed: z.boolean().default(false),
       reachEndingAllowed: z.boolean().default(true),
     })
-    .default({}),
+    .prefault({}),
 
   // --- HostBridge (промпт 2.13, F-6.5)
   hostbridge: z
@@ -190,6 +190,6 @@ export const LimitsConfigSchema = z.object({
       maxHosts: z.number().int().positive().default(1),
       maxFileBytes: z.number().int().positive().default(33_554_432),
     })
-    .default({}),
+    .prefault({}),
 });
 export type LimitsConfig = z.infer<typeof LimitsConfigSchema>;

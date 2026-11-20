@@ -34,7 +34,7 @@ export const EnvSchema = z.object({
   JWT_REFRESH_TTL_SECONDS: intFromEnv(2_592_000),
 
   LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent']).default('info'),
-  LOG_REDACT_PLAYER_TEXT: boolFromEnv.default('1'),
+  LOG_REDACT_PLAYER_TEXT: boolFromEnv.prefault('1'),
 
   /**
    * Идентификатор провайдера — **строка, а не enum** (D192, критерий A1.14):

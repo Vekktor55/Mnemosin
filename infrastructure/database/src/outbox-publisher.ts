@@ -155,7 +155,7 @@ export class OutboxPublisher {
       total.published += r.published;
       total.failed += r.failed;
       total.dead += r.dead;
-      if (r.scanned === 0 || r.published === 0) break;
+      if (r.scanned === 0 || (r.published === 0 && r.failed === 0 && r.dead === 0)) break;
     }
     return { ...total, skipped: false };
   }

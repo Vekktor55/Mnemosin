@@ -5,6 +5,7 @@ import {
   WS_GM_ONLY,
   WS_REQUIRES_IDEMPOTENCY_KEY,
   WSClientMessageSchema,
+  zodIssuesToMeta,
   type ErrorCode,
   type NoteId,
   type PlayerId,
@@ -64,19 +65,6 @@ export interface WsRouter {
 }
 
 const MESSAGE_MAX = 500;
-const ISSUE_MAX = 10;
-const ISSUE_MESSAGE_MAX = 80;
-
-/** Копия HTTP-хелпера (D258-контекст): значения полей не раскрываем (D163). */
-function zodIssuesToMeta(error: ZodError): Record<string, unknown> {
-  return {
-    issues: error.issues.slice(0, ISSUE_MAX).map((issue) => ({
-      path: issue.path.join('.'),
-      code: issue.code,
-      message: issue.message.slice(0, ISSUE_MESSAGE_MAX),
-    })),
-  };
-}
 
 function sha1(text: string): string {
   return createHash('sha1').update(text).digest('hex');

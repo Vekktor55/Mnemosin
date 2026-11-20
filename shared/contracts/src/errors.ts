@@ -329,6 +329,28 @@ export class ConflictError extends AppError {
   }
 }
 
+const ZOD_ISSUE_MAX = 10;
+const ZOD_ISSUE_MESSAGE_MAX = 80;
+
+/**
+ * Стабильный транспортный формат ошибок валидации для HTTP и WS.
+ *
+ * Наружу выходят только path/code/message: внутренние поля Zod 4
+ * (`expected`, `received`, `format`, `pattern` и т. п.) не раскрываются.
+ * Сообщения ограничены, потому что могут содержать фрагменты входных данных.
+ */
+export function zodIssuesToMeta(error: z.ZodError): {
+  issues: Array<{ path: string; code: string; message: string }>;
+} {
+  return {
+    issues: error.issues.slice(0, ZOD_ISSUE_MAX).map((issue) => ({
+      path: issue.path.join('.'),
+      code: issue.code,
+      message: issue.message.slice(0, ZOD_ISSUE_MESSAGE_MAX),
+    })),
+  };
+}
+
 /** Приведение произвольной ошибки к ErrorCode для транспорта. */
 export function toErrorCode(cause: unknown): ErrorCode {
   if (cause instanceof AppError) return cause.code;

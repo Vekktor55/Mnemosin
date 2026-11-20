@@ -12,9 +12,7 @@
 
 .gm-body {
   font-size: 14px;
-  background:
-    radial-gradient(1000px 420px at 50% -80px, rgba(139, 0, 0, 0.06), transparent),
-    var(--mn-bg-deep);
+  background: radial-gradient(1000px 420px at 50% -80px, rgba(139, 0, 0, 0.06), transparent), var(--mn-bg-deep);
 }
 
 /* ----------------------------------------------------------------
@@ -96,7 +94,9 @@
     0 4px 12px var(--mn-shadow-medium),
     inset 0 1px 0 rgba(255, 255, 255, 0.02);
   margin-bottom: 8px;
-  animation: var(--mn-anim-scale-in), breath 10s ease-in-out infinite;
+  animation:
+    var(--mn-anim-scale-in),
+    breath 10s ease-in-out infinite;
   animation-fill-mode: forwards;
 }
 
@@ -112,7 +112,9 @@
   transform: rotate(45deg);
   pointer-events: none;
   opacity: 0;
-  animation: fadeIn 500ms var(--mn-ei-spring) 100ms forwards, float 6s ease-in-out infinite;
+  animation:
+    fadeIn 500ms var(--mn-ei-spring) 100ms forwards,
+    float 6s ease-in-out infinite;
   animation-delay: 100ms, 0;
 }
 
@@ -127,7 +129,9 @@
   transform: rotate(45deg);
   pointer-events: none;
   opacity: 0;
-  animation: fadeIn 500ms var(--mn-ei-spring) 200ms forwards, float 6s ease-in-out infinite;
+  animation:
+    fadeIn 500ms var(--mn-ei-spring) 200ms forwards,
+    float 6s ease-in-out infinite;
   animation-delay: 200ms, 3s;
 }
 
@@ -138,8 +142,9 @@
     0 6px 20px var(--mn-shadow-deep),
     inset 0 1px 0 rgba(255, 255, 255, 0.03),
     0 0 24px rgba(122, 92, 58, 0.15);
-  transition: border-color var(--mn-dur-base) var(--mn-ei-base),
-              box-shadow var(--mn-dur-base) var(--mn-ei-base);
+  transition:
+    border-color var(--mn-dur-base) var(--mn-ei-base),
+    box-shadow var(--mn-dur-base) var(--mn-ei-base);
 }
 
 /* Индикатор статуса сессии */
@@ -186,7 +191,9 @@
 /* Ritual-tabs — "печать оператора" */
 .gm-tabs.ritual-tabs {
   border-bottom: 1px solid var(--mn-border-iron);
-  box-shadow: 0 1px 0 rgba(139, 0, 0, 0.35), 0 6px 18px rgba(0, 0, 0, 0.35);
+  box-shadow:
+    0 1px 0 rgba(139, 0, 0, 0.35),
+    0 6px 18px rgba(0, 0, 0, 0.35);
   padding-bottom: 0;
 }
 
@@ -251,13 +258,29 @@
 }
 
 /* Анимация появления табов (stagger) */
-.gm-tabs button:nth-child(1) { animation-delay: 50ms; }
-.gm-tabs button:nth-child(2) { animation-delay: 100ms; }
-.gm-tabs button:nth-child(3) { animation-delay: 150ms; }
-.gm-tabs button:nth-child(4) { animation-delay: 200ms; }
-.gm-tabs button:nth-child(5) { animation-delay: 250ms; }
-.gm-tabs button:nth-child(6) { animation-delay: 300ms; }
-.gm-tabs button { animation: var(--mn-anim-fade-in), slideUp 300ms var(--mn-ei-spring) both; }
+.gm-tabs button:nth-child(1) {
+  animation-delay: 50ms;
+}
+.gm-tabs button:nth-child(2) {
+  animation-delay: 100ms;
+}
+.gm-tabs button:nth-child(3) {
+  animation-delay: 150ms;
+}
+.gm-tabs button:nth-child(4) {
+  animation-delay: 200ms;
+}
+.gm-tabs button:nth-child(5) {
+  animation-delay: 250ms;
+}
+.gm-tabs button:nth-child(6) {
+  animation-delay: 300ms;
+}
+.gm-tabs button {
+  animation:
+    var(--mn-anim-fade-in),
+    slideUp 300ms var(--mn-ei-spring) both;
+}
 
 /* Тело вкладки */
 .gm-tab-body {
@@ -336,10 +359,13 @@
   gap: 6px;
   background: var(--mn-bg-raised);
   margin-bottom: 6px;
-  animation: var(--mn-anim-fade-in), slideUp 300ms var(--mn-ei-spring) calc(50ms * var(--review-index, 0)) both;
-  transition: border-color var(--mn-dur-base) var(--mn-ei-base),
-              box-shadow var(--mn-dur-base) var(--mn-ei-base),
-              transform var(--mn-dur-fast) var(--mn-ei-base);
+  animation:
+    var(--mn-anim-fade-in),
+    slideUp 300ms var(--mn-ei-spring) calc(50ms * var(--review-index, 0)) both;
+  transition:
+    border-color var(--mn-dur-base) var(--mn-ei-base),
+    box-shadow var(--mn-dur-base) var(--mn-ei-base),
+    transform var(--mn-dur-fast) var(--mn-ei-base);
 }
 
 .review-item:hover {
@@ -351,7 +377,9 @@
 .review-item.rejected {
   opacity: 0.55;
   border-color: var(--mn-state-error);
-  animation: fadeIn 300ms var(--mn-ei-base), flicker 1s ease-in-out 2;
+  animation:
+    fadeIn 300ms var(--mn-ei-base),
+    flicker 1s ease-in-out 2;
 }
 
 /* Заголовок записи ревью */
@@ -432,7 +460,9 @@
   background: linear-gradient(180deg, var(--mn-accent-ok), var(--mn-state-success));
   border-radius: calc(var(--mn-radius-sm) - 1px);
   transform: translateX(0);
-  transition: transform var(--mn-dur-slow) var(--mn-ei-spring), background var(--mn-dur-base) var(--mn-ei-base);
+  transition:
+    transform var(--mn-dur-slow) var(--mn-ei-spring),
+    background var(--mn-dur-base) var(--mn-ei-base);
   z-index: 0;
 }
 
@@ -480,7 +510,9 @@
   letter-spacing: 0.08em;
   text-transform: uppercase;
   padding: 6px 14px;
-  animation: var(--mn-anim-fade-in), slideUp 300ms var(--mn-ei-spring) calc(50ms * var(--btn-index, 0)) both;
+  animation:
+    var(--mn-anim-fade-in),
+    slideUp 300ms var(--mn-ei-spring) calc(50ms * var(--btn-index, 0)) both;
 }
 
 .turn-controls button.primary {
@@ -491,7 +523,9 @@
   box-shadow:
     inset 0 1px 0 rgba(255, 140, 140, 0.15),
     0 2px 8px rgba(0, 0, 0, 0.5);
-  animation: var(--mn-anim-scale-in), breath 5s ease-in-out infinite;
+  animation:
+    var(--mn-anim-scale-in),
+    breath 5s ease-in-out infinite;
 }
 
 .turn-controls button.primary:hover:not(:disabled) {
@@ -534,8 +568,9 @@
   background: var(--mn-bg-panel);
   border-radius: var(--mn-radius-sm);
   padding: 6px 10px;
-  transition: border-color var(--mn-dur-base) var(--mn-ei-base),
-              background var(--mn-dur-base) var(--mn-ei-base);
+  transition:
+    border-color var(--mn-dur-base) var(--mn-ei-base),
+    background var(--mn-dur-base) var(--mn-ei-base);
   animation: var(--mn-anim-fade-in);
 }
 
@@ -629,9 +664,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background:
-    radial-gradient(1000px 420px at 50% -80px, rgba(139, 0, 0, 0.06), transparent),
-    var(--mn-bg-deep);
+  background: radial-gradient(1000px 420px at 50% -80px, rgba(139, 0, 0, 0.06), transparent), var(--mn-bg-deep);
 }
 
 .gm-login .login-card {
@@ -645,7 +678,9 @@
   box-shadow:
     0 18px 60px rgba(0, 0, 0, 0.7),
     inset 0 0 60px rgba(0, 0, 0, 0.4);
-  animation: var(--mn-anim-scale-in), float 8s ease-in-out infinite;
+  animation:
+    var(--mn-anim-scale-in),
+    float 8s ease-in-out infinite;
   animation-fill-mode: forwards;
 }
 
@@ -654,7 +689,9 @@
   letter-spacing: 0.28em;
   color: var(--mn-text-dim);
   text-shadow: 0 0 20px rgba(139, 0, 0, 0.35);
-  animation: var(--mn-anim-slide-up), shimmer 4s ease-in-out infinite;
+  animation:
+    var(--mn-anim-slide-up),
+    shimmer 4s ease-in-out infinite;
 }
 
 .gm-login .login-card .subtitle {
@@ -702,7 +739,9 @@
   border-radius: var(--mn-radius-sm);
   padding: 10px 12px;
   font-size: 0.86rem;
-  animation: var(--mn-anim-slide-up), breath 4s ease-in-out infinite;
+  animation:
+    var(--mn-anim-slide-up),
+    breath 4s ease-in-out infinite;
   animation-fill-mode: forwards;
 }
 
@@ -722,7 +761,9 @@
 }
 
 .feed-entry.director {
-  animation: var(--mn-anim-slide-up), glowPulse 3s ease-in-out infinite;
+  animation:
+    var(--mn-anim-slide-up),
+    glowPulse 3s ease-in-out infinite;
 }
 
 /* Таблицы с анимацией строк */
@@ -735,6 +776,7 @@
   animation: none;
   background: rgba(139, 0, 0, 0.1);
   transform: scale(1.005);
-  transition: background var(--mn-dur-base) var(--mn-ei-base),
-              transform var(--mn-dur-fast) var(--mn-ei-base);
+  transition:
+    background var(--mn-dur-base) var(--mn-ei-base),
+    transform var(--mn-dur-fast) var(--mn-ei-base);
 }

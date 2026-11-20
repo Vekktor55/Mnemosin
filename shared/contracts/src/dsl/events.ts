@@ -77,7 +77,7 @@ export const WorldEventTemplateSchema = z.object({
       source: z.enum(['v1', 'derived', 'todo', 'v3-fixture']).default('v1'),
       notes: z.string().max(500).nullable(),
     })
-    .default({
+    .prefault({
       source: 'v1',
       notes: null,
     }),

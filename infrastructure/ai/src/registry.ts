@@ -83,7 +83,7 @@ export const RegistryEntrySchema = z
     path: ['providerId'],
   });
 
-const ChainsSchema = z.record(
+const ChainsSchema = z.partialRecord(
   CapabilitySchema,
   z.object({
     required: z.boolean().default(false),

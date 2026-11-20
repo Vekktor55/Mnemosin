@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { readFileSync } from 'node:fs';
 
 import { createCoreServices, type CoreServices } from '@mnemosin/core';
 
@@ -28,7 +29,7 @@ import {
   type Turn,
   type TurnId,
 } from '@mnemosin/contracts';
-import { bootstrapDatabase, loadLocationFixtures, type BootstrapResult } from '@mnemosin/database';
+import { bootstrapDatabase, type BootstrapResult } from '@mnemosin/database';
 
 /**
  * Общие фабрики и временные БД для интеграционных тестов (промпт 1.4).
@@ -45,24 +46,11 @@ export interface TempDb {
   close(): Promise<void>;
 }
 
-/**
- * Безопасная очистка temp-каталога (промпт 1.13, Windows-fix): SQLite WAL/SHM и
- * каталоги под OneDrive/антивирусом могут держать handles доли секунд — EPERM.
- * Ретраи + best-effort: уборка не должна ронять прошедшие тесты.
- */
-export function rmSafe(dir: string): void {
-  try {
-    rmSync(dir, { recursive: true, force: true, maxRetries: 6, retryDelay: 200 });
-  } catch {
-    /* best-effort: temp-каталог уберёт ОС */
-  }
-}
-
 export async function openTempDb(label: string, options: { seed?: boolean } = {}): Promise<TempDb> {
   const dir = mkdtempSync(join(tmpdir(), `mnemosin-${label}-`));
   const path = join(dir, 'test.sqlite');
   const url = `file:${path}`;
-  const boot = await bootstrapDatabase({ url, ...(options.seed === undefined ? {} : { seed: options.seed }) });
+  const boot = await bootstrapDatabase({ url, seed: options.seed ?? false });
   return {
     boot,
     url,
@@ -70,13 +58,48 @@ export async function openTempDb(label: string, options: { seed?: boolean } = {}
     path,
     async close(): Promise<void> {
       await boot.close();
-      rmSafe(dir);
+      // Windows fix: wait for SQLite handles to be released, then retry deletion
+      // Use simple retry - Windows needs time to release file handles
+      const maxRetries = 5;
+      for (let attempt = 0; attempt < maxRetries; attempt++) {
+        try {
+          rmSync(dir, { recursive: true, force: true });
+          return;
+        } catch (err: unknown) {
+          const code = (err as { code?: string }).code;
+          if (code === 'EPERM' || code === 'EBUSY' || code === 'ENOTEMPTY') {
+            if (attempt === maxRetries - 1) {
+              // Last attempt - log warning but don't throw to avoid test failures
+              console.warn(`Failed to delete temp dir ${dir} after ${maxRetries} attempts`);
+              return;
+            }
+            await new Promise((resolve) => setTimeout(resolve, 50));
+          } else {
+            throw err;
+          }
+        }
+      }
     },
   };
 }
 
-export const fixtures = loadLocationFixtures();
-export const startLocationId = fixtures.startLocationId;
+// --- Минимальная тестовая WorldPack-фикстура (не зависит от production-файлов) ---
+interface TestWorldPack {
+  readonly packId: string;
+  readonly version: string;
+  readonly startLocationId: string;
+  readonly locations: readonly LocationDefinition[];
+}
+
+function loadTestWorldPack(): TestWorldPack {
+  const path = join(process.cwd(), 'tests/fixtures/worldpack.test.json');
+  const raw = readFileSync(path, 'utf8');
+  return JSON.parse(raw) as TestWorldPack;
+}
+
+const testWorldPack = loadTestWorldPack();
+export const fixtures = testWorldPack;
+export const startLocationId = testWorldPack.startLocationId;
 
 export interface SampleWorld {
   readonly session: Session;
@@ -184,8 +207,8 @@ export function makeWorld(at: string = nowIso()): SampleWorld {
   return { session, gm, gmCharacter, players, characters, state };
 }
 
-/** Записывает мир в БД одной транзакцией и возвращает его. */
-export async function seedWorld(db: TempDb, at: string = nowIso()): Promise<SampleWorld> {
+/** Записывает мир в БД одной транзакцией и возвращает его вместе с БД. */
+export async function seedWorld(db: TempDb, at: string = nowIso()): Promise<{ world: SampleWorld; db: TempDb }> {
   const world = makeWorld(at);
   await db.boot.uow.runInTx(async (scope) => {
     for (const location of fixtures.locations) await scope.repos.locations.upsert(location);
@@ -194,7 +217,7 @@ export async function seedWorld(db: TempDb, at: string = nowIso()): Promise<Samp
     for (const player of world.players) await scope.repos.players.insert(player);
     await scope.repos.state.insert(world.state);
   });
-  return world;
+  return { world, db };
 }
 
 export function makeTurn(sessionId: SessionId, number: number, at: string = nowIso()): Turn {
@@ -306,9 +329,10 @@ export function makeLocation(patch: Partial<LocationDefinition> = {}): LocationD
 // ---------------------------------------------------------------- промпт 1.6
 
 /**
- * Сборка доменных сервисов core на временной БД (промпт 1.6).
+ * Сборка доменных сервисов core на временной БД (промпт 1.6, v4).
  * guard — IdempotencyService из bootstrap (порт CommandRunner, D216);
  * pack — те же фикстуры, что использует bootstrap dev-сессии.
+ * TurnServicePort удалён: Turn Engine больше не входит в v4.
  */
 export function buildTestServices(
   db: TempDb,
@@ -337,12 +361,11 @@ export interface LobbyWorld {
   readonly sessionId: SessionId;
   readonly gmPlayerId: PlayerId;
   readonly playerIds: PlayerId[];
-  readonly turnId: TurnId | null;
 }
 
 /**
- * Полный путь лобби: createSession → join × N → startSession (открывает ход №1).
- * Возвращает id сессии, GM, игроков и первого хода.
+ * Полный путь лобби: createSession → join × N → startSession.
+ * Возвращает id сессии, GM и игроков. (Ход больше не открывается — v4.)
  */
 export async function bootLobby(
   services: CoreServices,
@@ -363,15 +386,13 @@ export async function bootLobby(
     });
     playerIds.push(joined.playerId);
   }
-  let turnId: TurnId | null = null;
   if (options.start !== false) {
-    const started = await services.sessions.startSession({
+    await services.sessions.startSession({
       sessionId: created.sessionId,
       idempotencyKey: testKey('start'),
     });
-    turnId = started.turnId as TurnId;
   }
-  return { sessionId: created.sessionId, gmPlayerId: created.gmPlayerId, playerIds, turnId };
+  return { sessionId: created.sessionId, gmPlayerId: created.gmPlayerId, playerIds };
 }
 
 export interface OutboxEventView {

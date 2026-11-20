@@ -1,5 +1,5 @@
 import { ZodError } from 'zod';
-import { AppError, ERROR_TABLE, type ErrorCode } from '@mnemosin/contracts';
+import { AppError, ERROR_TABLE, zodIssuesToMeta as serializeZodIssues, type ErrorCode } from '@mnemosin/contracts';
 import type { FastifyBaseLogger, FastifyReply, FastifyRequest } from 'fastify';
 
 /**
@@ -25,19 +25,10 @@ export interface HttpErrorBody {
 }
 
 const MESSAGE_MAX = 500;
-const ISSUE_MAX = 10;
-const ISSUE_MESSAGE_MAX = 80;
 
+/** Сохраняем прежний публичный API HTTP-адаптера поверх общего contracts-helper. */
 export function zodIssuesToMeta(error: ZodError): Record<string, unknown> {
-  return {
-    issues: error.issues.slice(0, ISSUE_MAX).map((issue) => ({
-      path: issue.path.join('.'),
-      code: issue.code,
-      // Значения полей не выводим; сообщение обрезаем (в zod-сообщения могут
-      // попадать фрагменты полученного значения).
-      message: issue.message.slice(0, ISSUE_MESSAGE_MAX),
-    })),
-  };
+  return serializeZodIssues(error);
 }
 
 export function createHttpErrorHandler(logger?: FastifyBaseLogger) {
