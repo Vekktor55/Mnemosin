@@ -72,7 +72,39 @@ jobs:
       - name: npm audit (high+)
         run: npm audit --audit-level=high
 
+      - name: Determine whether the Gitleaks base commit has a parent
+        id: gitleaks-base
+        shell: bash
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+        run: |
+          set -euo pipefail
+          if [[ -n "${BASE_SHA}" && "${BASE_SHA}" != "0000000000000000000000000000000000000000" ]]; then
+            if git rev-parse --verify --quiet "${BASE_SHA}^" >/dev/null; then
+              echo "parent_exists=true" >> "${GITHUB_OUTPUT}"
+            else
+              echo "parent_exists=false" >> "${GITHUB_OUTPUT}"
+            fi
+          else
+            echo "parent_exists=false" >> "${GITHUB_OUTPUT}"
+          fi
+
+      - name: Install Gitleaks v8.24.3 (orphan-base fallback)
+        if: steps.gitleaks-base.outputs.parent_exists == 'false'
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -fsSL "https://github.com/gitleaks/gitleaks/releases/download/v8.24.3/gitleaks_8.24.3_linux_x64.tar.gz" -o /tmp/gitleaks.tar.gz
+          tar -xzf /tmp/gitleaks.tar.gz -C /tmp gitleaks
+          /tmp/gitleaks version
+
+      - name: secret scanning (gitleaks, no-git orphan-base fallback)
+        if: steps.gitleaks-base.outputs.parent_exists == 'false'
+        shell: bash
+        run: /tmp/gitleaks detect --source . --no-git --redact -v --exit-code=2
+
       - name: secret scanning (gitleaks)
+        if: steps.gitleaks-base.outputs.parent_exists == 'true'
         uses: gitleaks/gitleaks-action@v2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
