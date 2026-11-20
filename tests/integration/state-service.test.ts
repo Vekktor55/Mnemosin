@@ -2,17 +2,9 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { randomUUID } from 'node:crypto';
 
 import type { CoreServices } from '@mnemosin/core';
-import type { ObjectId, PlayerId, SessionId, TurnId } from '@mnemosin/contracts';
+import type { ObjectId, SessionId, TurnId } from '@mnemosin/contracts';
 
-import {
-  buildTestServices,
-  errorCodeOf,
-  makeTurn,
-  outboxEvents,
-  openTempDb,
-  seedWorld,
-  type TempDb,
-} from './helpers.js';
+import { buildTestServices, errorCodeOf, outboxEvents, openTempDb, seedWorld, type TempDb } from './helpers.js';
 
 /**
  * StateService (промпт 1.6; инварианты 7–8, 13 — единственный путь мутации
@@ -21,14 +13,14 @@ import {
  * Проверяются: все виды StateMutation как функции, version+1, changedKeys,
  * journal 'state_applied', state_history, событие STATE_COMMITTED, конфликт
  * версий, атомарность (откат всей серии при ошибке в одной мутации).
+ * Turn Engine удалён в v4 — тесты адаптированы под turnId: null.
  */
 
 let db: TempDb;
 let services: CoreServices;
-let sessionId: SessionId;
-let turnId: TurnId;
-let objectId: ObjectId;
-let playerId: PlayerId;
+let sessionId: string;
+let objectId: string;
+let playerId: string;
 
 beforeAll(async () => {
   db = await openTempDb('state-service', { seed: false });
@@ -37,12 +29,7 @@ beforeAll(async () => {
   const { world } = await seedWorld(db);
   sessionId = world.session.sessionId;
   playerId = world.players[1]!.playerId;
-  objectId = Object.keys(world.state.objectStates)[0] as ObjectId;
-  await db.boot.uow.runInTx(async (scope) => {
-    const turn = makeTurn(sessionId, 1);
-    turnId = turn.turnId;
-    await scope.repos.turns.insert(turn);
-  });
+  objectId = Object.keys(world.state.objectStates)[0];
 });
 
 afterAll(async () => {
@@ -55,14 +42,14 @@ describe('apply: мутации как функции (этап 1, без DSL)',
       sessionId,
       mutations: [{ kind: 'SET_FLAG', key: 'floor-1_lobby.clock_stopped', value: true, setBy: 'ENGINE' }],
       expectedVersion: 0,
-      turnId,
+      turnId: null,
       traceId: 'trace-flag',
     });
     expect(result.version).toBe(1);
     expect(result.changedKeys).toEqual(['storyFlags.floor-1_lobby.clock_stopped']);
     const flag = result.state.storyFlags['floor-1_lobby.clock_stopped']!;
     expect(flag.value).toBe(true);
-    expect(flag.setAtTurnId).toBe(turnId);
+    expect(flag.setAtTurnId).toBeNull();
     expect(flag.setBy).toBe('ENGINE');
     expect(flag.flagId).toMatch(/^[0-9a-f-]{36}$/);
 
@@ -77,17 +64,15 @@ describe('apply: мутации как функции (этап 1, без DSL)',
     expect(committed[0]!.payload).toMatchObject({ sessionId, version: 1 });
     expect(committed[0]!.payload['changedKeys']).toEqual(['storyFlags.floor-1_lobby.clock_stopped']);
 
-    // Журнал хода:
-    const journal = await services.journal.list(turnId);
+    // Журнал сессии: при turnId: null журнал не пишется (см. тест "apply без turnId")
+    const journal = await services.journal.listBySession(sessionId);
     const applied = journal.filter((e) => e.kind === 'state_applied');
-    expect(applied.length).toBe(1);
-    expect(applied[0]!.traceId).toBe('trace-flag');
-    expect(applied[0]!.payload).toMatchObject({ fromVersion: 0, toVersion: 1, mutations: 1 });
+    expect(applied.length).toBe(0);
 
     // История мутаций:
     const history = await db.boot.uow.repos().state.listHistory(sessionId);
     expect(history.length).toBe(1);
-    expect(history[0]!).toMatchObject({ fromVersion: 0, toVersion: 1, turnId });
+    expect(history[0]!).toMatchObject({ fromVersion: 0, toVersion: 1, turnId: null });
   });
 
   it('OBJECT_PATCH / OBJECT_TAKEN / OBJECT_VISIBLE: состояние объекта и lastChangedAtTurnId', async () => {
@@ -99,7 +84,7 @@ describe('apply: мутации как функции (этап 1, без DSL)',
         { kind: 'OBJECT_VISIBLE', objectId, visible: false },
       ],
       expectedVersion: 1,
-      turnId,
+      turnId: null,
       traceId: 'trace-object',
     });
     expect(result.version).toBe(2);
@@ -107,7 +92,7 @@ describe('apply: мутации как функции (этап 1, без DSL)',
     expect(objectState.state).toEqual({ condition: 'broken', dust: 3 });
     expect(objectState.taken).toBe(true);
     expect(objectState.visible).toBe(false);
-    expect(objectState.lastChangedAtTurnId).toBe(turnId);
+    expect(objectState.lastChangedAtTurnId).toBeNull();
     expect(result.changedKeys).toEqual([
       `objectStates.${objectId}.state.condition`,
       `objectStates.${objectId}.state.dust`,
@@ -126,7 +111,7 @@ describe('apply: мутации как функции (этап 1, без DSL)',
         { kind: 'WORLD_PATCH', ambientFlags: { lights: 'off' } },
       ],
       expectedVersion: before.version,
-      turnId,
+      turnId: null,
       traceId: 'trace-world',
     });
     expect(result.state.worldState.timeOfDay).toBe('NIGHT');
@@ -145,7 +130,7 @@ describe('apply: мутации как функции (этап 1, без DSL)',
         { kind: 'GRANT_KNOWLEDGE', playerId: playerId, key: 'journal.last_entry', value: '17.03', source: 'OBSERVED' },
       ],
       expectedVersion: state.version,
-      turnId,
+      turnId: null,
       traceId: 'trace-knowledge',
     });
     let entries = first.state.playerKnowledge[playerId]!.entries;
@@ -154,7 +139,7 @@ describe('apply: мутации как функции (этап 1, без DSL)',
       key: 'journal.last_entry',
       value: '17.03',
       source: 'OBSERVED',
-      learnedAtTurnId: turnId,
+      learnedAtTurnId: null,
     });
 
     state = await services.state.get(sessionId);
@@ -164,7 +149,7 @@ describe('apply: мутации как функции (этап 1, без DSL)',
         { kind: 'GRANT_KNOWLEDGE', playerId: playerId, key: 'journal.last_entry', value: '18.03', source: 'TOLD' },
       ],
       expectedVersion: state.version,
-      turnId,
+      turnId: null,
       traceId: 'trace-knowledge-2',
     });
     entries = second.state.playerKnowledge[playerId]!.entries;
@@ -174,16 +159,23 @@ describe('apply: мутации как функции (этап 1, без DSL)',
 
   it('REACH_ENDING: endingState с reachedAtTurnId; без turnId → VALIDATION', async () => {
     const state = await services.state.get(sessionId);
-    const noTurn = await errorCodeOf(() =>
-      services.state.apply({
+    let noTurn: string | null = null;
+    try {
+      await services.state.apply({
         sessionId,
         mutations: [{ kind: 'REACH_ENDING', endingId: 'escape', summary: 'Побег', survivors: [] }],
         expectedVersion: state.version,
         traceId: 'trace-ending',
-      }),
-    );
+      });
+    } catch (cause) {
+      const code = (cause as { code?: unknown }).code;
+      noTurn = typeof code === 'string' ? code : 'UNKNOWN';
+    }
     expect(noTurn).toBe('VALIDATION');
 
+    // REACH_ENDING требует turnId (по контракту EndingState.reachedAtTurnId: TurnId)
+    // Используем валидный UUID вместо null
+    const fakeTurnId = randomUUID() as TurnId;
     const result = await services.state.apply({
       sessionId,
       mutations: [
@@ -195,10 +187,10 @@ describe('apply: мутации как функции (этап 1, без DSL)',
         },
       ],
       expectedVersion: state.version,
-      turnId,
+      turnId: fakeTurnId,
       traceId: 'trace-ending',
     });
-    expect(result.state.endingState).toMatchObject({ endingId: 'escape', reachedAtTurnId: turnId });
+    expect(result.state.endingState).toMatchObject({ endingId: 'escape', reachedAtTurnId: fakeTurnId });
     expect(result.changedKeys).toContain('endingState');
   });
 
@@ -283,7 +275,7 @@ describe('apply: блокировки и ошибки', () => {
           { kind: 'OBJECT_PATCH', objectId: randomUUID() as ObjectId, patch: { boom: 1 } },
         ],
         expectedVersion: state.version,
-        turnId,
+        turnId: null,
         traceId: 'trace-atomic',
       }),
     );

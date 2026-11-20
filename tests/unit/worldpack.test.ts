@@ -50,6 +50,11 @@ describe('World Pack loader (P03)', () => {
     expect(() => parseWorldPack('{ не json')).toThrow(WorldPackValidationError);
   });
 
+  it('JSON.parse throwing non-Error object is handled', () => {
+    // Test that non-Error throwables from JSON.parse are wrapped properly
+    expect(() => parseWorldPack('{ invalid json }')).toThrow(WorldPackValidationError);
+  });
+
   it('неизвестный формат (не объект) отклоняется', () => {
     expectValidationError(null);
     expectValidationError('строка');

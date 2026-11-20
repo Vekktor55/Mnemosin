@@ -7,8 +7,7 @@ import { SqlJournalRepository, SqlOutboxRepository } from './journal.js';
 import { SqlLocationRepository } from './locations.js';
 import { SqlCharacterRepository, SqlPlayerRepository, SqlSessionRepository } from './sessions.js';
 import { SqlStateRepository } from './state.js';
-import { SqlAiDecisionRepository, SqlSnapshotRepository } from './snapshots.js';
-import { SqlActionRepository, SqlTurnRepository } from './turns.js';
+import { SqlSnapshotRepository } from './snapshots.js';
 
 /**
  * Фабрика репозиториев, привязанных к конкретному исполнителю (db или активная транзакция).
@@ -19,8 +18,6 @@ export function createRepositories(ex: Executor): RepositoryRegistry {
     sessions: new SqlSessionRepository(ex),
     players: new SqlPlayerRepository(ex),
     characters: new SqlCharacterRepository(ex),
-    turns: new SqlTurnRepository(ex),
-    actions: new SqlActionRepository(ex),
     state: new SqlStateRepository(ex),
     locations: new SqlLocationRepository(ex),
     chat: new SqlChatRepository(ex),
@@ -30,12 +27,10 @@ export function createRepositories(ex: Executor): RepositoryRegistry {
     idempotency: new SqlIdempotencyRepository(ex),
     outbox: new SqlOutboxRepository(ex),
     snapshots: new SqlSnapshotRepository(ex),
-    aiDecisions: new SqlAiDecisionRepository(ex),
   };
 }
 
 export * from './sessions.js';
-export * from './turns.js';
 export * from './state.js';
 export * from './locations.js';
 export * from './chat.js';

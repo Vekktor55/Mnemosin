@@ -15,8 +15,7 @@ import { ChatMessageViewSchema } from '@mnemosin/contracts';
  * Контракт модуля chat (v3 §IV.7 + исправления; промпт 1.9, п.1).
  *
  * emits: CHAT_MESSAGE_PUBLIC/PRIVATE/SYSTEM/GM (в каталоге с 1.2, F-2.1).
- * subscribes: TURN_COMMITTED (доставка нарратива и приватных сообщений
- * закоммиченного черновика — D238), WORLD_EVENT_FIRED (этап 2), PLAYER_JOINED,
+ * subscribes: WORLD_EVENT_FIRED (этап 2), PLAYER_JOINED,
  * PLAYER_LEFT, SESSION_STATUS_CHANGED (системные сообщения ленты).
  *
  * Идемпотентность (at-least-once, D113): обработчики событий используют
@@ -117,7 +116,7 @@ export const chatContract = defineModule({
   // обработчики событий — по детерминированным messageId.
   idempotentCommands: [],
   emits: ['CHAT_MESSAGE_PUBLIC', 'CHAT_MESSAGE_PRIVATE', 'CHAT_MESSAGE_SYSTEM', 'CHAT_MESSAGE_GM'],
-  subscribes: ['TURN_COMMITTED', 'WORLD_EVENT_FIRED', 'PLAYER_JOINED', 'PLAYER_LEFT', 'SESSION_STATUS_CHANGED'],
+  subscribes: ['WORLD_EVENT_FIRED', 'PLAYER_JOINED', 'PLAYER_LEFT', 'SESSION_STATUS_CHANGED'],
   ports: [],
   dependencies: [],
   capabilities: [],

@@ -2,29 +2,27 @@ import { describe, expect, it } from 'vitest';
 
 import { JournalService } from '@mnemosin/core';
 
-import { makeTurn, openTempDb, seedWorld } from './helpers.js';
+import { openTempDb, seedWorld } from './helpers.js';
 
 /**
  * Промпт 1.5 · JournalService (core/turns/journal.ts, п.3).
  *
- * Журнал хода — append-only: append (+ в транзакции, и вне), list(turnId) c
+ * Журнал сессии — append-only: append (+ в транзакции, и вне), listBySession(sessionId) c
  * парсингом через JournalEntrySchema, tail(sessionId, limit), lastId.
  * traceId сохраняется в каждой записи (v3 §VIII.4).
  */
 
 describe('JournalService · round-trip', () => {
-  it('append + list: записи возвращаются по порядку id, payload и traceId сохраняются', async () => {
+  it('append + listBySession: записи возвращаются по порядку id, payload и traceId сохраняются', async () => {
     const db = await openTempDb('journal-roundtrip', { seed: false });
     const { world } = await seedWorld(db);
-    const turn = makeTurn(world.session.sessionId, 1);
-    await db.boot.uow.runInTx((scope) => scope.repos.turns.insert(turn));
 
     const journal = new JournalService(db.boot.uow);
 
     // Вне транзакции:
     const first = await journal.append({
       sessionId: world.session.sessionId,
-      turnId: turn.turnId,
+      turnId: null,
       kind: 'turn_opened',
       payload: { number: 1 },
       traceId: 'trace-open',
@@ -32,12 +30,12 @@ describe('JournalService · round-trip', () => {
     expect(first.id).toBeGreaterThan(0);
     expect(first.kind).toBe('turn_opened');
 
-    // Внутри транзакции (как будет делать Turn Engine в 1.8):
+    // Внутри транзакции:
     await db.boot.uow.runInTx((scope) =>
       journal.append(
         {
           sessionId: world.session.sessionId,
-          turnId: turn.turnId,
+          turnId: null,
           kind: 'state_applied',
           payload: { fromVersion: 0, toVersion: 1 },
           traceId: 'trace-commit',
@@ -46,15 +44,12 @@ describe('JournalService · round-trip', () => {
       ),
     );
 
-    const list = await journal.list(turn.turnId);
+    const list = await journal.listBySession(world.session.sessionId);
     expect(list.map((e) => e.kind)).toEqual(['turn_opened', 'state_applied']);
     expect(list.map((e) => e.traceId)).toEqual(['trace-open', 'trace-commit']);
     expect(list[0]?.payload).toEqual({ number: 1 });
     expect(list[1]?.payload).toEqual({ fromVersion: 0, toVersion: 1 });
     expect(list[0]?.sessionId).toBe(world.session.sessionId);
-    expect(list[0]?.turnId).toBe(turn.turnId);
-    // id монотонны:
-    expect(list[1]!.id).toBeGreaterThan(list[0]!.id);
 
     await db.close();
   });
@@ -62,8 +57,7 @@ describe('JournalService · round-trip', () => {
   it('запись из откатившейся транзакции в журнале не появляется', async () => {
     const db = await openTempDb('journal-rollback', { seed: false });
     const { world } = await seedWorld(db);
-    const turn = makeTurn(world.session.sessionId, 1);
-    await db.boot.uow.runInTx((scope) => scope.repos.turns.insert(turn));
+
     const journal = new JournalService(db.boot.uow);
 
     await expect(
@@ -71,7 +65,7 @@ describe('JournalService · round-trip', () => {
         await journal.append(
           {
             sessionId: world.session.sessionId,
-            turnId: turn.turnId,
+            turnId: null,
             kind: 'failed',
             payload: { reason: 'откат' },
             traceId: 'trace-rollback',
@@ -82,7 +76,7 @@ describe('JournalService · round-trip', () => {
       }),
     ).rejects.toThrow('simulated rollback');
 
-    const list = await journal.list(turn.turnId);
+    const list = await journal.listBySession(world.session.sessionId);
     expect(list).toHaveLength(0);
     await db.close();
   });
@@ -90,15 +84,13 @@ describe('JournalService · round-trip', () => {
   it('tail(sessionId, limit) — последние записи в хронологическом порядке; lastId — максимум', async () => {
     const db = await openTempDb('journal-tail', { seed: false });
     const { world } = await seedWorld(db);
-    const turn = makeTurn(world.session.sessionId, 1);
-    await db.boot.uow.runInTx((scope) => scope.repos.turns.insert(turn));
 
     const journal = new JournalService(db.boot.uow);
     const kinds = ['turn_opened', 'state_applied', 'action_submitted', 'committed'];
     for (let i = 0; i < kinds.length; i++) {
       await journal.append({
         sessionId: world.session.sessionId,
-        turnId: turn.turnId,
+        turnId: null,
         kind: kinds[i],
         payload: { step: i },
         traceId: `trace-${i}`,
@@ -118,15 +110,13 @@ describe('JournalService · round-trip', () => {
   it('payload без ключей и длинный traceId: нормализация до схемы (traceId ≤ 64)', async () => {
     const db = await openTempDb('journal-normalize', { seed: false });
     const { world } = await seedWorld(db);
-    const turn = makeTurn(world.session.sessionId, 1);
-    await db.boot.uow.runInTx((scope) => scope.repos.turns.insert(turn));
 
     const journal = new JournalService(db.boot.uow);
 
     const longTrace = 'a'.repeat(100);
     const entry = await journal.append({
       sessionId: world.session.sessionId,
-      turnId: turn.turnId,
+      turnId: null,
       kind: 'turn_opened',
       payload: {},
       traceId: longTrace,

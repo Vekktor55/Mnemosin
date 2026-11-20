@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import { nowIso, type GameState } from '@mnemosin/contracts';
 
-import { makeTurn, openTempDb, seedWorld, type TempDb } from './helpers.js';
+import { openTempDb, seedWorld, type TempDb } from './helpers.js';
 
 /**
  * Промпт 1.4 · критерий A1.5: оптимистичная блокировка состояния.
@@ -153,45 +153,9 @@ describe('оптимистичная блокировка game_state', () => {
     await db.close();
   });
 
-  it('CAS на статусе хода: два параллельных перехода OPEN → LOCKED: один успешен, второй получает false', async () => {
-    db = await openTempDb('turn-cas', { seed: false });
-    const { world } = await seedWorld(db);
-    const turn = makeTurn(world.session.sessionId, 1);
-    await db.boot.uow.repos().turns.insert(turn);
-
-    const repos = db.boot.uow.repos();
-    const [a, b] = await Promise.all([
-      repos.turns.setStatus(turn.turnId, 'LOCKED', 'OPEN'),
-      repos.turns.setStatus(turn.turnId, 'LOCKED', 'OPEN'),
-    ]);
-
-    const kinds = [a, b].sort();
-    expect(kinds).toEqual([false, true]);
-
-    await db.close();
-  });
-
-  it('CAS на статусе хода: переход с неверным ожиданием не проходит (PROCESSING из OPEN)', async () => {
-    db = await openTempDb('turn-cas-guard', { seed: false });
-    const { world } = await seedWorld(db);
-    const turn = makeTurn(world.session.sessionId, 1);
-    await db.boot.uow.repos().turns.insert(turn);
-
-    const repos = db.boot.uow.repos();
-
-    // Первый вызов: ожидаем OPEN (статус по умолчанию), переводим в PROCESSING — успех
-    const first = await repos.turns.setStatus(turn.turnId, 'PROCESSING', 'OPEN');
-    expect(first).toBe(true);
-
-    // Второй вызов: ожидаем OPEN, но статус уже PROCESSING → false
-    const second = await repos.turns.setStatus(turn.turnId, 'LOCKED', 'OPEN');
-    expect(second).toBe(false);
-
-    // Переводим в LOCKED, затем пытаемся OPEN → LOCKED снова
-    await repos.turns.setStatus(turn.turnId, 'LOCKED', 'PROCESSING');
-    const again = await repos.turns.setStatus(turn.turnId, 'LOCKED', 'OPEN');
-    expect(again).toBe(false); // уже LOCKED
-
-    await db.close();
-  });
+  // CAS tests skipped: Turn Engine removed in v4 (turns repository removed)
+  // it('CAS на статусе хода: два параллельных перехода OPEN → LOCKED: один успешен, второй получает false', async () => {
+  // });
+  // it('CAS на статусе хода: переход с неверным ожиданием не проходит (PROCESSING из OPEN)', async () => {
+  // });
 });

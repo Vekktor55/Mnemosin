@@ -1,7 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { nowIso } from '@mnemosin/contracts';
 import { makeIdempotencyRecord, openTempDb, seedWorld, type TempDb } from './helpers.js';
-import { randomUUID } from 'node:crypto';
 import type { SessionId, TurnId } from '@mnemosin/contracts';
 
 // Unused type imports kept for documentation purposes
@@ -60,43 +59,38 @@ describe('infrastructure repositories', () => {
 
   describe('SqlJournalRepository', () => {
     let sessionId: string;
-    let turnId: string;
 
     beforeAll(async () => {
       const { world } = await seedWorld(db);
       sessionId = world.session.sessionId;
-      await db.boot.uow.runInTx(async (scope) => {
-        const turn = {
-          turnId: randomUUID() as TurnId,
-          sessionId,
-          number: 1,
-          status: 'OPEN' as const,
-          resolution: null,
-          lockedAt: null,
-          processingStartedAt: null,
-          reviewReadyAt: null,
-          committedAt: null,
-          failed: null,
-          createdAt: nowIso(),
-          updatedAt: nowIso(),
-        };
-        await scope.repos.turns.insert(turn);
-        turnId = turn.turnId;
-      });
     });
 
     it('appendMany appends multiple entries', async () => {
       const drafts = [
         {
-          turnId,
+          turnId: null,
           sessionId,
           kind: 'state_applied' as const,
           payload: { a: 1 },
           traceId: 'trace-1',
           createdAt: nowIso(),
         },
-        { turnId, sessionId, kind: 'turn_opened' as const, payload: { b: 2 }, traceId: 'trace-2', createdAt: nowIso() },
-        { turnId, sessionId, kind: 'turn_locked' as const, payload: { c: 3 }, traceId: 'trace-3', createdAt: nowIso() },
+        {
+          turnId: null,
+          sessionId,
+          kind: 'turn_opened' as const,
+          payload: { b: 2 },
+          traceId: 'trace-2',
+          createdAt: nowIso(),
+        },
+        {
+          turnId: null,
+          sessionId,
+          kind: 'turn_locked' as const,
+          payload: { c: 3 },
+          traceId: 'trace-3',
+          createdAt: nowIso(),
+        },
       ];
 
       const results = await db.boot.uow.repos().journal.appendMany(drafts);
@@ -106,14 +100,21 @@ describe('infrastructure repositories', () => {
       expect(results[2]!.kind).toBe('turn_locked');
 
       // Verify all were stored
-      const byTurn = await db.boot.uow.repos().journal.listByTurn(turnId);
-      expect(byTurn.length).toBeGreaterThanOrEqual(3);
+      const bySession = await db.boot.uow.repos().journal.listBySession(sessionId);
+      expect(bySession.length).toBeGreaterThanOrEqual(3);
     });
 
     it('listBySession with limit returns at most limit entries', async () => {
       const drafts = [
-        { turnId, sessionId, kind: 'state_applied' as const, payload: {}, traceId: 'trace-1', createdAt: nowIso() },
-        { turnId, sessionId, kind: 'turn_opened' as const, payload: {}, traceId: 'trace-2', createdAt: nowIso() },
+        {
+          turnId: null,
+          sessionId,
+          kind: 'state_applied' as const,
+          payload: {},
+          traceId: 'trace-1',
+          createdAt: nowIso(),
+        },
+        { turnId: null, sessionId, kind: 'turn_opened' as const, payload: {}, traceId: 'trace-2', createdAt: nowIso() },
       ];
       await db.boot.uow.repos().journal.appendMany(drafts);
 

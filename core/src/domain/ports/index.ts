@@ -9,8 +9,6 @@ export type { RulesPort, RulesEvaluationContext } from './rules-port.js';
 export type { SessionRepository, SessionPhasePatch } from './session-repository.js';
 export type { PlayerRepository } from './player-repository.js';
 export type { CharacterRepository } from './character-repository.js';
-export type { TurnRepository } from './turn-repository.js';
-export type { ActionRepository } from './action-repository.js';
 export type { StateRepository, StateWriteResult, StateMutationRecord } from './state-repository.js';
 export type { LocationRepository } from './location-repository.js';
 export type { ChatRepository } from './chat-repository.js';
@@ -23,9 +21,3 @@ export type { OutboxRepository, OutboxDraft } from './outbox-repository.js';
 export type { SnapshotRepository } from './snapshot-repository.js';
 export type { EventBus, EventHandler, Unsubscribe, PublishReport } from './event-bus.js';
 export type { MetricsSink, MetricLabels } from './metrics.js';
-export type {
-  AiDecisionRepository,
-  AiDecisionDraft,
-  AiDecisionRecord,
-  AiDecisionStatus,
-} from './ai-decision-repository.js';

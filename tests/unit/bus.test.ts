@@ -138,6 +138,19 @@ describe('core/events/bus', () => {
       await expect(bus.publish(event)).resolves.toBeDefined();
     });
 
+    it('unsubscribe handles handler not found (index < 0)', async () => {
+      const bus = new InProcessEventBus();
+      const handler = vi.fn().mockResolvedValue(undefined);
+      const unsubscribe = bus.subscribe('STATE_COMMITTED', handler);
+
+      unsubscribe();
+      // Second call should not throw (index < 0)
+      unsubscribe();
+
+      const event = makeStateCommittedEvent();
+      await expect(bus.publish(event)).resolves.toBeDefined();
+    });
+
     it('publishMany preserves order', async () => {
       const bus = new InProcessEventBus();
       const handler = vi.fn().mockResolvedValue(undefined);
@@ -154,13 +167,282 @@ describe('core/events/bus', () => {
       expect(reports).toHaveLength(3);
       expect(handler).toHaveBeenCalledTimes(3);
     });
-  });
 
-  describe('HandlerTimeoutError', () => {
-    it('includes event name and timeout in message', () => {
-      const error = new Error('test timeout');
-      error.name = 'HandlerTimeoutError';
-      expect(error.message).toBeDefined();
+    it('handles publishMany with mixed success and failure', async () => {
+      const bus = new InProcessEventBus();
+      const successHandler = vi.fn().mockResolvedValue(undefined);
+      const failingHandler = vi.fn().mockRejectedValue(new Error('fail'));
+      bus.subscribe('STATE_COMMITTED', successHandler);
+      bus.subscribe('STATE_COMMITTED', failingHandler);
+
+      const events = [
+        makeStateCommittedEvent({ version: 1, changedKeys: [] }),
+        makeStateCommittedEvent({ version: 2, changedKeys: [] }),
+      ];
+
+      const reports = await bus.publishMany(events);
+
+      expect(reports).toHaveLength(2);
+      expect(reports[0].failed).toBe(1);
+      expect(reports[1].failed).toBe(1);
+    });
+
+    it('unsubscribe removes handler when found (index >= 0)', async () => {
+      const bus = new InProcessEventBus();
+      const handler = vi.fn().mockResolvedValue(undefined);
+      const unsubscribe = bus.subscribe('STATE_COMMITTED', handler);
+
+      const event = makeStateCommittedEvent();
+
+      await bus.publish(event);
+      expect(handler).toHaveBeenCalledTimes(1);
+
+      unsubscribe();
+      await bus.publish(event);
+      expect(handler).toHaveBeenCalledTimes(1); // not called again
+    });
+
+    it('handles publish with event type in validation error', async () => {
+      const bus = new InProcessEventBus();
+      const invalidEvent = {
+        type: 'INVALID_TYPE',
+        payload: {},
+        traceId: 'trace',
+        emittedAt: new Date().toISOString(),
+      };
+
+      await expect(bus.publish(invalidEvent as unknown as DomainEvent)).rejects.toMatchObject({
+        code: 'VALIDATION',
+      });
+    });
+
+    it('handles handler timeout with error logging', async () => {
+      const logs: unknown[] = [];
+      const logger = {
+        error: vi.fn((obj) => logs.push(obj)),
+        info: vi.fn(),
+        warn: vi.fn(),
+        debug: vi.fn(),
+      };
+      const bus = new InProcessEventBus({ handlerTimeoutMs: 10, logger });
+      const slowHandler = vi.fn().mockImplementation(() => new Promise((resolve) => setTimeout(resolve, 50)));
+      bus.subscribe('STATE_COMMITTED', slowHandler);
+
+      const event = makeStateCommittedEvent({ traceId: 'trace-timeout' });
+
+      const report = await bus.publish(event);
+
+      expect(report.timedOut).toBe(1);
+      expect(report.failed).toBe(1);
+      expect(report.errors[0]).toContain('не завершился за');
+      expect(logs.length).toBeGreaterThan(0);
+      expect(logs[0]).toMatchObject({ event: 'STATE_COMMITTED', timedOut: true });
+    });
+
+    it('handles handler error with logging (non-timeout)', async () => {
+      const logs: unknown[] = [];
+      const logger = {
+        error: vi.fn((obj) => logs.push(obj)),
+        info: vi.fn(),
+        warn: vi.fn(),
+        debug: vi.fn(),
+      };
+      const bus = new InProcessEventBus({ logger });
+      const failingHandler = vi.fn().mockRejectedValue(new Error('handler error'));
+      bus.subscribe('STATE_COMMITTED', failingHandler);
+
+      const event = makeStateCommittedEvent({ traceId: 'trace-log' });
+
+      const report = await bus.publish(event);
+
+      expect(report.failed).toBe(1);
+      expect(report.timedOut).toBe(0);
+      expect(logs.length).toBeGreaterThan(0);
+      expect(logs[0]).toMatchObject({ event: 'STATE_COMMITTED', timedOut: false });
+    });
+
+    it('handles timeout error correctly', async () => {
+      const bus = new InProcessEventBus({ handlerTimeoutMs: 10 });
+      const slowHandler = vi.fn().mockImplementation(() => new Promise((resolve) => setTimeout(resolve, 50)));
+      bus.subscribe('STATE_COMMITTED', slowHandler);
+
+      const event = makeStateCommittedEvent({ traceId: 'trace-timeout' });
+
+      const report = await bus.publish(event);
+
+      expect(report.timedOut).toBe(1);
+      expect(report.failed).toBe(1);
+      expect(report.errors[0]).toContain('не завершился за');
+    });
+
+    it('handles handler error with logging', async () => {
+      const logs: unknown[] = [];
+      const logger = {
+        error: vi.fn((obj) => logs.push(obj)),
+        info: vi.fn(),
+        warn: vi.fn(),
+        debug: vi.fn(),
+      };
+      const bus = new InProcessEventBus({ logger });
+      const failingHandler = vi.fn().mockRejectedValue(new Error('handler error'));
+      bus.subscribe('STATE_COMMITTED', failingHandler);
+
+      const event = makeStateCommittedEvent({ traceId: 'trace-log' });
+
+      const report = await bus.publish(event);
+
+      expect(report.failed).toBe(1);
+      expect(logs.length).toBeGreaterThan(0);
+      expect(logs[0]).toMatchObject({ event: 'STATE_COMMITTED' });
+    });
+
+    it('unsubscribe actually removes handler from internal array (index >= 0)', async () => {
+      const bus = new InProcessEventBus();
+      const handler1 = vi.fn().mockResolvedValue(undefined);
+      const handler2 = vi.fn().mockResolvedValue(undefined);
+
+      const unsubscribe1 = bus.subscribe('STATE_COMMITTED', handler1);
+      const _unsubscribe2 = bus.subscribe('STATE_COMMITTED', handler2);
+
+      const event = makeStateCommittedEvent();
+      await bus.publish(event);
+      expect(handler1).toHaveBeenCalledTimes(1);
+      expect(handler2).toHaveBeenCalledTimes(1);
+
+      // Unsubscribe first handler - this should hit the index >= 0 branch
+      unsubscribe1();
+
+      await bus.publish(event);
+      expect(handler1).toHaveBeenCalledTimes(1); // not called again
+      expect(handler2).toHaveBeenCalledTimes(2); // called again
+    });
+
+    it('validation error includes event type when present', async () => {
+      const bus = new InProcessEventBus();
+      const invalidEvent = {
+        type: 'INVALID_TYPE',
+        payload: {},
+        traceId: 'trace',
+        emittedAt: new Date().toISOString(),
+      };
+
+      try {
+        await bus.publish(invalidEvent as unknown as DomainEvent);
+        expect.fail('Should have thrown VALIDATION error');
+      } catch (err: unknown) {
+        expect(err).toMatchObject({
+          code: 'VALIDATION',
+        });
+        // The error should include the type
+        const error = err as { meta?: { type?: string } };
+        expect(error.meta?.type).toBe('INVALID_TYPE');
+      }
+    });
+
+    it('handler timeout triggers timeout error path in runWithTimeout', async () => {
+      const bus = new InProcessEventBus({ handlerTimeoutMs: 10 });
+      const slowHandler = vi.fn().mockImplementation(() => new Promise((resolve) => setTimeout(resolve, 50)));
+      bus.subscribe('STATE_COMMITTED', slowHandler);
+
+      const event = makeStateCommittedEvent({ traceId: 'trace-timeout-path' });
+
+      const report = await bus.publish(event);
+
+      expect(report.timedOut).toBe(1);
+      expect(report.failed).toBe(1);
+      expect(report.errors[0]).toContain('не завершился за');
+    });
+
+    it('handler error (non-timeout) goes through catch path in runWithTimeout', async () => {
+      const bus = new InProcessEventBus({ handlerTimeoutMs: 5000 });
+      const failingHandler = vi.fn().mockRejectedValue(new Error('handler boom'));
+      bus.subscribe('STATE_COMMITTED', failingHandler);
+
+      const event = makeStateCommittedEvent({ traceId: 'trace-catch-path' });
+
+      const report = await bus.publish(event);
+
+      expect(report.failed).toBe(1);
+      expect(report.timedOut).toBe(0);
+      expect(report.errors[0]).toContain('handler boom');
+    });
+
+    it('dispatch continues after handler error (isolation)', async () => {
+      const bus = new InProcessEventBus();
+      const failingHandler = vi.fn().mockRejectedValue(new Error('fail'));
+      const successHandler = vi.fn().mockResolvedValue(undefined);
+      bus.subscribe('STATE_COMMITTED', failingHandler);
+      bus.subscribe('STATE_COMMITTED', successHandler);
+
+      const event = makeStateCommittedEvent();
+
+      const report = await bus.publish(event);
+
+      expect(report.dispatched).toBe(2);
+      expect(report.failed).toBe(1);
+      expect(successHandler).toHaveBeenCalled();
+    });
+
+    it('catches HandlerTimeoutError instanceof check in dispatch', async () => {
+      const bus = new InProcessEventBus({ handlerTimeoutMs: 10 });
+      const slowHandler = vi.fn().mockImplementation(() => new Promise((resolve) => setTimeout(resolve, 50)));
+      bus.subscribe('STATE_COMMITTED', slowHandler);
+
+      const event = makeStateCommittedEvent({ traceId: 'trace-timeout-instanceof' });
+
+      const report = await bus.publish(event);
+
+      expect(report.timedOut).toBe(1);
+      expect(report.failed).toBe(1);
+      expect(report.errors[0]).toContain('не завершился за');
+    });
+
+    it('limits errors array to 3 items in dispatch', async () => {
+      const bus = new InProcessEventBus();
+      const failingHandler1 = vi.fn().mockRejectedValue(new Error('error 1'));
+      const failingHandler2 = vi.fn().mockRejectedValue(new Error('error 2'));
+      const failingHandler3 = vi.fn().mockRejectedValue(new Error('error 3'));
+      const failingHandler4 = vi.fn().mockRejectedValue(new Error('error 4'));
+
+      bus.subscribe('STATE_COMMITTED', failingHandler1);
+      bus.subscribe('STATE_COMMITTED', failingHandler2);
+      bus.subscribe('STATE_COMMITTED', failingHandler3);
+      bus.subscribe('STATE_COMMITTED', failingHandler4);
+
+      const event = makeStateCommittedEvent({ traceId: 'trace-errors-limit' });
+
+      const report = await bus.publish(event);
+
+      expect(report.failed).toBe(4);
+      expect(report.errors).toHaveLength(3); // limited to 3
+    });
+
+    it('runWithTimeout clears timer in finally block', async () => {
+      const bus = new InProcessEventBus({ handlerTimeoutMs: 5000 });
+      const handler = vi.fn().mockResolvedValue(undefined);
+      bus.subscribe('STATE_COMMITTED', handler);
+
+      const event = makeStateCommittedEvent({ traceId: 'trace-timer-cleanup' });
+
+      const report = await bus.publish(event);
+
+      expect(report.timedOut).toBe(0);
+      expect(report.failed).toBe(0);
+      expect(report.dispatched).toBe(1);
+    });
+
+    it('runWithTimeout handler error path (non-timeout)', async () => {
+      const bus = new InProcessEventBus({ handlerTimeoutMs: 5000 });
+      const failingHandler = vi.fn().mockRejectedValue(new Error('handler boom'));
+      bus.subscribe('STATE_COMMITTED', failingHandler);
+
+      const event = makeStateCommittedEvent({ traceId: 'trace-catch-path' });
+
+      const report = await bus.publish(event);
+
+      expect(report.failed).toBe(1);
+      expect(report.timedOut).toBe(0);
+      expect(report.errors[0]).toContain('handler boom');
     });
   });
 });

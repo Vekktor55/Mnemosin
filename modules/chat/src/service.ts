@@ -56,8 +56,7 @@ import { TokenBucketLimiter } from './rate-limit.js';
  *    из limits.yaml) → RATE_LIMIT;
  *  - события CHAT_MESSAGE_* — через outbox в той же транзакции, что запись
  *    сообщения (D113);
- *  - обработчики TURN_COMMITTED (нарратив + приватные из черновика, D238) и
- *    PLAYER_JOINED/PLAYER_LEFT/SESSION_STATUS_CHANGED (системные сообщения)
+ *  - обработчики PLAYER_JOINED/PLAYER_LEFT/SESSION_STATUS_CHANGED (системные сообщения)
  *    идемпотентны: детерминированный messageId из сида → повторная доставка
  *    пропускается (at-least-once).
  */
@@ -239,72 +238,6 @@ export class ChatService {
   }
 
   // ------------------------------------------------------- обработчики событий
-
-  /**
-   * TURN_COMMITTED → доставка черновика (D238): публичные сегменты — SYSTEM-
-   * сообщениями, GM-сегменты — в GM-канал, PLAYER/PLAYERS-сегменты и
-   * privateMessages — приватными от имени GM/Директора. Только item'ы APPLIED.
-   * Идемпотентно: messageId детерминирован (сид — turnId+segmentId/индекс).
-   */
-  async onTurnCommitted(event: DomainEvent): Promise<void> {
-    if (event.type !== 'TURN_COMMITTED') return;
-    const { sessionId, turnId } = event.payload;
-    const repos = this.deps.uow.repos();
-    const turn = await repos.turns.findById(turnId);
-    if (turn === null || turn.resolution === null) return;
-    const session = await repos.sessions.findById(sessionId);
-    if (session === null) return;
-    const gmPlayerId = session.gmPlayerId;
-
-    for (const segment of turn.resolution.segments) {
-      if (segment.status !== 'APPLIED') continue;
-      const audience = segment.audience;
-      if (audience.kind === 'ALL') {
-        await this.sendSystemMessage({
-          sessionId,
-          text: segment.text,
-          turnId,
-          messageId: deterministicMessageId(`turn:${turnId}:seg:${segment.segmentId}`),
-          traceId: event.traceId,
-        });
-      } else if (audience.kind === 'GM') {
-        await this.sendGMMessage({
-          sessionId,
-          gmPlayerId,
-          text: segment.text,
-          turnId,
-          messageId: deterministicMessageId(`turn:${turnId}:seg:${segment.segmentId}`),
-          traceId: event.traceId,
-        });
-      } else {
-        const recipients = audience.kind === 'PLAYER' ? [audience.playerId] : audience.playerIds;
-        for (const playerId of recipients) {
-          await this.sendPrivateMessage({
-            sessionId,
-            fromPlayerId: gmPlayerId,
-            toPlayerId: playerId,
-            text: segment.text,
-            turnId,
-            messageId: deterministicMessageId(`turn:${turnId}:seg:${segment.segmentId}:${playerId}`),
-            traceId: event.traceId,
-          });
-        }
-      }
-    }
-
-    for (const [index, message] of turn.resolution.privateMessages.entries()) {
-      if (message.status !== 'APPLIED') continue;
-      await this.sendPrivateMessage({
-        sessionId,
-        fromPlayerId: gmPlayerId,
-        toPlayerId: message.playerId,
-        text: message.text,
-        turnId,
-        messageId: deterministicMessageId(`turn:${turnId}:pm:${index}:${message.playerId}`),
-        traceId: event.traceId,
-      });
-    }
-  }
 
   /** PLAYER_JOINED → системное сообщение ленты (идемпотентно по traceId события). */
   async onPlayerJoined(event: DomainEvent): Promise<void> {
