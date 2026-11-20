@@ -29,7 +29,7 @@ export const PlayerActionSchema = z.object({
   /** Назначается сервером в транзакции (max+1); UNIQUE(turn_id, sequence_id). */
   sequenceId: z.number().int().positive(),
   rawText: z.string().min(1).max(4000),
-  meta: ActionMetaSchema.default({}),
+  meta: ActionMetaSchema.prefault({}),
   idempotencyKey: IdempotencyKey,
   createdAt: IsoDateTime,
 });

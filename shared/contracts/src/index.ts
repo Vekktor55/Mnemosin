@@ -13,8 +13,9 @@
  *           EVENT_SUBSCRIBERS.TURN_COMMITTED += 'gm' (D245, F-3.8)
  *   0.6.0 — P02: общие идентификаторы v4, message envelope, пространственные
  *           примитивы (G1/G2/G3), Player/Observer/Developer projections
+ *   0.7.0 — Zod 4.6.7: prefault/record/type API и общий формат ошибок HTTP/WS
  */
-export const CONTRACTS_VERSION = '0.6.0';
+export const CONTRACTS_VERSION = '0.7.0';
 
 // --- базовые
 export * from './ids.js';

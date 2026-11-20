@@ -1,6 +1,6 @@
 {
   "core/src/domain/command.ts": "0caa88c71956536f65d71773f7c7696b284bef0bca1b58997881250aede3eb89",
-  "core/src/domain/ports/ai-port.ts": "13e2da4568c36149ae358a147a0ff6de127484c672551b64b1c501ab88b3771f",
+  "core/src/domain/ports/ai-port.ts": "4b0b372d163b3234e04b9ccf962280882bf9b485617a63ce4cd86e7dd257fb07",
   "core/src/domain/ports/character-repository.ts": "d38a2d59d59503469a6d153171d35f7859098050ccf0299ffa7c0181485e2380",
   "core/src/domain/ports/chat-repository.ts": "200c4fb9ca791fca1e7e733188135d2a9e13fb8d05e71fce4cf3502a60de616e",
   "core/src/domain/ports/command-runner.ts": "c3881e499899c6b036adf817a60a9a1fa7d580ce4a1ba48a36d496ca54190f62",

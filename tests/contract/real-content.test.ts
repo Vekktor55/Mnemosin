@@ -437,8 +437,13 @@ describe('Реальные данные мира → контракты v3', () 
   it('GM-only блок отсутствует в схемах публичного и AI-видов (K7/K11, блокер B-10)', () => {
     // Структурная проверка: в contracts gmSecret есть только у GmLocationView.
     const keysOf = (schema: z.ZodTypeAny): string[] => {
-      const shape = (schema as unknown as { _def?: { shape?: () => Record<string, z.ZodTypeAny> } })._def?.shape?.();
-      return shape ? Object.keys(shape) : [];
+      const candidate = schema as unknown as {
+        shape?: Record<string, z.ZodTypeAny>;
+        _def?: { shape?: Record<string, z.ZodTypeAny> | (() => Record<string, z.ZodTypeAny>) };
+      };
+      const shape = candidate.shape ?? candidate._def?.shape;
+      const resolved = typeof shape === 'function' ? shape() : shape;
+      return resolved ? Object.keys(resolved) : [];
     };
     expect(keysOf(PublicLocationViewSchema)).not.toContain('gmSecret');
     expect(keysOf(AiLocationViewSchema)).not.toContain('gmSecret');
