@@ -51,16 +51,8 @@ describe('infrastructure/jobs standard-jobs', () => {
         60 * 60 * 1000,
         mockHandlers.cleanupIdempotency,
       );
-      expect(mockScheduler.register).toHaveBeenCalledWith(
-        'outboxPublisher',
-        250,
-        mockHandlers.outboxPublisher,
-      );
-      expect(mockScheduler.register).toHaveBeenCalledWith(
-        'presenceSweep',
-        10 * 1000,
-        mockHandlers.presenceSweep,
-      );
+      expect(mockScheduler.register).toHaveBeenCalledWith('outboxPublisher', 250, mockHandlers.outboxPublisher);
+      expect(mockScheduler.register).toHaveBeenCalledWith('presenceSweep', 10 * 1000, mockHandlers.presenceSweep);
     });
 
     it('registers capabilityProbe when handler provided', () => {
@@ -79,11 +71,7 @@ describe('infrastructure/jobs standard-jobs', () => {
       });
 
       expect(scheduler.register).toHaveBeenCalledTimes(4);
-      expect(scheduler.register).toHaveBeenCalledWith(
-        'capabilityProbe',
-        5000,
-        expect.any(Function),
-      );
+      expect(scheduler.register).toHaveBeenCalledWith('capabilityProbe', 5000, expect.any(Function));
     });
 
     it('uses default capabilityProbeMs when not provided', () => {
@@ -110,7 +98,7 @@ describe('infrastructure/jobs standard-jobs', () => {
         presenceSweep: vi.fn(),
       };
 
-      registerStandardJobs(scheduler, handlers as any, {
+      registerStandardJobs(scheduler, handlers, {
         outboxPollMs: 250,
       });
 

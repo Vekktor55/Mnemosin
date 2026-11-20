@@ -238,10 +238,10 @@ describe('infrastructure/database mappers (misc-mappers)', () => {
       const snapshotId = randomUUID();
       const sessionId = randomUUID();
       const locationId = randomUUID();
-      const state = { 
-        sessionId, 
-        version: 1, 
-        worldState: { 
+      const state = {
+        sessionId,
+        version: 1,
+        worldState: {
           currentLocationId: locationId,
           timeOfDay: 'NIGHT' as const,
           weather: null,
@@ -254,7 +254,7 @@ describe('infrastructure/database mappers (misc-mappers)', () => {
         updatedAt: now,
       };
       const row = {
-        snapshotId: randomUUID(),
+        snapshotId,
         sessionId,
         label: 'Test',
         turnNumber: 1,
@@ -266,7 +266,7 @@ describe('infrastructure/database mappers (misc-mappers)', () => {
       };
 
       const result = snapshotFromRow(row);
-      expect(result.id).toBeDefined();
+      expect(result.id).toBe(snapshotId);
       expect(result.label).toBe('Test');
     });
 
@@ -282,7 +282,11 @@ describe('infrastructure/database mappers (misc-mappers)', () => {
         createdBy: 'SYSTEM',
         checksum: 'a'.repeat(64),
         createdAt: nowIso(),
-        state: { sessionId, version: 1, worldState: { currentLocationId: 'loc1', timeOfDay: 'NIGHT', weather: null, ambientFlags: {} } },
+        state: {
+          sessionId,
+          version: 1,
+          worldState: { currentLocationId: 'loc1', timeOfDay: 'NIGHT', weather: null, ambientFlags: {} },
+        },
       };
 
       const result = snapshotToRow(snapshot);

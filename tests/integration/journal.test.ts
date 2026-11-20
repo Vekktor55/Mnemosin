@@ -125,4 +125,23 @@ describe('JournalService · round-trip', () => {
 
     await db.close();
   });
+
+  it('append сохраняет явно переданный createdAt вместо текущего времени', async () => {
+    const db = await openTempDb('journal-created-at', { seed: false });
+    const { world } = await seedWorld(db);
+    const journal = new JournalService(db.boot.uow);
+    const createdAt = '2026-01-02T03:04:05.000Z';
+
+    const entry = await journal.append({
+      sessionId: world.session.sessionId,
+      turnId: null,
+      kind: 'turn_opened',
+      payload: {},
+      traceId: 'trace-created-at',
+      createdAt,
+    });
+
+    expect(entry.createdAt).toBe(createdAt);
+    await db.close();
+  });
 });

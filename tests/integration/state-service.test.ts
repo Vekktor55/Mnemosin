@@ -157,6 +157,29 @@ describe('apply: мутации как функции (этап 1, без DSL)',
     expect(entries[0]).toMatchObject({ value: '18.03', source: 'TOLD' });
   });
 
+  it('GRANT_KNOWLEDGE: создаёт playerKnowledge для игрока, которого ещё нет в карте знаний', async () => {
+    const state = await services.state.get(sessionId);
+    const newPlayerId = randomUUID();
+    const result = await services.state.apply({
+      sessionId,
+      mutations: [
+        { kind: 'GRANT_KNOWLEDGE', playerId: newPlayerId, key: 'first.discovery', value: true, source: 'OBSERVED' },
+      ],
+      expectedVersion: state.version,
+      turnId: null,
+      traceId: 'trace-knowledge-new-player',
+    });
+
+    expect(result.state.playerKnowledge[newPlayerId]).toBeDefined();
+    expect(result.state.playerKnowledge[newPlayerId]!.entries).toHaveLength(1);
+    expect(result.state.playerKnowledge[newPlayerId]!.entries[0]).toMatchObject({
+      key: 'first.discovery',
+      value: true,
+      source: 'OBSERVED',
+      learnedAtTurnId: null,
+    });
+  });
+
   it('REACH_ENDING: endingState с reachedAtTurnId; без turnId → VALIDATION', async () => {
     const state = await services.state.get(sessionId);
     let noTurn: string | null = null;

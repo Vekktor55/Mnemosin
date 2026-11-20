@@ -65,7 +65,7 @@ describe('infrastructure/config redact', () => {
 
     it('skips undefined values', () => {
       const env = {
-        JWT_SECRET: undefined as any,
+        JWT_SECRET: undefined,
         OPENROUTER_API_KEY: 'key',
       };
       const result = collectSecretValues(env);

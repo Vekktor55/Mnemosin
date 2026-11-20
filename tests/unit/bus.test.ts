@@ -31,6 +31,20 @@ describe('core/events/bus', () => {
       });
     });
 
+    it('omits event type from validation metadata when type is not a string', async () => {
+      const bus = new InProcessEventBus();
+      const invalidEvent = { type: 42, payload: {}, traceId: 'trace', emittedAt: new Date().toISOString() };
+
+      try {
+        await bus.publish(invalidEvent as unknown as DomainEvent);
+        expect.fail('Should have thrown VALIDATION error');
+      } catch (err: unknown) {
+        expect(err).toMatchObject({ code: 'VALIDATION' });
+        const error = err as { meta?: { type?: string } };
+        expect(error.meta?.type).toBeUndefined();
+      }
+    });
+
     it('works with logger', async () => {
       const bus = new InProcessEventBus();
       const handler = vi.fn().mockResolvedValue(undefined);

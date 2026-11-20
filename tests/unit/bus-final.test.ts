@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { DomainEventSchema } from '@mnemosin/contracts';
+import { DomainEventSchema, type DomainEvent } from '@mnemosin/contracts';
 import { InProcessEventBus } from '@mnemosin/core';
 import { randomUUID } from 'node:crypto';
 
@@ -20,9 +20,9 @@ describe('core/events/bus.ts - final coverage branches', () => {
       const bus = new InProcessEventBus();
       const handler1 = vi.fn().mockResolvedValue(undefined);
       const handler2 = vi.fn().mockResolvedValue(undefined);
-      
+
       const unsubscribe1 = bus.subscribe('STATE_COMMITTED', handler1);
-      const unsubscribe2 = bus.subscribe('STATE_COMMITTED', handler2);
+      bus.subscribe('STATE_COMMITTED', handler2);
 
       const event = makeStateCommittedEvent();
       await bus.publish(event);
@@ -31,7 +31,7 @@ describe('core/events/bus.ts - final coverage branches', () => {
 
       // Unsubscribe first handler - this should hit the index >= 0 branch
       unsubscribe1();
-      
+
       await bus.publish(event);
       expect(handler1).toHaveBeenCalledTimes(1); // not called again
       expect(handler2).toHaveBeenCalledTimes(2); // called again
@@ -39,15 +39,15 @@ describe('core/events/bus.ts - final coverage branches', () => {
 
     it('validation error includes event type when present (branch line 89)', async () => {
       const bus = new InProcessEventBus();
-      const invalidEvent = { 
-        type: 'INVALID_TYPE', 
-        payload: {}, 
-        traceId: 'trace', 
-        emittedAt: new Date().toISOString() 
+      const invalidEvent = {
+        type: 'INVALID_TYPE',
+        payload: {},
+        traceId: 'trace',
+        emittedAt: new Date().toISOString(),
       };
 
       try {
-        await bus.publish(invalidEvent as any);
+        await bus.publish(invalidEvent as unknown as DomainEvent);
         expect.fail('Should have thrown VALIDATION error');
       } catch (err: unknown) {
         expect(err).toMatchObject({ code: 'VALIDATION' });

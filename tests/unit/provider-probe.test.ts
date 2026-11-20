@@ -1,13 +1,8 @@
 import { describe, expect, it } from 'vitest';
 
-import { AIResponseSchema, CapabilitySchema, ProviderPolicySchema, type Capability } from '@mnemosin/contracts';
+import { CapabilitySchema } from '@mnemosin/contracts';
 
-import {
-  PROBE_PROVIDER_ID,
-  PROBE_CAPABILITY,
-  PROBE_POLICY,
-  probeValidateResponse,
-} from '@mnemosin/ai';
+import { PROBE_PROVIDER_ID, PROBE_CAPABILITY, PROBE_POLICY, probeValidateResponse } from '@mnemosin/ai';
 
 describe('infrastructure/ai provider-probe', () => {
   describe('constants', () => {
