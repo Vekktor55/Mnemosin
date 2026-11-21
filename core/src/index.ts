@@ -31,4 +31,5 @@ export * from './session/index.js';
 export * from './state/index.js';
 export * from './locations/index.js';
 export * from './worldpack/index.js';
+export * from './hot/index.js';
 export * from './services.js';
