@@ -6,8 +6,9 @@ import { fileURLToPath } from 'node:url';
  * Vite-конфиг клиента (промпт 1.12, п.1; D103 — Svelte 5 + Vite, без UI-библиотек).
  *
  * - dev-порт 5173; proxy /health и /ws на 3000 (ws: true для WebSocket);
- * - две точки входа (MPA): /player/ и /gm/ — общий shell, отдельные страницы;
- *   прод-сборка кладётся в client/dist и отдаётся сервером через @fastify/static
+ * - единая точка входа index.html (v4 transitional): старая MPA (/player/, /gm/)
+ *   удалена вместе с GM workflow; реалтайм-клиент P05 заменит SPA-каркас.
+ *   Прод-сборка кладётся в client/dist и отдаётся сервером через @fastify/static
  *   (apps/server/src/app.ts, каркас 1.1), поэтому в prod клиент same-origin;
  * - resolve.conditions=['development'] — @mnemosin/contracts резолвится в
  *   исходники (src/*.ts), как в vitest.config.ts: сборка клиента не зависит от
@@ -35,11 +36,7 @@ export default defineConfig({
     outDir: 'dist',
     emptyOutDir: true,
     rollupOptions: {
-      input: {
-        index: fileURLToPath(new URL('./index.html', import.meta.url)),
-        player: fileURLToPath(new URL('./player/index.html', import.meta.url)),
-        gm: fileURLToPath(new URL('./gm/index.html', import.meta.url)),
-      },
+      input: fileURLToPath(new URL('./index.html', import.meta.url)),
     },
   },
 });

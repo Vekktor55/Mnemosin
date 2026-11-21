@@ -43,8 +43,6 @@ export interface UnitOfWork {
 import type { SessionRepository } from './session-repository.js';
 import type { PlayerRepository } from './player-repository.js';
 import type { CharacterRepository } from './character-repository.js';
-import type { TurnRepository } from './turn-repository.js';
-import type { ActionRepository } from './action-repository.js';
 import type { StateRepository } from './state-repository.js';
 import type { LocationRepository } from './location-repository.js';
 import type { ChatRepository } from './chat-repository.js';
@@ -54,14 +52,11 @@ import type { JournalRepository } from './journal-repository.js';
 import type { IdempotencyRepository } from './idempotency-repository.js';
 import type { OutboxRepository } from './outbox-repository.js';
 import type { SnapshotRepository } from './snapshot-repository.js';
-import type { AiDecisionRepository } from './ai-decision-repository.js';
 
 export interface RepositoryRegistry {
   readonly sessions: SessionRepository;
   readonly players: PlayerRepository;
   readonly characters: CharacterRepository;
-  readonly turns: TurnRepository;
-  readonly actions: ActionRepository;
   readonly state: StateRepository;
   readonly locations: LocationRepository;
   readonly chat: ChatRepository;
@@ -71,5 +66,4 @@ export interface RepositoryRegistry {
   readonly idempotency: IdempotencyRepository;
   readonly outbox: OutboxRepository;
   readonly snapshots: SnapshotRepository;
-  readonly aiDecisions: AiDecisionRepository;
 }

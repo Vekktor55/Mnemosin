@@ -127,7 +127,7 @@ export const TurnResolutionSchema = z.object({
       weather: z.string().max(60).nullable().optional(),
       ambientFlags: z.record(z.string().max(60), Scalar).optional(),
     })
-    .default({}),
+    .prefault({}),
   visualScene: VisualSceneDescriptionSchema.nullable(),
   diagnostics: DiagnosticsSchema,
   createdAt: IsoDateTime,

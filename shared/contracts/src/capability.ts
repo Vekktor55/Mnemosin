@@ -41,9 +41,9 @@ export const ProviderPolicySchema = z.object({
   providerId: z.string().min(1).max(64),
   capability: CapabilitySchema,
   timeoutMs: z.number().int().positive().default(45_000),
-  retries: RetriesPolicySchema.default({}),
-  circuitBreaker: CircuitBreakerPolicySchema.default({}),
-  costPer1kTokens: ModelPriceSchema.default({ input: null, output: null }),
+  retries: RetriesPolicySchema.prefault({}),
+  circuitBreaker: CircuitBreakerPolicySchema.prefault({}),
+  costPer1kTokens: ModelPriceSchema.prefault({ input: null, output: null }),
 });
 export type ProviderPolicy = z.infer<typeof ProviderPolicySchema>;
 

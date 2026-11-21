@@ -77,54 +77,6 @@ export const characters = sqliteTable(
   (t) => [index('idx_characters_session').on(t.sessionId)],
 );
 
-// ───────────────────────────── Ходы и действия ─────────────────────────────
-
-export const turns = sqliteTable(
-  'turns',
-  {
-    turnId: text('turn_id').primaryKey(),
-    sessionId: text('session_id')
-      .notNull()
-      .references(() => sessions.sessionId, { onDelete: 'cascade' }),
-    number: integer('number').notNull(),
-    status: text('status').notNull(), // TurnStatus
-    lockedAt: text('locked_at'),
-    processingStartedAt: text('processing_started_at'),
-    reviewReadyAt: text('review_ready_at'),
-    committedAt: text('committed_at'),
-    createdAt: text('created_at').notNull(),
-    updatedAt: text('updated_at').notNull(),
-    bodyJson: text('body_json', { mode: 'json' }).notNull(),
-  },
-  (t) => [
-    uniqueIndex('uq_turns_session_number').on(t.sessionId, t.number),
-    index('idx_turns_session_status').on(t.sessionId, t.status),
-  ],
-);
-
-export const actions = sqliteTable(
-  'actions',
-  {
-    actionId: text('action_id').primaryKey(),
-    turnId: text('turn_id')
-      .notNull()
-      .references(() => turns.turnId, { onDelete: 'cascade' }),
-    playerId: text('player_id')
-      .notNull()
-      .references(() => players.playerId, { onDelete: 'cascade' }),
-    sequenceId: integer('sequence_id').notNull(),
-    intent: text('intent'), // ActionIntent | null
-    idempotencyKey: text('idempotency_key').notNull(),
-    createdAt: text('created_at').notNull(),
-    bodyJson: text('body_json', { mode: 'json' }).notNull(),
-  },
-  (t) => [
-    uniqueIndex('uq_actions_idempotency').on(t.idempotencyKey),
-    uniqueIndex('uq_actions_turn_sequence').on(t.turnId, t.sequenceId),
-    index('idx_actions_player').on(t.playerId),
-  ],
-);
-
 // ───────────────────────────── Состояние мира ─────────────────────────────
 
 export const gameState = sqliteTable('game_state', {
@@ -246,7 +198,7 @@ export const journalEntries = sqliteTable(
   'journal_entries',
   {
     id: integer('id').primaryKey({ autoIncrement: true }),
-    turnId: text('turn_id').notNull(),
+    turnId: text('turn_id'),
     sessionId: text('session_id')
       .notNull()
       .references(() => sessions.sessionId, { onDelete: 'cascade' }),
@@ -310,7 +262,7 @@ export const idempotencyRecords = sqliteTable(
   'idempotency_records',
   {
     key: text('key').primaryKey(),
-    turnId: text('turn_id'),
+    turnId: text('turn_id'), // nullable FK to turns
     sessionId: text('session_id'),
     command: text('command').notNull(), // CommandName
     status: text('status').notNull(), // IdempotencyStatus
@@ -324,34 +276,10 @@ export const idempotencyRecords = sqliteTable(
   (t) => [index('idx_idempotency_expires').on(t.expiresAt), index('idx_idempotency_session').on(t.sessionId)],
 );
 
-export const aiDecisions = sqliteTable(
-  'ai_decisions',
-  {
-    id: integer('id').primaryKey({ autoIncrement: true }),
-    sessionId: text('session_id')
-      .notNull()
-      .references(() => sessions.sessionId, { onDelete: 'cascade' }),
-    turnId: text('turn_id'),
-    providerId: text('provider_id').notNull(),
-    model: text('model').notNull(),
-    status: text('status').notNull(), // AiDecisionStatus
-    promptHash: text('prompt_hash'),
-    responseJson: text('response_json', { mode: 'json' }),
-    violationsCount: integer('violations_count').notNull().default(0),
-    latencyMs: integer('latency_ms').notNull().default(0),
-    errorCode: text('error_code'),
-    traceId: text('trace_id').notNull(),
-    createdAt: text('created_at').notNull(),
-  },
-  (t) => [index('idx_ai_decisions_turn').on(t.turnId), index('idx_ai_decisions_session').on(t.sessionId, t.id)],
-);
-
 export const SCHEMA_TABLES = {
   sessions,
   players,
   characters,
-  turns,
-  actions,
   gameState,
   stateHistory,
   worldStateVersion,
@@ -363,7 +291,6 @@ export const SCHEMA_TABLES = {
   eventOutbox,
   snapshots,
   idempotencyRecords,
-  aiDecisions,
 } as const;
 
 export type SchemaTables = typeof SCHEMA_TABLES;

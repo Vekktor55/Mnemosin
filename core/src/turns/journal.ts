@@ -9,27 +9,25 @@ import {
 import type { JournalDraft, TxScope, UnitOfWork } from '../domain/ports/index.js';
 
 /**
- * JournalService — журнал хода (v3 §III.3, §II.18; промпт 1.5).
+ * JournalService — журнал событий (v4: сессионный, не привязанный к ходам).
  *
- * Журнал — append-only хронология шагов обработки хода (`JournalKind`:
- * turn_opened → … → committed/failed). Назначение:
- *  - аудит и диагностика (каждый шаг несёт traceId, v3 §VIII.4);
+ * Журнал — append-only хронология событий сессии. Назначение:
+ *  - аудит и диагностика (каждый шаг несёт traceId);
  *  - восстановление после сбоя: `reconciled_on_boot` сверяется с последним id
- *    (journal.lastId) в промпте 1.8.
+ *    (journal.lastId).
  *
  * Запись обязана идти В ТОЙ ЖЕ транзакции, что и фиксируемый шаг: для этого
  * `append` принимает опциональный `TxScope`. Без scope запись идёт через
  * `uow.repos()` (присоединяется к активной транзакции ALS, если она есть,
  * иначе — одиночная запись).
  *
- * Чтение (`list`, `tail`) дополнительно прогоняет каждую строку через
- * JournalEntrySchema (инвариант 16 на границе чтения; маппер БД парсит тоже —
- * двойная защита от порчи body_json).
+ * turnId теперь опционален (nullable) для совместимости с v4 архитектурой
+ * без Turn Engine.
  */
 
 export interface JournalAppendInput {
   readonly sessionId: SessionId;
-  readonly turnId: TurnId;
+  readonly turnId: TurnId | null;
   readonly kind: JournalKind;
   readonly payload?: Record<string, unknown>;
   readonly traceId: string;
@@ -40,9 +38,8 @@ export class JournalService {
   constructor(private readonly uow: UnitOfWork) {}
 
   /**
-   * append(turnId, kind, payload, traceId, tx) из промпта 1.5 — в форме объекта:
-   * схема journal_entries требует ещё и sessionId (FK на sessions), поэтому он
-   * часть входа (данных не хватает — не изобретаем: поле объявлено в 1.4).
+   * append(input, scope?) — запись события в журнал сессии.
+   * turnId теперь опционален (nullable).
    */
   async append(input: JournalAppendInput, scope?: TxScope): Promise<JournalEntry> {
     const draft: JournalDraft = {
@@ -58,9 +55,9 @@ export class JournalService {
     return JournalEntrySchema.parse(entry);
   }
 
-  /** Все записи хода по порядку id (парсинг через JournalEntrySchema). */
-  async list(turnId: TurnId): Promise<JournalEntry[]> {
-    const entries = await this.uow.repos().journal.listByTurn(turnId);
+  /** Все записи сессии по порядке id (парсинг через JournalEntrySchema). */
+  async listBySession(sessionId: SessionId, limit = 100): Promise<JournalEntry[]> {
+    const entries = await this.uow.repos().journal.listBySession(sessionId, limit);
     return entries.map((entry) => JournalEntrySchema.parse(entry));
   }
 
@@ -70,7 +67,7 @@ export class JournalService {
     return entries.map((entry) => JournalEntrySchema.parse(entry));
   }
 
-  /** Последний записанный id сессии — для reconciled_on_boot (промпт 1.8). */
+  /** Последний записанный id сессии — для reconciled_on_boot. */
   async lastId(sessionId: SessionId): Promise<number> {
     return this.uow.repos().journal.lastId(sessionId);
   }

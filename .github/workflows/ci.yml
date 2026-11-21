@@ -1,10 +1,9 @@
-# CI этапа 1 «Стол» (промпт 1.13, п.6; v3 §IX.7; аудит F-11.2).
+# CI (архитектура v4, переходный этап).
 #
-# Порядок шагов повторяет локальную приёмку: lint → typecheck → тесты по
-# проектам → coverage-пороги (v3 §IX.5) → build → e2e (офлайн-стенды, без
-# сети и ключей) → npm audit → secret scanning → verify:stage1 (16/16 A1).
-# Всё детерминировано: AI_PROVIDER=scripted, MEDIA_PROVIDER=debug (stage 1
-# не регистрирует media-провайдеров; значение фиксирует «боевого» медиа нет).
+# Порядок шагов: lint → typecheck → тесты по проектам → coverage-пороги
+# (активные пакеты ядра v4) → build (tsc + vite client) → npm audit →
+# secret scanning. Stage 1 (verify:stage1, e2e/Playwright) удалён: старый
+# Table MVP и e2e отложены до P05 (см. docs/IMPLEMENTATION_ROADMAP.md).
 name: CI
 
 on:
@@ -32,6 +31,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Setup Node ${{ matrix.node }}
         uses: actions/setup-node@v4
@@ -60,7 +61,7 @@ jobs:
       - name: test:contract
         run: npm run test:contract
 
-      - name: coverage + пороги v3 §IX.5 (core ≥90, modules ≥75, adapters/gateways ≥60)
+      - name: coverage + пороги v4 (активные пакеты ядра)
         run: npx vitest run --coverage
 
       - name: build (tsc -b + vite client)
@@ -68,31 +69,45 @@ jobs:
           npm run build
           npm run build -w client
 
-      - name: Playwright browsers
-        run: npx playwright install --with-deps chromium
-
-      - name: test:e2e (офлайн-стенды, без сети и ключей)
-        run: npm run test:e2e
-
       - name: npm audit (high+)
         run: npm audit --audit-level=high
 
+      - name: Determine whether the Gitleaks base commit has a parent
+        id: gitleaks-base
+        shell: bash
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+        run: |
+          set -euo pipefail
+          if [[ -n "${BASE_SHA}" && "${BASE_SHA}" != "0000000000000000000000000000000000000000" ]]; then
+            if git rev-parse --verify --quiet "${BASE_SHA}^" >/dev/null; then
+              echo "parent_exists=true" >> "${GITHUB_OUTPUT}"
+            else
+              echo "parent_exists=false" >> "${GITHUB_OUTPUT}"
+            fi
+          else
+            echo "parent_exists=false" >> "${GITHUB_OUTPUT}"
+          fi
+
+      - name: Install Gitleaks v8.24.3 (orphan-base fallback)
+        if: steps.gitleaks-base.outputs.parent_exists == 'false'
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -fsSL "https://github.com/gitleaks/gitleaks/releases/download/v8.24.3/gitleaks_8.24.3_linux_x64.tar.gz" -o /tmp/gitleaks.tar.gz
+          tar -xzf /tmp/gitleaks.tar.gz -C /tmp gitleaks
+          /tmp/gitleaks version
+
+      - name: secret scanning (gitleaks, no-git orphan-base fallback)
+        if: steps.gitleaks-base.outputs.parent_exists == 'false'
+        shell: bash
+        run: /tmp/gitleaks detect --source . --no-git --redact -v --exit-code=2
+
       - name: secret scanning (gitleaks)
+        if: steps.gitleaks-base.outputs.parent_exists == 'true'
         uses: gitleaks/gitleaks-action@v2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: verify:stage1 — приёмка A1.1–A1.16
-        run: npm run verify:stage1
-
-      - name: artifact — playwright report
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: playwright-report-node${{ matrix.node }}
-          path: playwright-report/
-          retention-days: 14
-          if-no-files-found: ignore
 
       - name: artifact — coverage
         if: always()

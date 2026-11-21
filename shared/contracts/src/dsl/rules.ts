@@ -52,7 +52,7 @@ export const RuleCheckSchema = z.object({
       source: z.enum(['v1', 'derived', 'v3-fixture', 'todo']).default('derived'),
       notes: z.string().max(300).nullable(),
     })
-    .default({
+    .prefault({
       source: 'derived',
       notes: null,
     }),
@@ -93,7 +93,7 @@ export const RuleCheckTemplateSchema = RuleCheckSchema.omit({ meta: true }).exte
       source: z.enum(['v1', 'derived', 'v3-fixture', 'todo']).default('derived'),
       notes: z.string().max(300).nullable(),
     })
-    .default({
+    .prefault({
       source: 'derived',
       notes: null,
     }),

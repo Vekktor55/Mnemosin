@@ -26,7 +26,9 @@ function listFiles(dir) {
       const full = join(current, entry);
       if (entry === 'node_modules' || entry === 'dist' || entry.startsWith('.')) continue;
       if (statSync(full).isDirectory()) walk(full);
-      else if (full.endsWith('.ts') && !full.endsWith('.d.ts')) out.push(relative(ROOT, full));
+      // POSIX-разделители: манифест должен совпадать на Windows и Linux
+      // (tests/arch/helpers.ts listSourceFiles() нормализует так же).
+      else if (full.endsWith('.ts') && !full.endsWith('.d.ts')) out.push(relative(ROOT, full).replace(/\\/g, '/'));
     }
   };
   walk(abs);

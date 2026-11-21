@@ -3,8 +3,7 @@
  *
  *  - contract.ts — ModuleContract: sendPublicMessage/sendPrivateMessage/
  *    sendSystemMessage/sendGMMessage + history; emits CHAT_MESSAGE_*;
- *    subscribes TURN_COMMITTED (доставка черновика, D238), WORLD_EVENT_FIRED
- *    (этап 2), PLAYER_JOINED/PLAYER_LEFT/SESSION_STATUS_CHANGED (лента);
+ *    subscribes WORLD_EVENT_FIRED (этап 2), PLAYER_JOINED/PLAYER_LEFT/SESSION_STATUS_CHANGED (лента);
  *  - service.ts — ChatService: sanitize + token bucket (RATE_LIMIT) + запись
  *    в chat_messages + outbox-события одной транзакцией; идемпотентные
  *    обработчики событий на детерминированных messageId;

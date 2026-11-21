@@ -23,9 +23,7 @@ export function listSourceFiles(dir: string, exts = ['.ts']): string[] {
       const stat = statSync(full);
       if (stat.isDirectory()) walk(full);
       else if (exts.some((ext) => full.endsWith(ext)) && !full.endsWith('.d.ts'))
-        // Windows: path.relative даёт backslashes — нормализуем к posix,
-        // иначе манифесты/allowlist'ы (всегда с '/') не совпадают (промпт 1.13, e2e-win).
-        out.push(relative(ROOT, full).replace(/\\+/g, '/'));
+        out.push(relative(ROOT, full).replace(/\\/g, '/'));
     }
   };
   walk(abs);

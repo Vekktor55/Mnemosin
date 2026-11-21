@@ -41,7 +41,7 @@ export type JournalKind = z.infer<typeof JournalKind>;
 
 export const JournalEntrySchema = z.object({
   id: z.number().int().positive(),
-  turnId: TurnId,
+  turnId: TurnId.nullable(),
   sessionId: SessionId,
   traceId: z.string().max(64),
   kind: JournalKind,
