@@ -145,13 +145,13 @@ export type ConnectionPongMessage = z.infer<typeof ConnectionPongMessageSchema>;
 /**
  * Connection error (server → client, NETWORK_PROTOCOL.md §6.2: connection:error).
  */
-export const ConnectionErrorMessageSchema = z.object({
+export const LegacyConnectionErrorMessageSchema = z.object({
   code: z.string().min(1).max(64),
   message: z.string().max(500),
   retryable: z.boolean(),
   correlationId: z.string().max(64).optional(),
 });
-export type ConnectionErrorMessage = z.infer<typeof ConnectionErrorMessageSchema>;
+export type LegacyConnectionErrorMessage = z.infer<typeof LegacyConnectionErrorMessageSchema>;
 
 /**
  * Scene input ack (server → client, NETWORK_PROTOCOL.md §6.2: scene:input-ack).

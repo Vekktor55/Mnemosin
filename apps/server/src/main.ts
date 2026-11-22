@@ -1,4 +1,11 @@
-import { CONTRACTS_VERSION } from '@mnemosin/contracts';
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
+
+import { AppError, CONTRACTS_VERSION, MatchId, ParticipantId } from '@mnemosin/contracts';
+import { parseWorldPack } from '@mnemosin/core';
+import { JwtService } from '@mnemosin/gateway-http';
+import { verifyWsToken, type WsAuthenticationResult } from '@mnemosin/gateway-ws';
+import { createPrototypeWsGateway, prototypeRealtimeLimits } from './hot-wiring.js';
 import { loadConfigOrExit, readPackageVersion } from '@mnemosin/config';
 import { createLogger } from '@mnemosin/logging';
 import { bootstrapDatabase } from '@mnemosin/database';
@@ -47,12 +54,69 @@ async function main(): Promise<void> {
     'database_ready',
   );
 
-  // SB-01: только health и version — остальные маршруты опущены.
+  // P05-A: prototype room wiring; полный match lifecycle остаётся P10.
+  let wsGateway;
+  const configuredSessionId = persistence.seed.sessionId;
+  if (configuredSessionId !== null) {
+    const repositories = persistence.uow.repos();
+    const configuredPlayers = (await repositories.players.listBySession(configuredSessionId))
+      .filter((player) => !player.isGM)
+      .slice(0, 2);
+    if (configuredPlayers.length === 2) {
+      const pack = parseWorldPack(readFileSync(resolve(root, 'tests/fixtures/worldpack.v4.test.json'), 'utf8'));
+      const jwt = new JwtService({
+        secret: config.env.JWT_SECRET,
+        accessTtlSeconds: config.env.JWT_TTL_SECONDS,
+        refreshTtlSeconds: config.env.JWT_REFRESH_TTL_SECONDS,
+      });
+      const playerIds = new Set(configuredPlayers.map((player) => player.playerId));
+      wsGateway = createPrototypeWsGateway({
+        pack,
+        players: configuredPlayers.map((player, index) => ({
+          participantId: ParticipantId.parse(player.playerId),
+          spawnPointId: index === 0 ? ('player-1' as const) : ('player-2' as const),
+        })),
+        serverVersion: config.version,
+        contractsVersion: CONTRACTS_VERSION,
+        limits: prototypeRealtimeLimits(config.limits),
+        logger,
+        async authenticate(token): Promise<WsAuthenticationResult> {
+          try {
+            const identity = await verifyWsToken({ jwt, players: repositories.players }, token);
+            if (identity.sessionId !== configuredSessionId || !playerIds.has(identity.playerId) || identity.isGM) {
+              return { ok: false, code: 'AUTH_FORBIDDEN' };
+            }
+            return {
+              ok: true,
+              actor: {
+                actorId: ParticipantId.parse(identity.playerId),
+                actorType: 'player',
+                matchId: MatchId.parse(configuredSessionId),
+                sessionId: configuredSessionId,
+                projectionKind: 'player',
+                permissions: ['scene:input', 'scene:resync'],
+              },
+            };
+          } catch (cause) {
+            return {
+              ok: false,
+              code: cause instanceof AppError && cause.code === 'AUTH_EXPIRED' ? 'AUTH_EXPIRED' : 'AUTH_INVALID',
+            };
+          }
+        },
+      });
+    }
+  }
+  if (wsGateway === undefined) {
+    logger.warn({ event: 'ws_prototype_not_configured' }, 'ws_prototype_not_configured');
+  }
+
   const app = await buildApp({
     config,
     logger,
     cwd: root,
     persistence,
+    ...(wsGateway === undefined ? {} : { wsGateway }),
   });
 
   await app.listen({ host: '0.0.0.0', port: config.env.PORT });

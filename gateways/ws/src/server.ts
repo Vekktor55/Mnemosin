@@ -1,363 +1,241 @@
 import { randomUUID } from 'node:crypto';
 
-import { CONTRACTS_VERSION, WS_CLOSE_CODE, nowIso, type ConnectionId, type SessionId } from '@mnemosin/contracts';
-import websocket from '@fastify/websocket';
-import type { FastifyInstance, FastifyRequest } from 'fastify';
+import type { FastifyInstance } from 'fastify';
+import websocketPlugin from '@fastify/websocket';
 import type { WebSocket } from '@fastify/websocket';
+import { InputStreamId, WsClientEnvelopeSchema, WS_CLOSE_CODE, type WsErrorCode } from '@mnemosin/contracts';
 
-import {
-  WS_SUBPROTOCOL_PREFIX,
-  authClosePayloadOf,
-  closeWithCode,
-  extractHandshakeToken,
-  verifyWsToken,
-  type WsIdentity,
-} from './auth.js';
-import { attachWsBroadcast } from './broadcast.js';
-import { ConnectionRegistry, type WsConnectionRecord } from './connection-registry.js';
-import type { RequestDedupeCache } from './dedupe.js';
-import type { WsGatewayDeps } from './deps.js';
-import { WsBroadcaster, type ServerEnvelope } from './projections.js';
-import { ConnectionRateLimiter } from './rate-limit.js';
-import { createWsRouter, type WsConnectionState } from './router.js';
-
-/**
- * WS-сервер (промпт 1.11, п.1–3, 7): @fastify/websocket на /ws.
- *
- * Handshake-авторизация (D123): subprotocol `mnemosin.v1.<jwt>` приоритетнее
- * `?token=`; невалидный/истёкший токен → close 4401 {code:'AUTH_INVALID'|
- * 'AUTH_EXPIRED'}; токена нет → окно wsAuthTimeoutMs на AUTH{token}, иначе
- * close 4408 (D267). Лимиты соединений: wsMaxConnectionsPerIp /
- * wsMaxConnectionsPerPlayer → close 4429 RATE_LIMIT.
- *
- * После авторизации: HELLO{serverVersion, contractsVersion, capabilities} →
- * AUTH_OK{playerId, sessionId, isGM} (F-10.6) → фиксированная reconnect-
- * последовательность (A1.9, v3 §VI.8): STATE_PROJECTION →
- * STATE_PROJECTION_PRIVATE → TURN_UPDATE (текущий ход) → SESSION_STATUS →
- * PLAYER_PRESENCE. HISTORY — только по явному запросу клиента.
- *
- * Heartbeat (D277 — один интервал на gateway): сервер шлёт protocol-PING
- * каждые heartbeat.intervalMs; нет PONG/сообщений idleTimeoutMs → close 4408.
- * Клиентский app-level PING → PONG (router).
- */
+import { closeWithCode, extractHandshakeToken } from './auth.js';
+import { ConnectionRegistry, WsConnectionRecord } from './connection-registry.js';
+import type { ConnectionActorContext, WsConnectionState, WsGatewayDeps } from './deps.js';
+import { SceneReplicationService } from './replication.js';
+import { routeWsMessage } from './router.js';
+import { HotSchedulerSupervisor } from './scheduler-supervisor.js';
 
 export interface WsGatewayHandle {
   readonly registry: ConnectionRegistry;
-  readonly broadcaster: WsBroadcaster;
-  readonly dedupe: RequestDedupeCache<ServerEnvelope>;
-  /** Отписка от шины + остановка heartbeat (вызывается при shutdown). */
-  detach(): void;
-  /** Закрыть все соединения (graceful shutdown — до outbox drain). */
   closeAll(): void;
-  /** presenceSweep-джоб: чистка мёртвых сокетов и истёкшего dedupe-кэша. */
-  sweep(): void;
 }
 
 export async function registerWsGateway(app: FastifyInstance, deps: WsGatewayDeps): Promise<WsGatewayHandle> {
-  const logger = deps.logger;
-  const registry = new ConnectionRegistry();
-  const broadcaster = new WsBroadcaster(registry, logger);
-  // Сборочная правка (промпт 1.12): exactOptionalPropertyTypes не позволяет
-  // передавать `logger: WsGatewayLog | undefined` в опциональное свойство —
-  // условный spread сохраняет прежнее поведение без изменения типов портов.
-  const loggerProp = logger === undefined ? {} : { logger };
-  const broadcast = attachWsBroadcast({ deps, registry, broadcaster, ...loggerProp });
-
-  await app.register(websocket, {
+  await app.register(websocketPlugin, {
     options: {
       maxPayload: deps.limits.wsMaxPayloadBytes,
-      // D123: эхо subprotocol только для mnemosin.v1.* (иначе браузер-клиент
-      // сам закроет соединение); query-токен и AUTH-окно работают без subprotocol.
-      handleProtocols: (protocols: Set<string>) => {
-        for (const protocol of protocols) {
-          if (protocol.startsWith(WS_SUBPROTOCOL_PREFIX)) return protocol;
-        }
-        return false;
-      },
+      handleProtocols: (protocols: Set<string>) =>
+        [...protocols].find((protocol) => protocol.startsWith('mnemosin.v1.')) ?? false,
     },
   });
 
-  /** Таймеры окна авторизации (D267): connectionId → снять таймер. */
-  const authTimers = new Map<string, () => void>();
+  const registry = new ConnectionRegistry();
+  const connectionsByIp = new Map<string, number>();
+  const pendingSockets = new Set<WebSocket>();
+  const now = deps.now ?? Date.now;
+  const newId = deps.newId ?? randomUUID;
+  const isBackpressured = deps.isBackpressured ?? ((buffered, limit) => buffered > limit);
+  const replication = new SceneReplicationService(deps, registry);
+  const envelope = replication.envelope;
+  deps.hot.setTickListener((result) => replication.publish(result));
 
-  const router = createWsRouter({
-    deps,
-    registry,
-    broadcaster,
-    ...loggerProp,
-    hooks: {
-      onAuth: async (state, token) => {
-        await authenticate(state, token);
-      },
-      onLeave: (state) => {
-        try {
-          state.socket.close(1000, 'left');
-        } catch {
-          state.socket.terminate();
-        }
-      },
-    },
-  });
-
-  app.get('/ws', { websocket: true }, (socket, req) => {
-    void handleUpgrade(socket, req);
-  });
-
-  // ------------------------------------------------------------- соединение
-
-  async function handleUpgrade(socket: WebSocket, req: FastifyRequest): Promise<void> {
-    const ip = req.ip;
-    if (registry.countByIp(ip) >= deps.limits.wsMaxConnectionsPerIp) {
-      closeWithCode(
-        socket,
-        WS_CLOSE_CODE.RATE_LIMIT,
-        { code: 'RATE_LIMIT', message: 'слишком много соединений с адреса' },
-        logger,
-      );
-      return;
-    }
-
-    const state: WsConnectionState = {
-      connectionId: randomUUID() as ConnectionId,
-      ip,
-      socket,
-      auth: null,
-      rate: new ConnectionRateLimiter(deps.limits.wsRatePerConnection),
-    };
-
-    let finalized = false;
-    const finalize = (): void => {
-      if (finalized) return;
-      finalized = true;
-      authTimers.get(String(state.connectionId))?.();
-      authTimers.delete(String(state.connectionId));
-      const removed = registry.remove(state.connectionId);
-      if (removed !== undefined) {
-        // Соединение ≠ игрок (D278): статус DISCONNECTED только когда соединений не осталось.
-        publishPresence(removed);
-      }
-    };
-
-    socket.on('pong', () => registry.touch(state.connectionId, Date.now()));
-    socket.on('close', finalize);
-    socket.on('error', (cause: unknown) => {
-      logger?.debug({ err: cause, event: 'ws_socket_error' }, 'ws_socket_error');
-      finalize();
-    });
-    socket.on('message', (data: Buffer | ArrayBuffer | Buffer[]) => {
-      // Любой входящий кадр — признак жизни (heartbeat idle-check).
-      registry.touch(state.connectionId, Date.now());
-      const text = Buffer.isBuffer(data) ? data.toString('utf8') : Buffer.from(data as ArrayBuffer).toString('utf8');
-      void router.handle(state, text).catch((cause: unknown) => {
-        logger?.error({ err: cause, event: 'ws_router_failed' }, 'ws_router_failed');
-      });
-    });
-
-    const handshake = extractHandshakeToken(socket.protocol || undefined, req.url ?? '');
-    if (handshake === null) {
-      // D267: окно неаутентифицированного соединения — ждём AUTH{token}.
-      const authTimer = setTimeout(() => {
-        closeWithCode(
-          socket,
-          WS_CLOSE_CODE.IDLE_TIMEOUT,
-          { code: 'AUTH_TIMEOUT', message: 'окно авторизации истекло' },
-          logger,
-        );
-      }, deps.limits.wsAuthTimeoutMs);
-      authTimer.unref?.();
-      authTimers.set(String(state.connectionId), () => clearTimeout(authTimer));
-      return;
-    }
-
-    try {
-      const identity = await verifyWsToken(deps, handshake.token);
-      await onAuthenticated(state, identity);
-    } catch (cause) {
-      const { closeCode, payload } = authClosePayloadOf(cause);
-      closeWithCode(socket, closeCode, payload, logger);
-      logger?.debug(
-        {
-          reason: cause instanceof Error ? cause.message : 'invalid',
-          source: handshake.source,
-          event: 'ws_auth_failed',
-        },
-        'ws_auth_failed',
-      );
-    }
+  function sendError(record: WsConnectionRecord, code: WsErrorCode, messageKey: string, retryable: boolean): void {
+    replication.sendReliable(record, envelope('connection:error', { code, messageKey, retryable }));
   }
 
-  /** AUTH{token} внутри окна (D267). */
-  async function authenticate(state: WsConnectionState, token: string): Promise<void> {
+  function handleMessage(record: WsConnectionRecord, raw: Buffer): void {
+    record.lastHeartbeatAt = now();
+    if (record.state === 'closing' || record.state === 'closed') return;
+    let json: unknown;
     try {
-      const identity = await verifyWsToken(deps, token);
-      await onAuthenticated(state, identity);
-    } catch (cause) {
-      const { closeCode, payload } = authClosePayloadOf(cause);
-      closeWithCode(state.socket, closeCode, payload, logger);
-    }
-  }
-
-  async function onAuthenticated(state: WsConnectionState, identity: WsIdentity): Promise<void> {
-    authTimers.get(String(state.connectionId))?.();
-    authTimers.delete(String(state.connectionId));
-    if (registry.countByPlayer(identity.playerId) >= deps.limits.wsMaxConnectionsPerPlayer) {
-      // Multi-tab лимит (детальная обработка — этап 3).
-      closeWithCode(
-        state.socket,
-        WS_CLOSE_CODE.RATE_LIMIT,
-        { code: 'RATE_LIMIT', message: 'превышен лимит соединений игрока' },
-        logger,
-      );
+      json = JSON.parse(raw.toString('utf8'));
+    } catch {
+      sendError(record, 'PROTOCOL_INVALID_JSON', 'protocol.invalid_json', false);
       return;
     }
-    if (state.auth !== null) return; // повторный AUTH — идемпотентный no-op
-    state.auth = identity;
+    const parsed = WsClientEnvelopeSchema.safeParse(json);
+    if (!parsed.success) {
+      sendError(record, 'PROTOCOL_INVALID_MESSAGE', 'protocol.invalid_message', false);
+      return;
+    }
+    routeWsMessage(record, parsed.data, {
+      runtime: deps.hot.runtime,
+      replication,
+      now,
+      inputRatePerSecond: deps.limits.inputRatePerSecond,
+      sendError,
+    });
+  }
 
-    const at = nowIso();
-    const record: WsConnectionRecord = {
-      connectionId: state.connectionId,
-      playerId: identity.playerId,
-      sessionId: identity.sessionId,
-      isGM: identity.isGM,
-      ip: state.ip,
-      socket: state.socket,
-      connectedAt: at,
-      subscribedAt: at,
-      lastPongAt: Date.now(),
+  async function authenticate(
+    socket: WebSocket,
+    token: string,
+    isActive: () => boolean,
+  ): Promise<WsConnectionRecord | undefined> {
+    const result = await deps.authenticate(token);
+    // Поздний ответ после timeout/close не имеет побочных эффектов на runtime/registry.
+    if (!isActive()) return undefined;
+    if (!result.ok) {
+      const code = result.code === 'AUTH_FORBIDDEN' ? WS_CLOSE_CODE.AUTH_FORBIDDEN : WS_CLOSE_CODE.AUTH_INVALID;
+      closeWithCode(socket, code, { code: result.code }, deps.logger);
+      return undefined;
+    }
+    const { actor } = result;
+    const context: ConnectionActorContext = {
+      ...actor,
+      connectionId: newId(),
+      connectionEpoch: registry.nextEpoch(actor.actorId),
     };
+    const inputStreamId = InputStreamId.parse(newId());
+    const previous = registry.controlling(actor.actorId, context.connectionId);
+    if (previous !== undefined) {
+      previous.state = 'closing';
+      closeWithCode(previous.socket, 4409, { code: 'CONNECTION_SUPERSEDED' }, deps.logger);
+      registry.remove(previous.context.connectionId);
+    }
+    if (actor.actorType === 'player') deps.hot.runtime.activateInputStream(actor.actorId, inputStreamId);
+
+    const record = new WsConnectionRecord(socket, context, inputStreamId, deps.limits, isBackpressured);
+    record.lastHeartbeatAt = now();
+    record.rateWindowStartedAt = now();
     registry.add(record);
-    logger?.info(
-      {
-        connectionId: state.connectionId,
-        sessionId: identity.sessionId,
-        isGM: identity.isGM,
-        event: 'ws_connected',
-      },
-      'ws_connected',
-    );
-
-    const conn = { kind: 'connection', connectionId: state.connectionId } as const;
-    // 1. HELLO → 2. AUTH_OK (F-10.6: isGM — клиент сразу знает роль).
-    broadcaster.send(
-      'HELLO',
-      {
+    record.delivery.enqueueReliable(
+      envelope('connection:welcome', {
+        protocolVersion: 'v1',
         serverVersion: deps.serverVersion,
-        contractsVersion: CONTRACTS_VERSION,
-        capabilities: deps.getCapabilities(),
-      },
-      conn,
+        contractsVersion: deps.contractsVersion,
+        matchId: actor.matchId,
+        sessionId: actor.sessionId,
+        connectionId: context.connectionId,
+        connectionEpoch: context.connectionEpoch,
+        actorId: actor.actorId,
+        actorType: actor.actorType,
+        inputStreamId,
+        projectionKind: actor.projectionKind,
+        permissions: [...actor.permissions],
+        isReconnect: context.connectionEpoch > 1,
+        supportedFeatures: ['scene:keyframe', 'scene:delta', 'scene:resync', 'scene:input-ack'],
+      }),
     );
-    broadcaster.send(
-      'AUTH_OK',
-      { playerId: identity.playerId, sessionId: identity.sessionId, isGM: identity.isGM },
-      conn,
-    );
-    // 3. Reconnect-контракт (A1.9): фиксированный порядок, покрыт тестом.
-    // Presence остальным соединениям — ПОСЛЕ последовательности: собственный
-    // поток клиента детерминирован (HELLO → AUTH_OK → 5 сообщений п.7).
-    await sendReconnectSequence(state, identity, conn);
-    publishPresence(record, record.connectionId);
+    return record;
   }
 
-  /** П.7: STATE_PROJECTION → STATE_PROJECTION_PRIVATE → TURN_UPDATE → SESSION_STATUS → PLAYER_PRESENCE. */
-  async function sendReconnectSequence(
-    state: WsConnectionState,
-    identity: WsIdentity,
-    conn: { kind: 'connection'; connectionId: ConnectionId },
-  ): Promise<void> {
-    const sessionId: SessionId = identity.sessionId;
-    try {
-      const publicView = await deps.projections.publicGameState(sessionId);
-      broadcaster.send('STATE_PROJECTION', publicView, conn, { sessionId });
-      const privateView = await deps.projections.playerGameState(sessionId, identity.playerId);
-      broadcaster.send('STATE_PROJECTION_PRIVATE', privateView, conn, { sessionId });
-      const session = await deps.sessions.getSession(sessionId);
-      if (session.currentTurnId !== null) {
-        // D268: myActions адресата допустимы — сообщение уходит ОДНОМУ соединению.
-        const turnView = await deps.turns.getTurnView(session.currentTurnId, identity.playerId);
-        broadcaster.send('TURN_UPDATE', turnView, conn, { sessionId });
-      }
-      broadcaster.send('SESSION_STATUS', { sessionId, from: session.status, to: session.status }, conn);
-      broadcaster.send(
-        'PLAYER_PRESENCE',
-        {
-          sessionId,
-          playerId: identity.playerId,
-          status: 'ACTIVE',
-          connections: registry.countByPlayer(identity.playerId),
-        },
-        conn,
-      );
-    } catch (cause) {
-      // Best-effort: клиент догонит состояние следующими STATE_PROJECTION.
-      logger?.error(
-        { err: cause, connectionId: state.connectionId, event: 'ws_reconnect_state_failed' },
-        'ws_reconnect_state_failed',
-      );
-    }
-  }
+  app.get('/ws', { websocket: true }, (socket: WebSocket, request) => {
+    let lifecycleState: WsConnectionState = 'unauthenticated';
+    let record: WsConnectionRecord | undefined;
+    let released = false;
+    const authTimeout: { handle: ReturnType<typeof setTimeout> | undefined } = { handle: undefined };
+    // Security budget не доверяет X-Forwarded-For/request.ip: trusted-proxy allowlist
+    // не задан. До отдельного deployment-контракта используется только socket peer.
+    const remoteIp = normalizeRemoteIp(request.socket.remoteAddress);
 
-  function publishPresence(record: WsConnectionRecord, excludeConnectionId?: ConnectionId): void {
-    const connections = registry.countByPlayer(record.playerId);
-    const payload = {
-      sessionId: record.sessionId,
-      playerId: record.playerId,
-      status: (connections > 0 ? 'ACTIVE' : 'DISCONNECTED') as 'ACTIVE' | 'DISCONNECTED',
-      connections,
+    const release = (): void => {
+      if (released) return;
+      released = true;
+      if (authTimeout.handle !== undefined) clearTimeout(authTimeout.handle);
+      pendingSockets.delete(socket);
+      const count = connectionsByIp.get(remoteIp);
+      if (count === undefined || count <= 1) connectionsByIp.delete(remoteIp);
+      else connectionsByIp.set(remoteIp, count - 1);
     };
-    try {
-      for (const peer of registry.listBySession(record.sessionId)) {
-        if (peer.connectionId === excludeConnectionId) continue;
-        broadcaster.send('PLAYER_PRESENCE', payload, { kind: 'connection', connectionId: peer.connectionId });
-      }
-    } catch (cause) {
-      logger?.warn({ err: cause, event: 'ws_presence_failed' }, 'ws_presence_failed');
-    }
-  }
+    const removeRecord = (): void => {
+      lifecycleState = 'closed';
+      if (record !== undefined) registry.remove(record.context.connectionId);
+      release();
+    };
 
-  // --------------------------------------------------------------- heartbeat
+    socket.once('close', removeRecord);
+    socket.once('error', removeRecord);
+    socket.on('message', (raw: Buffer) => {
+      if (record === undefined) {
+        if (lifecycleState === 'closing' || lifecycleState === 'closed' || socket.readyState !== 1) return;
+        socket.send(
+          JSON.stringify(
+            envelope('connection:error', {
+              code: 'CONNECTION_NOT_READY',
+              messageKey: 'connection.authenticating',
+              retryable: true,
+            }),
+          ),
+        );
+        return;
+      }
+      handleMessage(record, raw);
+      lifecycleState = record.state;
+    });
+
+    // Pending и authenticated sockets занимают один и тот же per-IP бюджет.
+    const currentIpConnections = connectionsByIp.get(remoteIp) ?? 0;
+    connectionsByIp.set(remoteIp, currentIpConnections + 1);
+    pendingSockets.add(socket);
+    if (currentIpConnections >= deps.limits.wsMaxConnectionsPerIp) {
+      lifecycleState = 'closing';
+      closeWithCode(socket, WS_CLOSE_CODE.RATE_LIMIT, { code: 'RATE_LIMIT' }, deps.logger);
+      return;
+    }
+
+    const handshake = extractHandshakeToken(request.headers['sec-websocket-protocol']);
+    if (handshake === null) {
+      lifecycleState = 'closing';
+      closeWithCode(socket, WS_CLOSE_CODE.AUTH_INVALID, { code: 'AUTH_INVALID' }, deps.logger);
+      return;
+    }
+    lifecycleState = 'authenticating';
+    authTimeout.handle = setTimeout(() => {
+      if (lifecycleState !== 'authenticating') return;
+      lifecycleState = 'closing';
+      closeWithCode(socket, WS_CLOSE_CODE.IDLE_TIMEOUT, { code: 'AUTH_TIMEOUT' }, deps.logger);
+    }, deps.limits.wsAuthTimeoutMs);
+    authTimeout.handle.unref();
+
+    void authenticate(socket, handshake.token, () => lifecycleState === 'authenticating' && socket.readyState === 1)
+      .then((authenticated) => {
+        if (authenticated === undefined) return;
+        if (lifecycleState !== 'authenticating' || socket.readyState !== 1) {
+          authenticated.state = 'closed';
+          registry.remove(authenticated.context.connectionId);
+          return;
+        }
+        record = authenticated;
+        pendingSockets.delete(socket);
+        lifecycleState = authenticated.state;
+      })
+      .catch(() => {
+        if (lifecycleState !== 'authenticating') return;
+        lifecycleState = 'closing';
+        closeWithCode(socket, WS_CLOSE_CODE.INTERNAL, { code: 'INTERNAL' }, deps.logger);
+      })
+      .finally(() => {
+        if (authTimeout.handle !== undefined) clearTimeout(authTimeout.handle);
+      });
+  });
 
   const heartbeat = setInterval(() => {
-    const now = Date.now();
-    for (const record of registry.listAll()) {
-      if (now - record.lastPongAt > deps.limits.heartbeat.idleTimeoutMs) {
-        closeWithCode(
-          record.socket,
-          WS_CLOSE_CODE.IDLE_TIMEOUT,
-          { code: 'IDLE_TIMEOUT', message: 'heartbeat: нет ответа' },
-          logger,
-        );
-        continue;
-      }
-      try {
-        record.socket.ping();
-      } catch {
-        /* закроет sweep/close-обработчик */
+    for (const record of registry.all()) {
+      if (now() - record.lastHeartbeatAt > deps.limits.heartbeat.idleTimeoutMs) {
+        record.state = 'closing';
+        closeWithCode(record.socket, WS_CLOSE_CODE.IDLE_TIMEOUT, { code: 'IDLE_TIMEOUT' }, deps.logger);
+        registry.remove(record.context.connectionId);
+      } else {
+        record.delivery.flush();
       }
     }
   }, deps.limits.heartbeat.intervalMs);
   heartbeat.unref();
+  const schedulerSupervisor = new HotSchedulerSupervisor(deps.hot.scheduler, deps.limits.schedulerRecoveryIntervalMs);
+  schedulerSupervisor.start();
 
   return {
     registry,
-    broadcaster,
-    dedupe: router.dedupe,
-    detach(): void {
-      broadcast.detach();
+    closeAll() {
       clearInterval(heartbeat);
-    },
-    closeAll(): void {
-      for (const record of registry.listAll()) {
-        try {
-          record.socket.close(1001, 'server shutting down');
-        } catch {
-          record.socket.terminate();
-        }
-      }
-    },
-    sweep(): void {
-      for (const record of registry.sweepClosed()) publishPresence(record);
-      router.dedupe.sweep();
+      schedulerSupervisor.stop();
+      for (const socket of pendingSockets) closeWithCode(socket, 1001, { code: 'SERVER_BUSY' }, deps.logger);
+      pendingSockets.clear();
+      registry.closeAll();
     },
   };
+}
+
+function normalizeRemoteIp(ip: string | undefined): string {
+  const normalized = ip?.trim().toLowerCase() ?? '';
+  if (normalized.startsWith('::ffff:')) return normalized.slice('::ffff:'.length);
+  return normalized || 'unknown';
 }

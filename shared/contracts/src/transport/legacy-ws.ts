@@ -119,8 +119,8 @@ const envelopeExtra = {
   ts: IsoDateTime,
 };
 
-export const WSClientMessageSchema = buildEnvelopeUnion(c, envelopeExtra);
-export type WSClientMessage = z.infer<typeof WSClientMessageSchema>;
+export const LegacyWSClientMessageSchema = buildEnvelopeUnion(c, envelopeExtra);
+export type WSClientMessage = z.infer<typeof LegacyWSClientMessageSchema>;
 
 /** Команды, для которых idempotencyKey обязателен (B-08: сервер ключ не додумывает). */
 export const WS_REQUIRES_IDEMPOTENCY_KEY: readonly WSClientType[] = Object.freeze([
@@ -218,8 +218,8 @@ export const WSServerPayloadSchemas = sv;
 export type WSServerType = keyof typeof sv;
 export const WS_SERVER_TYPES: readonly WSServerType[] = Object.freeze(Object.keys(sv) as WSServerType[]);
 
-export const WSServerMessageSchema = buildEnvelopeUnion(sv, envelopeExtra);
-export type WSServerMessage = z.infer<typeof WSServerMessageSchema>;
+export const LegacyWSServerMessageSchema = buildEnvelopeUnion(sv, envelopeExtra);
+export type WSServerMessage = z.infer<typeof LegacyWSServerMessageSchema>;
 
 /**
  * Матрица приватности (патч аудита §8.4, блокер B-10).

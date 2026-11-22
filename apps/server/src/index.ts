@@ -6,6 +6,15 @@
 export { buildApp, type BuildAppOptions } from './app.js';
 export { resolveProjectRoot } from './project-root.js';
 export {
+  createPrototypeWsGateway,
+  prototypeStaticScene,
+  prototypeRealtimeLimits,
+  PrototypeHotMatch,
+  PROTOTYPE_HOT_RUNTIME_CONFIG,
+  type PrototypeHotPlayer,
+  type PrototypeWsOptions,
+} from './hot-wiring.js';
+export {
   buildHealthPayload,
   buildVersionPayload,
   type HealthPayload,

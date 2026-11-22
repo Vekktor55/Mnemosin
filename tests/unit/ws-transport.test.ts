@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'vitest';
 
-import { ConnectionRateLimiter, RequestDedupeCache, findForbiddenKey } from '@mnemosin/gateway-ws';
+import { ConnectionRateLimiter, RequestDedupeCache } from '@mnemosin/gateway-ws';
 
 /**
- * Транспортные примитивы WS-гейтвея (промпт 1.11): LRU-дедупликация requestId
- * (F-6.7), token bucket per connection, глубокий скан запрещённых broadcast-полей.
+ * Транспортные примитивы WS-гейтвея: LRU-дедупликация requestId и token bucket
+ * per connection. Legacy Turn/GM broadcast helpers удалены в P05-A.
  */
 
 describe('RequestDedupeCache (F-6.7)', () => {
@@ -74,21 +74,8 @@ describe('ConnectionRateLimiter (wsRatePerConnection)', () => {
   });
 });
 
-describe('findForbiddenKey (B-10, FORBIDDEN_IN_BROADCAST)', () => {
-  it('находит запрещённые ключи на любой глубине', () => {
-    expect(findForbiddenKey({ a: 1 })).toBeNull();
-    expect(findForbiddenKey({ privateMessages: [] })).toBe('privateMessages');
-    expect(findForbiddenKey({ nested: { deep: [{ knowledge: [] }] } })).toBe('knowledge');
-    expect(findForbiddenKey({ diagnostics: { providerId: 'x' } })).toBe('diagnostics');
-    expect(findForbiddenKey([{ gmNotesForAI: 'secret' }])).toBe('gmNotesForAI');
-  });
-
-  it('публичный TURN_COMMITTED-подобный payload чист', () => {
-    const payload = {
-      turnId: 'x',
-      version: 3,
-      publicSegments: [{ segmentId: 's1', text: 'нарратив' }],
-    };
-    expect(findForbiddenKey(payload)).toBeNull();
-  });
-});
+/**
+ * P05-A удалил legacy broadcast-allowlist (`findForbiddenKey`): v4 Player/Observer
+ * privacy обеспечивается отдельными strict DTO до сериализации. Регрессии этой
+ * границы проверяются в `ws-projections.test.ts` и `ws-realtime.test.ts`.
+ */

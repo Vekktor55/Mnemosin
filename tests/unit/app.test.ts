@@ -48,6 +48,10 @@ describe('HTTP каркас (A1.1)', () => {
     await app?.close();
   });
 
+  it('не доверяет X-Forwarded-For без явного trusted-proxy policy', () => {
+    expect(app.initialConfig.trustProxy ?? false).toBe(false);
+  });
+
   it('GET /health без БД → 200, db:unknown, phase:no-db (сервер жив и без БД, A1.1)', async () => {
     const res = await app.inject({ method: 'GET', url: '/health' });
 

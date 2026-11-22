@@ -22,12 +22,12 @@
 import type { z } from 'zod';
 import {
   WS_CLOSE_CODE,
-  WSServerMessageSchema,
+  LegacyWSServerMessageSchema as WSServerMessageSchema,
   type WSClientMessage,
   type WSClientType,
   type WSServerMessage,
   type WSServerType,
-  type WSClientPayloadSchemas,
+  type LegacyWSClientPayloadSchemas as WSClientPayloadSchemas,
 } from '@mnemosin/contracts';
 
 import {

@@ -244,7 +244,7 @@ export type ResolutionSummaryView = z.infer<typeof ResolutionSummaryViewSchema>;
 // ============================================================================
 
 /** Player projection: только данные, доступные конкретному игроку. */
-export const PlayerProjectionSchema = z.object({
+export const LegacyPlayerProjectionSchema = z.object({
   sessionId: SessionId,
   version: z.number().int().nonnegative(),
   playerId: PlayerId,
@@ -261,10 +261,10 @@ export const PlayerProjectionSchema = z.object({
   endingId: z.string().max(80).nullable(),
   updatedAt: IsoDateTime,
 });
-export type PlayerProjection = z.infer<typeof PlayerProjectionSchema>;
+export type LegacyPlayerProjection = z.infer<typeof LegacyPlayerProjectionSchema>;
 
 /** Observer projection: полная видимость скрытого игрового состояния (NETWORK_PROTOCOL.md §10.3). */
-export const ObserverProjectionSchema = z.object({
+export const LegacyObserverProjectionSchema = z.object({
   sessionId: SessionId,
   version: z.number().int().nonnegative(),
   // Полное состояние включая скрытые поля
@@ -311,7 +311,7 @@ export const ObserverProjectionSchema = z.object({
   environmentState: z.unknown().optional(),
   updatedAt: IsoDateTime,
 });
-export type ObserverProjection = z.infer<typeof ObserverProjectionSchema>;
+export type LegacyObserverProjection = z.infer<typeof LegacyObserverProjectionSchema>;
 
 /** Developer projection: диагностическая информация (NETWORK_PROTOCOL.md §10.4). */
 export const DeveloperProjectionSchema = z.object({

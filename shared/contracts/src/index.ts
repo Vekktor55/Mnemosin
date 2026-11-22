@@ -55,10 +55,23 @@ export * from './events/subscribers.js';
 // --- AI / транспорт
 export * from './ai.js';
 export * from './transport/views.js';
-export * from './transport/ws.js';
+// Старый v3 client ещё компилируется до P05-B, но server Gateway использует только realtime.ts.
+export {
+  LegacyWSClientMessageSchema,
+  LegacyWSServerMessageSchema,
+  WS_CLOSE_CODE,
+  WSClientPayloadSchemas as LegacyWSClientPayloadSchemas,
+  type WSClientMessage,
+  type WSServerMessage,
+  type WSClientType,
+  type WSServerType,
+  type WsCloseCode,
+} from './transport/legacy-ws.js';
 export * from './transport/http.js';
 export * from './transport/envelope.js';
 export * from './transport/spatial.js';
+export * from './transport/scene.js';
+export * from './transport/realtime.js';
 
 // --- World Pack (P03)
 export * from './worldpack.js';
