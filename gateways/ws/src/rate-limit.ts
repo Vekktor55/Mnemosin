@@ -1,5 +1,3 @@
-import type { WSClientType } from '@mnemosin/contracts';
-
 /**
  * Rate limit per connection (промпт 1.11, п.4): token bucket на класс
  * сообщения из limits.wsRatePerConnection — ACTION_SUBMIT 5/с, CHAT_PUBLIC
@@ -33,13 +31,13 @@ export class ConnectionRateLimiter {
     private readonly now: () => number = Date.now,
   ) {}
 
-  private rateOf(type: WSClientType | string): number {
+  private rateOf(type: string): number {
     if (type === 'ACTION_SUBMIT') return this.rates.ACTION_SUBMIT;
     if (type === 'CHAT_PUBLIC') return this.rates.CHAT_PUBLIC;
     return this.rates.DEFAULT;
   }
 
-  tryConsume(type: WSClientType | string): boolean {
+  tryConsume(type: string): boolean {
     const rate = this.rateOf(type);
     const at = this.now();
     let bucket = this.buckets.get(type);

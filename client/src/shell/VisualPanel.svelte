@@ -1,39 +1,67 @@
 <script lang="ts">
   /**
-   * VisualPanel — заглушка этапа 1 (промпт 1.12, п.4): «визуал появится на
-   * этапе 2». visualStore уже принимает MEDIA_x/AUDIO_x (этап 2 включит
-   * картинку без изменения транспорта).
-   *
-   * Редизайн (только графика): контейнер — старинная мрачная рама с двойным
-   * багровым кантом; при смене локации / прибытии нового медиа (MEDIA_READY →
-   * обновление sceneUrl) — медленный пульс свечения. Логика visualStore
-   * не меняется: эффект следит за уже существующим $derived-значением.
+   * VisualPanel (P05-B): контейнер PixiJS canvas + DOM HUD. Кадровый цикл и
+   * ввод принадлежат GameWorld; сюда выводится только throttled-метрика.
    */
-  import { visualStore } from '../stores/index.js';
+  import { gameStore } from '../stores/index.js';
+  import { startGame } from '../app-context.js';
+  import type { ClientIdentity } from '../lib/privacy.js';
 
-  const sceneUrl = $derived($visualStore.visibleSceneUrl);
+  interface Props {
+    identity: ClientIdentity;
+  }
 
-  /** Декоративный «разряд» свечения на новый кадр (UI-only, без изменения сторов). */
-  let pulsing = $state(false);
+  let { identity }: Props = $props();
+
+  let canvasHost = $state<HTMLDivElement | null>(null);
 
   $effect(() => {
-    if (sceneUrl === null) return;
-    pulsing = true;
-    const timer = setTimeout(() => {
-      pulsing = false;
-    }, 2600);
-    return () => clearTimeout(timer);
+    const host = canvasHost;
+    if (host === null) return;
+    return startGame({ identity, parent: host });
   });
+
+  const hud = $derived($gameStore);
 </script>
 
-<div class="panel visual-panel">
-  <h3 class="panel-title">Визуал</h3>
-  {#if sceneUrl !== null}
-    <!-- Этап 2: url приходит с сервера (MEDIA_READY), отдаётся через /media/files/* -->
-    <div class="scene-frame {pulsing ? 'pulse' : ''}" data-testid="scene-frame">
-      <img src={sceneUrl} alt="Сцена" data-testid="scene-image" />
-    </div>
-  {:else}
-    <div class="visual-stub" data-testid="visual-stub">визуал появится на этапе 2</div>
-  {/if}
+<div class="visual-panel" data-testid="visual-panel">
+  <div class="game-stage" bind:this={canvasHost} data-testid="game-stage"></div>
+  <footer class="game-hud" data-testid="game-hud">
+    <span class="hud-item">FPS {hud.fps}</span>
+    <span class="hud-item">frame {hud.frameTimeMs} ms</span>
+    <span class="hud-item">input→visual {hud.inputToVisualMs} ms</span>
+    {#if hud.rttMs !== null}<span class="hud-item">RTT {hud.rttMs} ms</span>{/if}
+    <span class="hud-item">players {hud.playerCount}</span>
+  </footer>
 </div>
+
+<style>
+  .visual-panel {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;
+  }
+  .game-stage {
+    flex: 1;
+    position: relative;
+    min-height: 0;
+    background: #0a0a10;
+  }
+  .game-stage :global(canvas) {
+    display: block;
+  }
+  .game-hud {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 16px;
+    padding: 6px 12px;
+    font: 12px ui-monospace, monospace;
+    color: #9a9ab0;
+    background: #10101a;
+    border-top: 1px solid #26263a;
+  }
+  .hud-item {
+    white-space: nowrap;
+  }
+</style>

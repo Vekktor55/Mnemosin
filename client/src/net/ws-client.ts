@@ -1,60 +1,42 @@
 /**
- * WSClient (промпт 1.12, п.2; v3 §VII.7; SPEC §6.1, §6.4; D123).
+ * WSClient v4 (P05-B): типизированный клиент поверх WsClientEnvelope/WsServerEnvelope.
  *
- * - connect: handshake-авторизация subprotocol'ом `mnemosin.v1.<jwt>` (D123 —
- *   основной способ; сервер эхо-ит его через handleProtocols). Очередь исходящих
- *   до AUTH_OK (HELLO → AUTH_OK — гарантированный порядок сервера, промпт 1.11).
- * - reconnect: экспоненциальный backoff (net/backoff.ts, зеркало limits.yaml:
- *   base 500, factor 2, cap 15000, jitter ±20%, maxAttempts 8) → после
- *   исчерпания FAILED с причиной; «Подключиться снова» = reconnectNow() (F-6.10).
- *   Close 4401/4403 (AUTH_INVALID/AUTH_FORBIDDEN/EXPIRED) — НЕ ретраятся:
- *   требуется повторный вход (clientAction REAUTH, ERROR_TABLE).
- * - offline-queue: сообщения с idempotencyKey/requestId персистятся в
- *   localStorage `mnemosin:pending:<playerId>` (D126), удаляются по ack,
- *   переотправляются после реконнекта; сервер дедуплицирует по requestId и
- *   идемпотентности (A1.9, D272).
- * - heartbeat: свой app-level PING каждые 20 с; нет входящих кадров
- *   idleTimeoutMs (45 с) → принудительный реконнект. На серверные
- *   protocol-level PING браузер отвечает PONG автоматически (RFC 6455).
- * - on(type, handler): типизация по WSServerMessage; входящие кадры
- *   валидируются WSServerMessageSchema (инвариант 16 — zod на границе).
+ * - handshake: subprotocol `mnemosin.v1.<jwt>` (D123, NET-01 не меняется);
+ * - lifecycle: connection:welcome → connection:client-ready → scene:keyframe →
+ *   connection:ready → live delta/input-ack;
+ * - RTT/server time: connection:ping/pong (pendingPings);
+ * - reconnect: новый connectionEpoch/inputStreamId приходит в welcome; старые
+ *   pending inputs/deltas/interpolation сбрасываются (scene:input не replay);
+ * - sequence gap / смена worldEpoch: scene:resync.
+ *
+ * Инвариант 15: только @mnemosin/contracts; никакого core/gateways.
  */
-import type { z } from 'zod';
 import {
+  MessageId,
+  SceneSequence,
+  WorldEpoch,
   WS_CLOSE_CODE,
-  LegacyWSServerMessageSchema as WSServerMessageSchema,
-  type WSClientMessage,
-  type WSClientType,
-  type WSServerMessage,
-  type WSServerType,
-  type LegacyWSClientPayloadSchemas as WSClientPayloadSchemas,
+  WsServerEnvelopeSchema,
+  type SceneKeyframePayload,
+  type SceneDeltaPayload,
+  type WsClientEnvelope,
+  type WsClientMessageType,
+  type WsServerEnvelope,
+  type WsServerMessageType,
 } from '@mnemosin/contracts';
 
-import {
-  backoffDelayMs,
-  DEFAULT_HEARTBEAT_LIMITS,
-  DEFAULT_RECONNECT_LIMITS,
-  type HeartbeatLimits,
-  type ReconnectLimits,
-} from './backoff.js';
-import { isRetryableErrorCode, OfflineQueue, shouldPersist, type StorageLike } from './offline-queue.js';
+import { backoffDelayMs, DEFAULT_HEARTBEAT_LIMITS, DEFAULT_RECONNECT_LIMITS } from './backoff.js';
+import type { HeartbeatLimits, ReconnectLimits } from './backoff.js';
+import { newMessageId } from '../lib/ids.js';
+import { oneWayDelayMs, shouldDrop, type NetworkProfile } from '../game-world/net/profile.js';
 
-/** Payload клиентского сообщения по типу (схема — источник истины). */
-export type ClientPayloadOf<T extends WSClientType> = z.infer<(typeof WSClientPayloadSchemas)[T]>;
-
-/** Серверное сообщение конкретного типа (discriminated union из контрактов). */
-export type ServerMessageOf<T extends WSServerType> = Extract<WSServerMessage, { type: T }>;
-
-/** Состояния соединения (v3 §VII.3) + попытка и время следующего ретрая. */
 export type ConnectionStatus = 'IDLE' | 'CONNECTING' | 'CONNECTED' | 'RECONNECTING' | 'FAILED' | 'CLOSED';
 
 export interface ConnectionSnapshot {
   readonly status: ConnectionStatus;
-  /** 1-based номер предстоящей/выполняемой попытки реконнекта (0 — первое подключение). */
   readonly attempt: number;
   readonly maxAttempts: number;
   readonly nextRetryAt: number | null;
-  /** Причина FAILED (код закрытия или текст) — для ConnectionBar. */
   readonly reason: string | null;
   readonly closeCode: number | null;
 }
@@ -71,26 +53,37 @@ export const IDLE_SNAPSHOT: ConnectionSnapshot = Object.freeze({
 export interface WSClientOptions {
   readonly url: string;
   readonly token: string;
-  /** Известный playerId (из сохранённой identity) — чтобы offline-очередь работала до AUTH_OK. */
-  readonly playerId?: string | null;
-  /** Изменения состояния соединения (connectionStore обновляется ТОЛЬКО отсюда, v3 §VII.8). */
   readonly onStatus?: (snapshot: ConnectionSnapshot) => void;
-  /** Вызывается после AUTH_OK (и после каждого реконнекта) — app-level SUBSCRIBE/HISTORY. */
-  readonly onReady?: (auth: { playerId: string; sessionId: string; isGM: boolean }) => void;
+  readonly onKeyframe?: (keyframe: SceneKeyframePayload) => void;
+  readonly onDelta?: (delta: SceneDeltaPayload) => void;
+  readonly onReady?: () => void;
+  readonly onResyncRequired?: (reason: string) => void;
+  readonly onClose?: (code: number) => void;
   readonly reconnect?: Partial<ReconnectLimits>;
   readonly heartbeat?: Partial<HeartbeatLimits>;
-  /** Инжекция storage (тесты/приватный режим); по умолчанию localStorage. */
-  readonly storage?: StorageLike | null;
+  /** Искусственный сетевой профиль (только тесты/E2E; production не задаёт). */
+  readonly networkProfile?: NetworkProfile | null;
+  /** Инжектируемый rng для детерминированных тестов impairment. */
+  readonly rng?: () => number;
 }
 
-type ServerHandler = (message: WSServerMessage) => void;
-
-interface CloseReasonPayload {
-  code?: string;
-  message?: string;
+export interface ConnectionInfo {
+  readonly connectionId: string;
+  readonly connectionEpoch: number;
+  readonly inputStreamId: string;
+  readonly actorId: string;
+  readonly actorType: 'player' | 'observer' | 'developer';
+  readonly projectionKind: 'player' | 'observer';
+  readonly matchId: string;
+  readonly isReconnect: boolean;
+  readonly lastSceneSequence: number | null;
+  readonly worldEpoch: number | null;
+  readonly lastRttMs: number | null;
 }
 
-/** Субпротокол handshake (D123): `mnemosin.v1.<jwt>`. */
+type ServerHandler = (message: WsServerEnvelope) => void;
+
+/** Субпротокол handshake (D123): `mnemosin.v1.<jwt>`; токен никогда не в URL. */
 export function wsSubprotocol(token: string): string {
   return `mnemosin.v1.${token}`;
 }
@@ -101,34 +94,39 @@ export class WSClient {
   private readonly limits: ReconnectLimits;
   private readonly heartbeatLimits: HeartbeatLimits;
   private readonly onStatus: ((snapshot: ConnectionSnapshot) => void) | null;
+  private readonly onKeyframe: WSClientOptions['onKeyframe'] | null;
+  private readonly onDelta: WSClientOptions['onDelta'] | null;
   private readonly onReady: WSClientOptions['onReady'] | null;
-  private readonly queue: OfflineQueue;
+  private readonly onResyncRequired: WSClientOptions['onResyncRequired'] | null;
+  private readonly onClose: WSClientOptions['onClose'] | null;
+  private readonly networkProfile: NetworkProfile | null;
+  private readonly rng: () => number;
 
-  private readonly handlers = new Map<WSServerType, Set<ServerHandler>>();
+  private readonly handlers = new Map<WsServerMessageType, Set<ServerHandler>>();
   private socket: WebSocket | null = null;
   private snapshot: ConnectionSnapshot = IDLE_SNAPSHOT;
 
-  private playerId: string | null;
-  private sessionId: string | null = null;
-  private isGM = false;
-
-  /** Исходящие до AUTH_OK (в т.ч. созданные офлайн, когда playerId ещё неизвестен). */
-  private preAuthQueue: WSClientMessage[] = [];
-  private authed = false;
+  private connectionInfo: ConnectionInfo | null = null;
+  private ready = false;
   private manualClose = false;
   private retryTimer: ReturnType<typeof setTimeout> | null = null;
   private heartbeatTimer: ReturnType<typeof setInterval> | null = null;
   private lastAliveAt = 0;
+  private readonly pendingPings = new Map<string, number>();
 
   constructor(options: WSClientOptions) {
     this.url = options.url;
     this.token = options.token;
-    this.playerId = options.playerId ?? null;
     this.onStatus = options.onStatus ?? null;
+    this.onKeyframe = options.onKeyframe ?? null;
+    this.onDelta = options.onDelta ?? null;
     this.onReady = options.onReady ?? null;
+    this.onResyncRequired = options.onResyncRequired ?? null;
+    this.onClose = options.onClose ?? null;
     this.limits = { ...DEFAULT_RECONNECT_LIMITS, ...options.reconnect };
     this.heartbeatLimits = { ...DEFAULT_HEARTBEAT_LIMITS, ...options.heartbeat };
-    this.queue = new OfflineQueue(options.storage === undefined ? undefined : options.storage);
+    this.networkProfile = options.networkProfile ?? null;
+    this.rng = options.rng ?? Math.random;
     this.snapshot = { ...IDLE_SNAPSHOT, maxAttempts: this.limits.maxAttempts };
   }
 
@@ -140,7 +138,6 @@ export class WSClient {
     this.openSocket();
   }
 
-  /** «Подключиться снова» (F-6.10): сброс счётчика попыток и немедленный connect. */
   reconnectNow(): void {
     this.clearRetryTimer();
     this.teardownSocket();
@@ -148,20 +145,21 @@ export class WSClient {
     this.connect();
   }
 
-  /** Ручное закрытие (logout): без реконнекта. */
   close(): void {
     this.manualClose = true;
     this.clearRetryTimer();
     this.stopHeartbeat();
-    this.authed = false;
+    this.ready = false;
     this.teardownSocket();
     this.setStatus({ ...this.snapshot, status: 'CLOSED', nextRetryAt: null });
   }
 
-  /** Типизированная подписка; возвращает функцию отписки. */
-  on<T extends WSServerType>(type: T, handler: (message: ServerMessageOf<T>) => void): () => void {
+  on<T extends WsServerMessageType>(
+    type: T,
+    handler: (message: Extract<WsServerEnvelope, { type: T }>) => void,
+  ): () => void {
     const set = this.handlers.get(type) ?? new Set<ServerHandler>();
-    const wrapped: ServerHandler = (message) => handler(message as ServerMessageOf<T>);
+    const wrapped: ServerHandler = (message) => handler(message as Extract<WsServerEnvelope, { type: T }>);
     set.add(wrapped);
     this.handlers.set(type, set);
     return () => {
@@ -169,71 +167,41 @@ export class WSClient {
     };
   }
 
-  /**
-   * Отправка сообщения. До AUTH_OK складывается в очередь (промпт 1.12, п.2);
-   * сообщения с idempotencyKey/requestId персистятся в offline-очередь.
-   *
-   * ВАЖНО (requestId): zod-схемы payload'ов GM-команд НЕ объявляют requestId —
-   * серверный парсинг вырезал бы его из payload, и echo-корреляция ack/ERROR
-   * (F-6.7) потерялась бы. Поэтому requestId дублируется в envelope: роутер
-   * читает `payload.requestId ?? message.requestId` (router.ts), а envelope-
-   * поле сохраняется схемой конверта (envelopeExtra).
-   */
-  send<T extends WSClientType>(type: T, payload: ClientPayloadOf<T>): void {
-    const record = payload as unknown as Record<string, unknown>;
-    const envelopeRequestId = typeof record['requestId'] === 'string' ? record['requestId'] : undefined;
-    const envelope = {
+  send<T extends WsClientMessageType>(type: T, payload: Extract<WsClientEnvelope, { type: T }>['payload']): void {
+    const envelope: WsClientEnvelope = {
+      protocolVersion: 'v1',
+      schemaVersion: 1,
+      messageId: MessageId.parse(newMessageId()),
       type,
       payload,
-      ts: new Date().toISOString(),
-      ...(envelopeRequestId === undefined ? {} : { requestId: envelopeRequestId }),
-    } as unknown as WSClientMessage;
-
-    if (shouldPersist(type, record) && this.playerId !== null) {
-      this.queue.push(this.playerId, {
-        type,
-        payload: record,
-        ...(envelopeRequestId === undefined ? {} : { requestId: envelopeRequestId }),
-        queuedAt: envelope.ts,
-      });
-    }
-
-    if (this.socket !== null && this.socket.readyState === WebSocket.OPEN && this.authed) {
-      this.rawSend(envelope);
-      return;
-    }
-    this.preAuthQueue.push(envelope);
+    } as WsClientEnvelope;
+    this.rawSend(envelope);
   }
 
-  /** Повторить сохранённое сообщение тем же envelope (retry с тем же idempotencyKey). */
-  resend(envelope: { type: string; payload: Record<string, unknown> }): void {
-    this.send(envelope.type as WSClientType, envelope.payload as never);
+  isReady(): boolean {
+    return this.ready;
+  }
+
+  getConnectionInfo(): ConnectionInfo | null {
+    return this.connectionInfo;
   }
 
   getSnapshot(): ConnectionSnapshot {
     return this.snapshot;
   }
 
-  getPlayerId(): string | null {
-    return this.playerId;
-  }
-
-  getSessionId(): string | null {
-    return this.sessionId;
-  }
-
-  getIsGM(): boolean {
-    return this.isGM;
-  }
-
-  /** Снять сообщение с offline-очереди вручную (например, пользователь отменил отправку). */
-  dropPending(requestId: string): void {
-    if (this.playerId !== null) this.queue.removeByRequestId(this.playerId, requestId);
-  }
-
-  listPending(): { type: string; payload: Record<string, unknown>; requestId?: string }[] {
-    if (this.playerId === null) return [];
-    return this.queue.list(this.playerId);
+  /** Явный запрос resync (sequence gap / смена worldEpoch). */
+  requestResync(reason: 'sequence_gap' | 'invalid_delta' | 'projection_reset' | 'client_recovery'): void {
+    const info = this.connectionInfo;
+    this.send('scene:resync', {
+      ...(info?.lastSceneSequence !== null && info?.lastSceneSequence !== undefined
+        ? { lastAppliedSceneSequence: SceneSequence.parse(info.lastSceneSequence) }
+        : {}),
+      ...(info?.worldEpoch !== null && info?.worldEpoch !== undefined
+        ? { worldEpoch: WorldEpoch.parse(info.worldEpoch) }
+        : {}),
+      reason,
+    });
   }
 
   // ----------------------------------------------------------------- socket
@@ -242,7 +210,6 @@ export class WSClient {
     this.teardownSocket();
     let socket: WebSocket;
     try {
-      // D123: токен в subprotocol (не в URL — не попадает в логи).
       socket = new WebSocket(this.url, [wsSubprotocol(this.token)]);
     } catch (cause) {
       this.handleFailure(cause instanceof Error ? cause.message : 'не удалось создать WebSocket');
@@ -256,10 +223,11 @@ export class WSClient {
     };
     socket.onmessage = (event: MessageEvent) => {
       this.lastAliveAt = Date.now();
-      this.handleIncoming(typeof event.data === 'string' ? event.data : '');
+      const raw = typeof event.data === 'string' ? event.data : '';
+      this.handleIncoming(raw);
     };
     socket.onerror = () => {
-      // Браузер всегда следует onerror → onclose: обработка там.
+      /* браузер всегда следует onerror → onclose: обработка там */
     };
     socket.onclose = (event: CloseEvent) => {
       this.handleClose(event);
@@ -283,10 +251,23 @@ export class WSClient {
     }
   }
 
-  private rawSend(envelope: WSClientMessage): void {
+  private rawSend(envelope: WsClientEnvelope): void {
     const socket = this.socket;
     if (socket === null || socket.readyState !== WebSocket.OPEN) return;
-    socket.send(JSON.stringify(envelope));
+    // Искусственная деградация — движение (scene:input) и RTT-проба (ping);
+    // handshake/control сообщения не дропаются, чтобы welcome/keyframe/ready
+    // оставались детерминированными.
+    const impaired =
+      (envelope.type === 'scene:input' || envelope.type === 'connection:ping') && this.networkProfile !== null;
+    if (impaired && shouldDrop(this.networkProfile as NetworkProfile, this.rng)) return;
+    const delay = impaired ? this.impairmentDelay() : 0;
+    const sendNow = (): void => {
+      const current = this.socket;
+      if (current === null || current.readyState !== WebSocket.OPEN) return;
+      current.send(JSON.stringify(envelope));
+    };
+    if (delay > 0) setTimeout(sendNow, delay);
+    else sendNow();
   }
 
   private handleIncoming(raw: string): void {
@@ -298,12 +279,24 @@ export class WSClient {
       console.warn('ws-client: не-JSON кадр игнорирован');
       return;
     }
-    const parsed = WSServerMessageSchema.safeParse(json);
+    const parsed = WsServerEnvelopeSchema.safeParse(json);
     if (!parsed.success) {
-      console.warn('ws-client: кадр не прошёл WSServerMessageSchema — игнорирован');
+      console.warn('ws-client: кадр не прошёл WsServerEnvelopeSchema — игнорирован');
       return;
     }
     const message = parsed.data;
+    if (this.isImpairedIncoming(message.type)) {
+      if (shouldDrop(this.networkProfile as NetworkProfile, this.rng)) return;
+      const delay = this.impairmentDelay();
+      if (delay > 0) {
+        setTimeout(() => this.dispatch(message), delay);
+        return;
+      }
+    }
+    this.dispatch(message);
+  }
+
+  private dispatch(message: WsServerEnvelope): void {
     this.handleProtocol(message);
     const set = this.handlers.get(message.type);
     if (set !== undefined) {
@@ -311,14 +304,26 @@ export class WSClient {
     }
   }
 
-  /** Протокольная логика самого клиента (AUTH_OK/ack/ERROR) — до пользовательских обработчиков. */
-  private handleProtocol(message: WSServerMessage): void {
+  /** Протокольная логика клиента — до пользовательских обработчиков. */
+  private handleProtocol(message: WsServerEnvelope): void {
     switch (message.type) {
-      case 'AUTH_OK': {
-        this.playerId = message.payload.playerId;
-        this.sessionId = message.payload.sessionId;
-        this.isGM = message.payload.isGM;
-        this.authed = true;
+      case 'connection:welcome': {
+        const info = this.connectionInfo;
+        const isReconnect = info !== null;
+        this.connectionInfo = {
+          connectionId: message.payload.connectionId,
+          connectionEpoch: message.payload.connectionEpoch,
+          inputStreamId: message.payload.inputStreamId,
+          actorId: message.payload.actorId,
+          actorType: message.payload.actorType,
+          projectionKind: message.payload.projectionKind,
+          matchId: message.payload.matchId,
+          isReconnect: message.payload.isReconnect || isReconnect,
+          lastSceneSequence: null,
+          worldEpoch: null,
+          lastRttMs: null,
+        };
+        this.ready = false;
         this.setStatus({
           status: 'CONNECTED',
           attempt: 0,
@@ -328,61 +333,66 @@ export class WSClient {
           closeCode: null,
         });
         this.startHeartbeat();
-        // 1) накопленные до AUTH_OK, 2) персистентная offline-очередь (A1.9).
-        this.flushPreAuthQueue();
-        this.replayOfflineQueue();
-        this.onReady?.({
-          playerId: message.payload.playerId,
-          sessionId: message.payload.sessionId,
-          isGM: message.payload.isGM,
-        });
+        // Reconnect: сброс буферов/deltas происходит в GameWorld по welcome;
+        // movement inputs никогда не replay (новый inputStreamId).
+        this.send('connection:client-ready', {});
         break;
       }
-      case 'ACTION_ACK':
-        this.dequeue(message.payload.requestId);
+      case 'scene:keyframe': {
+        const info = this.connectionInfo;
+        if (info !== null) {
+          this.connectionInfo = {
+            ...info,
+            lastSceneSequence: message.payload.sceneSequence,
+            worldEpoch: message.payload.worldEpoch,
+          };
+        }
+        this.onKeyframe?.(message.payload);
         break;
-      case 'CHAT_ACK':
-        if (message.payload.requestId !== null) this.dequeue(message.payload.requestId);
+      }
+      case 'scene:delta': {
+        const info = this.connectionInfo;
+        const delta = message.payload;
+        if (info !== null) {
+          const gap = info.lastSceneSequence !== null && delta.baseSceneSequence !== info.lastSceneSequence;
+          const epochChange = info.worldEpoch !== null && delta.worldEpoch !== info.worldEpoch;
+          if (gap || epochChange) {
+            this.requestResync('sequence_gap');
+            break;
+          }
+          this.connectionInfo = {
+            ...info,
+            lastSceneSequence: delta.sceneSequence,
+            worldEpoch: delta.worldEpoch,
+          };
+        }
+        this.onDelta?.(delta);
         break;
-      case 'GM_ACTION_ACK':
-      case 'GM_NOTE_ACK':
-        if (message.requestId !== undefined) this.dequeue(message.requestId);
-        break;
-      case 'ERROR': {
-        const requestId = message.payload.requestId;
-        if (requestId !== null && !isRetryableErrorCode(message.payload.code)) {
-          this.dequeue(requestId);
+      }
+      case 'connection:pong': {
+        const sentAt = this.pendingPings.get(message.payload.pingId);
+        if (sentAt !== undefined) {
+          this.pendingPings.delete(message.payload.pingId);
+          const rtt = Math.max(0, Date.now() - sentAt);
+          const info = this.connectionInfo;
+          if (info !== null) this.connectionInfo = { ...info, lastRttMs: rtt };
         }
         break;
       }
-      case 'PONG':
-        this.lastAliveAt = Date.now();
+      case 'connection:ready':
+        this.ready = true;
+        this.onReady?.();
+        this.probeRtt();
         break;
-      default:
+      case 'scene:resync-required':
+        this.onResyncRequired?.(message.payload.reason);
         break;
-    }
-  }
-
-  private dequeue(requestId: string): void {
-    if (this.playerId !== null) this.queue.removeByRequestId(this.playerId, requestId);
-  }
-
-  private flushPreAuthQueue(): void {
-    const pending = this.preAuthQueue;
-    this.preAuthQueue = [];
-    for (const envelope of pending) this.rawSend(envelope);
-  }
-
-  private replayOfflineQueue(): void {
-    if (this.playerId === null) return;
-    for (const item of this.queue.list(this.playerId)) {
-      const requestId = typeof item.payload['requestId'] === 'string' ? item.payload['requestId'] : item.requestId;
-      this.rawSend({
-        type: item.type,
-        payload: item.payload,
-        ts: new Date().toISOString(),
-        ...(requestId === undefined ? {} : { requestId }),
-      } as unknown as WSClientMessage);
+      case 'connection:error':
+        /* ERROR не фатален для состояния сцены; reason доступен подписчикам. */
+        break;
+      case 'scene:input-ack':
+        /* ack обрабатывается подписчиками GameWorld; протокольной логики нет. */
+        break;
     }
   }
 
@@ -392,9 +402,8 @@ export class WSClient {
     this.stopHeartbeat();
     this.heartbeatTimer = setInterval(() => {
       const socket = this.socket;
-      if (!this.authed || socket === null || socket.readyState !== WebSocket.OPEN) return;
+      if (!this.connectionInfo || socket === null || socket.readyState !== WebSocket.OPEN) return;
       if (Date.now() - this.lastAliveAt > this.heartbeatLimits.idleTimeoutMs) {
-        // Соединение «полумёртвое»: входящих нет — закрываем, путь реконнекта стандартный.
         console.warn('ws-client: heartbeat-таймаут — принудительный реконнект');
         try {
           socket.close(4000, 'heartbeat timeout');
@@ -403,8 +412,15 @@ export class WSClient {
         }
         return;
       }
-      this.rawSend({ type: 'PING', payload: {}, ts: new Date().toISOString() } as unknown as WSClientMessage);
+      this.probeRtt();
     }, this.heartbeatLimits.intervalMs);
+  }
+
+  /** Отправить connection:ping и зафиксировать время для RTT-оценки. */
+  private probeRtt(): void {
+    const pingId = newMessageId();
+    this.pendingPings.set(pingId, Date.now());
+    this.send('connection:ping', { pingId, clientTimeMs: Date.now() });
   }
 
   private stopHeartbeat(): void {
@@ -417,31 +433,30 @@ export class WSClient {
   // --------------------------------------------------------------- reconnect
 
   private handleClose(event: CloseEvent): void {
-    this.authed = false;
+    this.ready = false;
     this.stopHeartbeat();
     this.socket = null;
+    this.onClose?.(event.code);
 
     if (this.manualClose) {
       this.setStatus({ ...this.snapshot, status: 'CLOSED', nextRetryAt: null, closeCode: event.code });
       return;
     }
     if (event.code === WS_CLOSE_CODE.AUTH_INVALID || event.code === WS_CLOSE_CODE.AUTH_FORBIDDEN) {
-      // 4401/4403: ретрай бессмысленен — нужен повторный вход (clientAction REAUTH).
-      const reason = parseCloseReason(event.reason);
-      this.setStatus({
-        ...this.snapshot,
-        status: 'FAILED',
-        nextRetryAt: null,
-        closeCode: event.code,
-        reason: reason ?? (event.code === WS_CLOSE_CODE.AUTH_INVALID ? 'AUTH_INVALID' : 'AUTH_FORBIDDEN'),
-      });
+      const reason =
+        event.reason.length > 0
+          ? event.reason
+          : event.code === WS_CLOSE_CODE.AUTH_INVALID
+            ? 'AUTH_INVALID'
+            : 'AUTH_FORBIDDEN';
+      this.setStatus({ ...this.snapshot, status: 'FAILED', nextRetryAt: null, closeCode: event.code, reason });
       return;
     }
-    this.scheduleReconnect(closeReasonText(event));
+    this.scheduleReconnect(`close ${event.code}`);
   }
 
   private handleFailure(reason: string): void {
-    this.authed = false;
+    this.ready = false;
     this.stopHeartbeat();
     this.socket = null;
     if (this.manualClose) return;
@@ -482,21 +497,18 @@ export class WSClient {
     this.snapshot = Object.freeze(snapshot);
     this.onStatus?.(this.snapshot);
   }
-}
 
-function parseCloseReason(reason: string): string | null {
-  if (reason.length === 0) return null;
-  try {
-    const parsed = JSON.parse(reason) as CloseReasonPayload;
-    if (typeof parsed.code === 'string') return parsed.code;
-  } catch {
-    /* reason — не JSON */
+  // ------------------------------------------------------------ impairment
+
+  /** Искусственная деградация — scene replication движения и pong, не handshake. */
+  private isImpairedIncoming(type: WsServerMessageType): boolean {
+    return (
+      this.networkProfile !== null &&
+      (type === 'scene:delta' || type === 'scene:input-ack' || type === 'connection:pong')
+    );
   }
-  return reason;
-}
 
-function closeReasonText(event: CloseEvent): string | null {
-  const parsed = parseCloseReason(event.reason);
-  if (parsed !== null) return `close ${event.code}: ${parsed}`;
-  return event.code === 1006 ? 'соединение потеряно (1006)' : `close ${event.code}`;
+  private impairmentDelay(): number {
+    return this.networkProfile === null ? 0 : oneWayDelayMs(this.networkProfile, this.rng);
+  }
 }

@@ -1,4 +1,3 @@
-import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
 
 /**
@@ -143,8 +142,19 @@ export type EventSequence = z.infer<typeof EventSequence>;
 export const ConnectionEpoch = z.number().int().nonnegative().safe().brand<'ConnectionEpoch'>();
 export type ConnectionEpoch = z.infer<typeof ConnectionEpoch>;
 
+/**
+ * Генерация UUID. Browser-safe (Web Crypto) с fallback для сред без
+ * `crypto.randomUUID` — contracts больше не импортируют `node:crypto`,
+ * поэтому лист-пакет остаётся пригодным для клиентского бандла.
+ */
 export function newId(): string {
-  return randomUUID();
+  const crypto = globalThis.crypto as { randomUUID?: () => string } | undefined;
+  if (crypto !== undefined && typeof crypto.randomUUID === 'function') return crypto.randomUUID();
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (char) => {
+    const rand = Math.floor(Math.random() * 16);
+    const value = char === 'x' ? rand : (rand & 0x3) | 0x8;
+    return value.toString(16);
+  });
 }
 
 /**

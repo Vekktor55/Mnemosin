@@ -145,3 +145,14 @@ export type WsErrorDetails = NonNullable<WsErrorPayload['details']>;
  * Полный WS envelope type; metadata распределены по семантическим payload scopes.
  */
 export type WsRealtimeEnvelope = WsEnvelope;
+
+/** Коды закрытия WS-соединения (NETWORK_PROTOCOL.md §19). */
+export const WS_CLOSE_CODE = {
+  AUTH_INVALID: 4401,
+  AUTH_FORBIDDEN: 4403,
+  IDLE_TIMEOUT: 4408,
+  RATE_LIMIT: 4429,
+  BACKPRESSURE: 4429,
+  INTERNAL: 4500,
+} as const;
+export type WsCloseCode = (typeof WS_CLOSE_CODE)[keyof typeof WS_CLOSE_CODE];

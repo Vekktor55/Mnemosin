@@ -23,7 +23,8 @@
     "clean": "tsc -b --clean"
   },
   "dependencies": {
-    "@mnemosin/contracts": "*"
+    "@mnemosin/contracts": "*",
+    "pixi.js": "8.23.0"
   },
   "devDependencies": {
     "@sveltejs/vite-plugin-svelte": "^7.0.0",

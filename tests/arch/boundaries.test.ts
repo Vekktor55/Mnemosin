@@ -146,7 +146,13 @@ describe('Границы зависимостей (A1.2)', () => {
       for (const specifier of importsOf(file)) {
         if (specifier.startsWith('.')) continue;
         if (tooling.includes(specifier)) continue;
-        if (specifier !== '@mnemosin/contracts' && !specifier.startsWith('svelte') && specifier !== 'zod') {
+        // P05-B: pixi.js — единственный разрешённый рендер-движок клиента (WORLD_SIMULATION.md §4).
+        if (
+          specifier !== '@mnemosin/contracts' &&
+          !specifier.startsWith('svelte') &&
+          specifier !== 'zod' &&
+          specifier !== 'pixi.js'
+        ) {
           offenders.push(`${file} → ${specifier}`);
         }
       }

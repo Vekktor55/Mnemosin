@@ -222,6 +222,8 @@ export const LAYER_RULES: readonly LayerRule[] = [
       'vite',
       '@sveltejs/vite-plugin-svelte',
       'node:url',
+      // P05-B: PixiJS — единственный разрешённый рендер-движок клиента (WORLD_SIMULATION.md §4).
+      'pixi.js',
     ],
     forbiddenNote: 'клиент импортирует только контракты (v3 §IX.6): core/modules/database/gateways недоступны',
   },

@@ -27,3 +27,10 @@ export function newIdempotencyKey(prefix: string): string {
 export function newRequestId(): string {
   return `req-${uuid()}`;
 }
+
+/** Новый messageId (UUID) для v4 WS envelope. */
+export function newMessageId(): string {
+  const c: Crypto | undefined = typeof globalThis.crypto === 'undefined' ? undefined : globalThis.crypto;
+  if (c !== undefined && typeof c.randomUUID === 'function') return c.randomUUID();
+  return uuid();
+}

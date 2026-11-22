@@ -38,11 +38,13 @@
     "arch:cruiser": "depcruise --config .dependency-cruiser.cjs --validate shared core modules infrastructure gateways apps client",
     "arch:manifest": "node tools/arch-manifest.mjs",
     "arch:all": "npm run arch:cruiser && npm run test:arch",
+    "test:e2e": "npm run build -w client && playwright test --config e2e/playwright.config.ts",
     "gen:fixtures": "node tools/gen-location-fixtures.mjs",
     "db:rollback": "npm run db:rollback -w @mnemosin/database"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.5",
+    "@playwright/test": "1.65.1",
     "@types/better-sqlite3": "^9.6.0",
     "@types/node": "^20.19.43",
     "@types/ws": "^8.18.2",
