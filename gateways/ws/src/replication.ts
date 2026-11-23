@@ -1,12 +1,17 @@
 import {
+  type EventId,
+  type EventSequence,
   InputSequence,
+  type MatchId,
   MessageId,
   SceneSequence,
   SnapshotId,
+  type SimulationTick,
   type SceneDeltaPayload,
   type SceneKeyframePayload,
   type SceneProjection,
   type WsServerEnvelope,
+  type WorldEpoch,
 } from '@mnemosin/contracts';
 
 import type { ConnectionRegistry, WsConnectionRecord } from './connection-registry.js';
@@ -45,6 +50,29 @@ export class SceneReplicationService {
       if (connection.state === 'ready') this.publishDelta(connection);
     }
     for (const connection of this.registry.all()) connection.delivery.flush();
+  }
+
+  /** Reliable durable gameplay event; bypasses delta coalescing entirely. */
+  publishDurableEvent(
+    connection: WsConnectionRecord,
+    event: {
+      readonly eventId: EventId;
+      readonly eventSequence: EventSequence;
+      readonly matchId: MatchId;
+      readonly worldEpoch: WorldEpoch;
+      readonly simulationTick: SimulationTick;
+      readonly payload: unknown;
+    },
+  ): boolean {
+    const envelope = this.envelope('scene:durable-event', {
+      eventId: event.eventId,
+      eventSequence: event.eventSequence,
+      matchId: event.matchId,
+      worldEpoch: event.worldEpoch,
+      simulationTick: event.simulationTick,
+      payload: event.payload,
+    });
+    return this.sendReliable(connection, envelope);
   }
 
   sendKeyframe(connection: WsConnectionRecord): boolean {

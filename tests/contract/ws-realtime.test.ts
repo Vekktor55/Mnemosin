@@ -85,8 +85,9 @@ describe('v4 realtime WS envelopes', () => {
       'scene:delta',
       'scene:input-ack',
       'scene:resync-required',
+      'scene:durable-event',
     ]);
-    expect(WsEnvelopeSchema.options).toHaveLength(12);
+    expect(WsEnvelopeSchema.options).toHaveLength(13);
   });
 
   it('parses every client variant with its own payload', () => {

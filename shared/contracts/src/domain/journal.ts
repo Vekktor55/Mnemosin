@@ -35,6 +35,7 @@ export const JournalKind = z.enum([
   // в этапе 1 только журнал, endSession — этап 3 (промпт 1.8, п.4).
   'ending_reached',
   'snapshot_taken',
+  'hot_gameplay_committed',
   'reconciled_on_boot',
 ]);
 export type JournalKind = z.infer<typeof JournalKind>;

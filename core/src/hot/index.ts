@@ -5,3 +5,4 @@ export * from './collision.js';
 export * from './simulation.js';
 export * from './runtime.js';
 export * from './scheduler.js';
+export * from './cold-boundary.js';

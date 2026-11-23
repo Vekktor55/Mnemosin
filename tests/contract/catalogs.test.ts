@@ -49,7 +49,7 @@ function collectKeys(schema: z.ZodTypeAny, depth = 2): string[] {
 }
 
 describe('Каталог WS v4 (P05-A)', () => {
-  it('содержит только lifecycle и scene replication; Turn/GM handlers удалены', () => {
+  it('содержит lifecycle, scene replication и durable events; Turn/GM handlers удалены', () => {
     expect(WS_CLIENT_TYPES).toEqual(['connection:client-ready', 'connection:ping', 'scene:input', 'scene:resync']);
     expect(WS_SERVER_TYPES).toEqual([
       'connection:welcome',
@@ -60,6 +60,7 @@ describe('Каталог WS v4 (P05-A)', () => {
       'scene:delta',
       'scene:input-ack',
       'scene:resync-required',
+      'scene:durable-event',
     ]);
     expect(WS_CLIENT_TYPES.some((type) => type.startsWith('GM_') || type.startsWith('TURN_'))).toBe(false);
     expect(WS_SERVER_TYPES.some((type) => type.startsWith('GM_') || type.startsWith('TURN_'))).toBe(false);

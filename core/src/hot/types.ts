@@ -51,6 +51,8 @@ export interface HotTickDiagnostics {
   readonly simulationTick: SimulationTick;
   readonly durationMs: number;
   readonly overrun: boolean;
+  readonly coldRevisionsApplied: number;
+  readonly awaitingColdRevision: number | null;
 }
 
 export interface HotTickResult {

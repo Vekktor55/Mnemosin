@@ -1,6 +1,15 @@
 import { z } from 'zod';
 
-import { InputStreamId, MatchId, MessageId, ParticipantId } from '../ids.js';
+import {
+  EventId,
+  EventSequence,
+  InputStreamId,
+  MatchId,
+  MessageId,
+  ParticipantId,
+  SimulationTick,
+  WorldEpoch,
+} from '../ids.js';
 
 import {
   ConnectionClientReadyMessageSchema,
@@ -86,6 +95,17 @@ export const WsServerPayloadSchemas = {
   'scene:delta': SceneDeltaPayloadSchema,
   'scene:input-ack': StrictSceneInputAckMessageSchema,
   'scene:resync-required': SceneResyncRequiredMessageSchema.strict(),
+  /** Reliable durable gameplay event; не пересылается через scene:delta coalescing. */
+  'scene:durable-event': z
+    .object({
+      eventId: EventId,
+      eventSequence: EventSequence,
+      matchId: MatchId,
+      worldEpoch: WorldEpoch,
+      simulationTick: SimulationTick,
+      payload: z.unknown(),
+    })
+    .strict(),
 } as const;
 
 export type WsClientMessageType = keyof typeof WsClientPayloadSchemas;
@@ -126,6 +146,7 @@ export const WsServerEnvelopeSchema = z.discriminatedUnion('type', [
   envelope('scene:delta', WsServerPayloadSchemas['scene:delta']),
   envelope('scene:input-ack', WsServerPayloadSchemas['scene:input-ack']),
   envelope('scene:resync-required', WsServerPayloadSchemas['scene:resync-required']),
+  envelope('scene:durable-event', WsServerPayloadSchemas['scene:durable-event']),
 ]);
 export type WsServerEnvelope = z.infer<typeof WsServerEnvelopeSchema>;
 

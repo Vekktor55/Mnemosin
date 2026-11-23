@@ -54,6 +54,8 @@ export const CommandName = z.enum([
   'sendGMMessage',
   'addNote',
   'grantKnowledge',
+  // P06: идемпотентный HOT → COLD durable event processor.
+  'processHotGameplayEvent',
 ]);
 export type CommandName = z.infer<typeof CommandName>;
 

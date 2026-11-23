@@ -1,4 +1,6 @@
 import type {
+  EventId,
+  EventSequence,
   InputStreamId,
   MatchId,
   ParticipantId,
@@ -117,6 +119,16 @@ export interface WsGatewayLog {
   warn(obj: unknown, msg?: string): void;
   error(obj: unknown, msg?: string): void;
   debug(obj: unknown, msg?: string): void;
+}
+
+/** Reliable durable event channel (P06): never coalesced, delivered FIFO, confirmed by ACK. */
+export interface WsDurableEventChannel {
+  readonly eventId: EventId;
+  readonly eventSequence: EventSequence;
+  readonly matchId: MatchId;
+  readonly worldEpoch: WorldEpoch;
+  readonly simulationTick: SimulationTick;
+  readonly payload: unknown;
 }
 
 export interface WsGatewayDeps {

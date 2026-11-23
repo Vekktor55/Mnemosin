@@ -1,4 +1,10 @@
-import { ProjectionRevision, WorldEpoch, WorldPositionSchema, type SpatialWorldPack } from '@mnemosin/contracts';
+import {
+  MatchId,
+  ProjectionRevision,
+  WorldEpoch,
+  WorldPositionSchema,
+  type SpatialWorldPack,
+} from '@mnemosin/contracts';
 import type { LimitsConfig } from '@mnemosin/config';
 import { HotRuntime, HotTickScheduler, type HotRuntimeConfig, type HotTickResult } from '@mnemosin/core';
 import {
@@ -34,7 +40,16 @@ export class PrototypeHotMatch implements WsHotMatchPort {
     onDiagnostics?: (result: HotTickResult) => void,
   ) {
     const monotonicNow = () => performance.now();
-    this.runtime = new HotRuntime({ pack, players, config: PROTOTYPE_HOT_RUNTIME_CONFIG, now: monotonicNow });
+    const matchId = MatchId.parse(pack.manifest.floorId); // прототип: используем floorId как matchId
+    const worldEpoch = WorldEpoch.parse(1);
+    this.runtime = new HotRuntime({
+      pack,
+      players,
+      config: PROTOTYPE_HOT_RUNTIME_CONFIG,
+      now: monotonicNow,
+      matchId,
+      worldEpoch,
+    });
     this.scheduler = new HotTickScheduler({
       now: monotonicNow,
       timers: {

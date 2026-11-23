@@ -1,8 +1,10 @@
 import {
   InputStreamId,
+  type MatchId,
   ParticipantId,
   SceneInputMessageSchema,
   SimulationTick,
+  type WorldEpoch,
   type SceneInputMessage,
   type SpatialWorldPack,
 } from '@mnemosin/contracts';
@@ -16,6 +18,7 @@ import {
 } from './geometry.js';
 import { runHotSimulationStep } from './simulation.js';
 import type { HotInputReceipt, HotQueuedInput, HotRuntimeConfig, HotSimulationState, HotTickResult } from './types.js';
+import { HotColdRevisionBoundary } from './cold-boundary.js';
 
 export interface HotPlayerSpawn {
   readonly participantId: ParticipantId;
@@ -26,6 +29,8 @@ export interface HotRuntimeOptions extends HotGeometryOptions {
   readonly pack: SpatialWorldPack;
   readonly players: readonly HotPlayerSpawn[];
   readonly config: HotRuntimeConfig;
+  readonly matchId: MatchId;
+  readonly worldEpoch: WorldEpoch;
   /** Монотонные часы только для диагностики, не для интеграции движения. */
   readonly now?: () => number;
 }
@@ -53,6 +58,7 @@ function validateConfig(config: HotRuntimeConfig): void {
 export class HotRuntime {
   readonly geometry: HotWorldGeometry;
   readonly config: HotRuntimeConfig;
+  readonly coldBoundary: HotColdRevisionBoundary;
 
   private state: HotSimulationState;
   private pending: HotQueuedInput[] = [];
@@ -65,6 +71,10 @@ export class HotRuntime {
     this.config = { ...options.config };
     this.now = options.now ?? (() => performance.now());
     this.geometry = compileHotWorldGeometry(options.pack, options);
+    this.coldBoundary = new HotColdRevisionBoundary({
+      matchId: options.matchId,
+      worldEpoch: options.worldEpoch,
+    });
 
     const seenParticipants = new Set<ParticipantId>();
     const players = options.players.map((spawn) => {
@@ -144,8 +154,20 @@ export class HotRuntime {
     return { accepted: true, arrivalSequence: this.arrivalSequence };
   }
 
+  receiveColdCommand(raw: unknown) {
+    return this.coldBoundary.receive(raw);
+  }
+
+  getColdBoundaryState() {
+    return this.coldBoundary.getState();
+  }
+
   tick(): HotTickResult {
     const startedAt = this.now();
+
+    // Step 2: Apply committed COLD updates in revision order
+    const boundaryResult = this.coldBoundary.drainForTick();
+
     const inputs = this.pending;
     this.pending = [];
     const result = runHotSimulationStep(this.state, inputs, this.geometry, this.config);
@@ -157,6 +179,8 @@ export class HotRuntime {
         simulationTick: this.state.simulationTick,
         durationMs,
         overrun: durationMs > FIXED_DT_MS,
+        coldRevisionsApplied: boundaryResult.appliedRevision,
+        awaitingColdRevision: boundaryResult.awaitingRevision,
       },
     };
   }
