@@ -82,4 +82,62 @@ describe('P06 COLD → HOT revision ordering', () => {
     expect(receipt.accepted).toBe(false);
     expect(receipt.reason).toBe('context_mismatch');
   });
+
+  it('rejects structurally invalid command without touching state', () => {
+    const boundary = new HotColdRevisionBoundary({ matchId, worldEpoch, coldRevision: 0 });
+
+    const receipt = boundary.receive({ nonsense: true });
+    expect(receipt.accepted).toBe(false);
+    expect(receipt.reason).toBe('invalid_command');
+    expect(boundary.getState().coldRevision).toBe(0);
+  });
+
+  it('reports revision_conflict when the same revision carries a different command', () => {
+    const boundary = new HotColdRevisionBoundary({ matchId, worldEpoch, coldRevision: 0 });
+
+    boundary.receive(makeCommand(1, uuid(10)));
+    const conflicting = boundary.receive(makeCommand(1, uuid(11)));
+
+    expect(conflicting.accepted).toBe(false);
+    expect(conflicting.reason).toBe('revision_conflict');
+    expect(boundary.drainForTick().appliedCommandIds).toHaveLength(1);
+  });
+
+  it('identical command re-sent for a queued revision is a duplicate', () => {
+    const boundary = new HotColdRevisionBoundary({ matchId, worldEpoch, coldRevision: 0 });
+
+    const command = makeCommand(1, uuid(10));
+    boundary.receive(command);
+    const repeated = boundary.receive(command);
+
+    expect(repeated.accepted).toBe(false);
+    expect(repeated.reason).toBe('duplicate');
+  });
+
+  it('awaitingRevision is null when the queue is empty after drain', () => {
+    const boundary = new HotColdRevisionBoundary({ matchId, worldEpoch, coldRevision: 0 });
+
+    boundary.receive(makeCommand(1));
+    const drained = boundary.drainForTick();
+
+    expect(drained.appliedRevision).toBe(1);
+    expect(drained.awaitingRevision).toBeNull();
+  });
+
+  it('seeds prototype facts and copies them defensively', () => {
+    const participantId = uuid(2);
+    const boundary = new HotColdRevisionBoundary({
+      matchId,
+      worldEpoch,
+      coldRevision: 0,
+      prototypeFacts: { [participantId]: { seed: true } },
+    });
+
+    const state = boundary.getState();
+    expect(state.prototypeFacts[participantId]?.seed).toBe(true);
+
+    // Мутация возвращённого состояния не должна влиять на внутреннее.
+    (state.prototypeFacts[participantId] as Record<string, unknown>).seed = false;
+    expect(boundary.getState().prototypeFacts[participantId]?.seed).toBe(true);
+  });
 });

@@ -81,11 +81,11 @@ export class GameWorld {
     this.ws = options.ws;
     this.parent = options.parent;
     this.projection = new GridProjection({
-      halfTileWidth: 32,
-      halfTileHeight: 16,
+      tileWidth: 64,
+      tileDepth: 40,
       originX: 0,
       originY: 0,
-      elevationStep: 12,
+      elevationStep: 48,
     });
     this.renderer = new PixiRenderer(this.projection);
     this.input = new KeyboardInputController();

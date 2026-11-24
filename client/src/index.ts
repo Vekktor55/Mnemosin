@@ -24,7 +24,7 @@ export {
 export type { ClientIdentity, ClientRole } from './lib/privacy.js';
 
 // --- P05-B: чистые клиентские модули (node-тестируемы, без PixiJS)
-export { GridProjection, depthKey } from './game-world/projection/GridProjection.js';
+export { GridProjection, depthKey, depthTieBreak } from './game-world/projection/GridProjection.js';
 export type {
   GridProjectionConfig,
   ScreenPoint,

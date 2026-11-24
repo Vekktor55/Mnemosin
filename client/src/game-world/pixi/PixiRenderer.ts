@@ -2,27 +2,30 @@
  * PixiJS renderer тестовой комнаты P03 (P05-B §3, §4.6).
  *
  * Pixel-art: antialias:false, roundPixels:true, примитивы Graphics (не текстуры).
- * Камера — через Container transform; depth sorting — foot point (worldX+worldY).
+ * Камера — через Container transform; depth sorting — foot point worldY (+tie-break).
+ * Проекция — фронтальная ортографическая 3/4 (top-down oblique, yaw=0°):
+ * прямоугольные тайлы пола, фасады стен/дверей вверх по -Y на elevationStep.
  * Рендер-цикл принадлежит GameWorld (независим от WebSocket); здесь только
  * отрисовка по мировым координатам через GridProjection.
  */
 import { Application, Container, Graphics } from 'pixi.js';
 
-import { depthKey } from '../projection/GridProjection.js';
+import { depthKey, depthTieBreak } from '../projection/GridProjection.js';
 import type { GridProjection, WorldPoint } from '../projection/GridProjection.js';
 import { P03_PROTOTYPE_ROOM } from '../room/p03.js';
 import type { SceneObject } from '@mnemosin/contracts';
 
 const FLOOR_COLOR = 0x181822;
 const FLOOR_ALT_COLOR = 0x1e1e2a;
-const WALL_COLOR = 0x4a3458;
 const WALL_TOP_COLOR = 0x5a3f68;
+const WALL_FRONT_COLOR = 0x352640;
 const DOOR_OPEN_COLOR = 0x3f9b5a;
 const DOOR_CLOSED_COLOR = 0x9b5a3f;
 const DOOR_LOCKED_COLOR = 0x7a3f9b;
 const PLAYER_OWN_COLOR = 0x7fd07f;
 const PLAYER_REMOTE_COLOR = 0xd07f7f;
-const PLAYER_SIZE = 0.4;
+const PLAYER_SIZE = 0.5; // доля tileWidth
+const PLAYER_BODY_HEIGHT_FRACTION = 0.8; // доля tileDepth
 
 interface PlayerSprite {
   readonly sprite: Graphics;
@@ -69,10 +72,10 @@ export class PixiRenderer {
     for (const object of objects) {
       const marker = new Graphics();
       marker.roundPixels = true;
-      marker.circle(0, 0, 0.18 * this.projection.config.halfTileWidth);
+      marker.circle(0, 0, 0.18 * this.projection.config.tileWidth);
       marker.fill(this.doorColor(object.portalState));
       marker.position.set(...this.toPositionArgs(this.projection.worldToScreen(object.position)));
-      marker.zIndex = depthKey(object.position) + 0.5;
+      marker.zIndex = this.sortKey(object.position) + 0.5;
       world.addChild(marker);
       this.sceneObjectSprites.push(marker);
     }
@@ -84,29 +87,19 @@ export class PixiRenderer {
     if (entry === undefined) {
       const sprite = new Graphics();
       sprite.roundPixels = true;
-      sprite.rect(
-        -PLAYER_SIZE * 0.5 * this.projection.config.halfTileWidth,
-        -PLAYER_SIZE * this.projection.config.halfTileHeight,
-        PLAYER_SIZE * this.projection.config.halfTileWidth,
-        PLAYER_SIZE * this.projection.config.halfTileHeight * 2,
-      );
+      this.drawPlayerBody(sprite);
       sprite.fill(color);
       this.world?.addChild(sprite);
       entry = { sprite, color };
       this.players.set(participantId, entry);
     } else if (entry.color !== color) {
       entry.sprite.clear();
-      entry.sprite.rect(
-        -PLAYER_SIZE * 0.5 * this.projection.config.halfTileWidth,
-        -PLAYER_SIZE * this.projection.config.halfTileHeight,
-        PLAYER_SIZE * this.projection.config.halfTileWidth,
-        PLAYER_SIZE * this.projection.config.halfTileHeight * 2,
-      );
+      this.drawPlayerBody(entry.sprite);
       entry.sprite.fill(color);
       entry.color = color;
     }
     entry.sprite.position.set(...this.toPositionArgs(this.projection.worldToScreen(position)));
-    entry.sprite.zIndex = depthKey(position);
+    entry.sprite.zIndex = this.sortKey(position);
   }
 
   removePlayer(participantId: string): void {
@@ -139,6 +132,19 @@ export class PixiRenderer {
     this.world = null;
   }
 
+  /** Составной sort key: worldY (foot point) + worldX tie-breaker. */
+  private sortKey(position: WorldPoint): number {
+    return depthKey(position) + depthTieBreak(position) * 1e-4;
+  }
+
+  private drawPlayerBody(sprite: Graphics): void {
+    const { tileWidth, tileDepth } = this.projection.config;
+    const w = PLAYER_SIZE * tileWidth;
+    const h = PLAYER_BODY_HEIGHT_FRACTION * tileDepth;
+    // Тело растёт вверх от foot point (нижняя кромка = точка контакта с полом).
+    sprite.rect(-w * 0.5, -h, w, h);
+  }
+
   private drawStaticRoom(): void {
     const world = this.world;
     if (world === null) return;
@@ -146,11 +152,8 @@ export class PixiRenderer {
     const wall = new Set(room.wallCells.map((cell) => `${cell.gx}:${cell.gy}`));
     for (let gx = room.bounds.minGx; gx <= room.bounds.maxGx; gx += 1) {
       for (let gy = room.bounds.minGy; gy <= room.bounds.maxGy; gy += 1) {
-        if (wall.has(`${gx}:${gy}`)) {
-          this.drawWall(world, gx, gy);
-        } else {
-          this.drawFloor(world, gx, gy);
-        }
+        this.drawFloor(world, gx, gy);
+        if (wall.has(`${gx}:${gy}`)) this.drawWall(world, gx, gy);
       }
     }
   }
@@ -158,49 +161,30 @@ export class PixiRenderer {
   private drawFloor(world: Container, gx: number, gy: number): void {
     const tile = new Graphics();
     tile.roundPixels = true;
-    tile.poly(this.diamondPoints(gx, gy, 0));
+    const { tileWidth, tileDepth } = this.projection.config;
+    tile.rect(gx * tileWidth, gy * tileDepth, tileWidth, tileDepth);
     tile.fill((gx + gy) % 2 === 0 ? FLOOR_COLOR : FLOOR_ALT_COLOR);
-    tile.zIndex = gx + gy;
+    tile.zIndex = gy + gx * 1e-4;
     world.addChild(tile);
   }
 
+  /** Прямоугольный «блок» стены: верхняя грань + фронтальный фасад вверх по -Y. */
   private drawWall(world: Container, gx: number, gy: number): void {
-    const base = new Graphics();
-    base.roundPixels = true;
-    base.poly(this.diamondPoints(gx, gy, 0));
-    base.fill(WALL_COLOR);
-    base.zIndex = gx + gy;
-    world.addChild(base);
+    const { tileWidth, tileDepth, elevationStep } = this.projection.config;
 
     const top = new Graphics();
     top.roundPixels = true;
-    top.poly(this.diamondPoints(gx, gy, 0.5));
+    top.rect(gx * tileWidth, gy * tileDepth - elevationStep, tileWidth, tileDepth);
     top.fill(WALL_TOP_COLOR);
-    top.zIndex = gx + gy + 0.1;
+    top.zIndex = gy + gx * 1e-4 + 0.1;
     world.addChild(top);
 
-    const side = new Graphics();
-    side.roundPixels = true;
-    const ground = this.diamondPoints(gx, gy, 0);
-    const raised = this.diamondPoints(gx, gy, 0.5);
-    side.poly([ground[2], ground[3], raised[2], raised[3], raised[4], raised[5], ground[4], ground[5]]);
-    side.fill(0x352640);
-    side.zIndex = gx + gy + 0.05;
-    world.addChild(side);
-  }
-
-  /** Четыре угла ромба клетки в экранных координатах (top/right/bottom/left). */
-  private diamondPoints(
-    gx: number,
-    gy: number,
-    elevation: number,
-  ): [number, number, number, number, number, number, number, number] {
-    void this.projection.config;
-    const top = this.projection.worldToScreen({ x: gx + 0.5, y: gy }, elevation);
-    const right = this.projection.worldToScreen({ x: gx + 1, y: gy + 0.5 }, elevation);
-    const bottom = this.projection.worldToScreen({ x: gx + 0.5, y: gy + 1 }, elevation);
-    const left = this.projection.worldToScreen({ x: gx, y: gy + 0.5 }, elevation);
-    return [top.x, top.y, right.x, right.y, bottom.x, bottom.y, left.x, left.y];
+    const front = new Graphics();
+    front.roundPixels = true;
+    front.rect(gx * tileWidth, gy * tileDepth, tileWidth, elevationStep);
+    front.fill(WALL_FRONT_COLOR);
+    front.zIndex = gy + gx * 1e-4 + 0.05;
+    world.addChild(front);
   }
 
   private doorColor(portalState: SceneObject['portalState']): number {

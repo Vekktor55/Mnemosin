@@ -1,6 +1,8 @@
 /**
- * GridProjection — чистая изометрическая проекция grid → screen (WORLD_SIMULATION.md §4.4).
+ * GridProjection — фронтальная ортографическая 3/4 проекция grid → screen
+ * (top-down oblique, yaw = 0°, наклон только по вертикали; WORLD_SIMULATION.md §4.4).
  *
+ * Изометрическая ромбическая проекция (поворот на 45° по yaw) НЕ используется.
  * Независимый от PixiJS Container transforms модуль. Сервер этот модуль не
  * импортирует (dependency-cruiser + arch-тест «клиент импортирует только
  * контракты»). Конвенция G2: клетка (gx, gy) занимает [gx, gx+1) × [gy, gy+1),
@@ -8,10 +10,10 @@
  */
 
 export interface GridProjectionConfig {
-  /** Полуширина ромба тайла в пикселях (по X). */
-  readonly halfTileWidth: number;
-  /** Полувысота ромба тайла в пикселях (по Y). */
-  readonly halfTileHeight: number;
+  /** Ширина тайла по горизонтали (worldX → screenX). */
+  readonly tileWidth: number;
+  /** Глубина тайла по вертикали (worldY → screenY), т.е. высота строки пола. */
+  readonly tileDepth: number;
   /** Экранная точка, куда проецируется мировое начало (0,0). */
   readonly originX: number;
   readonly originY: number;
@@ -36,10 +38,15 @@ export interface GridCell {
 
 /**
  * Ключ сортировки по глубине — foot point / ground anchor (WORLD_SIMULATION.md §4.5):
- * worldX + worldY. Высота спрайта не влияет на порядок относительно пола.
+ * при yaw = 0° ближе к камере объекты с большим worldY.
  */
 export function depthKey(position: WorldPoint): number {
-  return position.x + position.y;
+  return position.y;
+}
+
+/** Стабильный tie-breaker для объектов на одной глубине (одинаковое worldY). */
+export function depthTieBreak(position: WorldPoint): number {
+  return position.x;
 }
 
 export class GridProjection {
@@ -51,23 +58,24 @@ export class GridProjection {
 
   /**
    * Прямая проекция (WORLD_SIMULATION.md §4.4):
-   *   screenX = originX + (worldX - worldY) * halfTileWidth
-   *   screenY = originY + (worldX + worldY) * halfTileHeight - elevation * elevationStep
+   *   screenX = originX + worldX * tileWidth
+   *   screenY = originY + worldY * tileDepth - elevation * elevationStep
    */
   worldToScreen(position: WorldPoint, elevation = 0): ScreenPoint {
     const c = this.config;
     return {
-      x: c.originX + (position.x - position.y) * c.halfTileWidth,
-      y: c.originY + (position.x + position.y) * c.halfTileHeight - elevation * c.elevationStep,
+      x: c.originX + position.x * c.tileWidth,
+      y: c.originY + position.y * c.tileDepth - elevation * c.elevationStep,
     };
   }
 
   /** Обратное преобразование на плоскости пола (elevation = 0) для hit testing. */
   screenToWorld(point: ScreenPoint): WorldPoint {
     const c = this.config;
-    const u = (point.x - c.originX) / c.halfTileWidth;
-    const v = (point.y - c.originY) / c.halfTileHeight;
-    return { x: (u + v) / 2, y: (v - u) / 2 };
+    return {
+      x: (point.x - c.originX) / c.tileWidth,
+      y: (point.y - c.originY) / c.tileDepth,
+    };
   }
 
   /** Anchor клетки — её центр (gx+0.5, gy+0.5) → экранная точка. */

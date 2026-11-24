@@ -6,45 +6,181 @@
     "worldId": "00000000-0000-4000-8000-000000000001",
     "floorId": "00000000-0000-4000-8000-000000000002",
     "worldSpaceId": "00000000-0000-4000-8000-000000000003",
-    "bounds": { "minGx": 0, "minGy": 0, "maxGx": 3, "maxGy": 3 }
+    "bounds": {
+      "minGx": 0,
+      "minGy": 0,
+      "maxGx": 3,
+      "maxGy": 3
+    }
   },
   "cells": [
-    { "gx": 0, "gy": 0, "walkable": true, "terrain": "floor" },
-    { "gx": 1, "gy": 0, "walkable": true, "terrain": "floor" },
-    { "gx": 2, "gy": 0, "walkable": true, "terrain": "floor" },
-    { "gx": 3, "gy": 0, "walkable": true, "terrain": "floor" },
-    { "gx": 0, "gy": 1, "walkable": true, "terrain": "floor" },
-    { "gx": 1, "gy": 1, "walkable": false, "terrain": "wall", "blocksVision": true },
-    { "gx": 2, "gy": 1, "walkable": true, "terrain": "floor" },
-    { "gx": 3, "gy": 1, "walkable": true, "terrain": "floor" },
-    { "gx": 0, "gy": 2, "walkable": true, "terrain": "floor" },
-    { "gx": 1, "gy": 2, "walkable": true, "terrain": "floor" },
-    { "gx": 2, "gy": 2, "walkable": true, "terrain": "floor" },
-    { "gx": 3, "gy": 2, "walkable": true, "terrain": "floor" },
-    { "gx": 0, "gy": 3, "walkable": true, "terrain": "floor" },
-    { "gx": 1, "gy": 3, "walkable": true, "terrain": "floor" },
-    { "gx": 2, "gy": 3, "walkable": true, "terrain": "floor" },
-    { "gx": 3, "gy": 3, "walkable": true, "terrain": "floor" }
+    {
+      "gx": 0,
+      "gy": 0,
+      "walkable": true,
+      "terrain": "floor"
+    },
+    {
+      "gx": 0,
+      "gy": 1,
+      "walkable": true,
+      "terrain": "floor"
+    },
+    {
+      "gx": 0,
+      "gy": 2,
+      "walkable": true,
+      "terrain": "floor"
+    },
+    {
+      "gx": 0,
+      "gy": 3,
+      "walkable": true,
+      "terrain": "floor"
+    },
+    {
+      "gx": 1,
+      "gy": 0,
+      "walkable": true,
+      "terrain": "floor"
+    },
+    {
+      "gx": 1,
+      "gy": 1,
+      "walkable": false,
+      "terrain": "wall",
+      "blocksVision": true
+    },
+    {
+      "gx": 1,
+      "gy": 2,
+      "walkable": true,
+      "terrain": "floor"
+    },
+    {
+      "gx": 1,
+      "gy": 3,
+      "walkable": true,
+      "terrain": "floor"
+    },
+    {
+      "gx": 2,
+      "gy": 0,
+      "walkable": true,
+      "terrain": "floor"
+    },
+    {
+      "gx": 2,
+      "gy": 1,
+      "walkable": true,
+      "terrain": "floor"
+    },
+    {
+      "gx": 2,
+      "gy": 2,
+      "walkable": true,
+      "terrain": "floor"
+    },
+    {
+      "gx": 2,
+      "gy": 3,
+      "walkable": true,
+      "terrain": "floor"
+    },
+    {
+      "gx": 3,
+      "gy": 0,
+      "walkable": true,
+      "terrain": "floor"
+    },
+    {
+      "gx": 3,
+      "gy": 1,
+      "walkable": true,
+      "terrain": "floor"
+    },
+    {
+      "gx": 3,
+      "gy": 2,
+      "walkable": true,
+      "terrain": "floor"
+    },
+    {
+      "gx": 3,
+      "gy": 3,
+      "walkable": true,
+      "terrain": "floor"
+    }
   ],
   "edges": [
-    { "from": { "gx": 0, "gy": 0 }, "to": { "gx": 1, "gy": 0 }, "blocksMovement": true, "blocksVision": false },
-    { "from": { "gx": 2, "gy": 2 }, "to": { "gx": 3, "gy": 2 }, "blocksMovement": true, "portalId": "door-east" }
+    {
+      "from": {
+        "gx": 0,
+        "gy": 0
+      },
+      "to": {
+        "gx": 1,
+        "gy": 0
+      },
+      "blocksMovement": true,
+      "blocksVision": false
+    },
+    {
+      "from": {
+        "gx": 2,
+        "gy": 2
+      },
+      "to": {
+        "gx": 3,
+        "gy": 2
+      },
+      "blocksMovement": true,
+      "portalId": "door-east"
+    }
   ],
   "portals": [
     {
       "portalId": "door-east",
       "kind": "door",
       "cells": [
-        { "gx": 2, "gy": 2 },
-        { "gx": 3, "gy": 2 }
+        {
+          "gx": 2,
+          "gy": 2
+        },
+        {
+          "gx": 3,
+          "gy": 2
+        }
       ],
       "stateObjectId": "00000000-0000-4000-8000-000000000004",
       "initialState": "closed"
     }
   ],
   "spawnPoints": [
-    { "spawnPointId": "player-1", "position": { "x": 0.5, "y": 2.5 }, "label": "Игрок 1" },
-    { "spawnPointId": "player-2", "position": { "x": 3.5, "y": 0.5 }, "label": "Игрок 2" }
+    {
+      "spawnPointId": "player-1",
+      "position": {
+        "x": 0.5,
+        "y": 2.5
+      },
+      "label": "Игрок 1"
+    },
+    {
+      "spawnPointId": "player-2",
+      "position": {
+        "x": 3.5,
+        "y": 0.5
+      },
+      "label": "Игрок 2"
+    }
   ],
-  "objects": [{ "objectId": "00000000-0000-4000-8000-000000000004", "position": { "x": 2.5, "y": 2.5 } }]
+  "objects": [
+    {
+      "objectId": "00000000-0000-4000-8000-000000000004",
+      "position": {
+        "x": 2.5,
+        "y": 2.5
+      }
+    }
+  ]
 }

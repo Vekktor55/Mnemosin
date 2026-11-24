@@ -1,23 +1,23 @@
 import { describe, expect, it } from 'vitest';
 
-import { GridProjection, depthKey } from '@mnemosin/client';
+import { GridProjection, depthKey, depthTieBreak } from '@mnemosin/client';
 
-/** Изометрический ромб 2:1 (halfTileWidth=32, halfTileHeight=16). */
+/** Фронтальная ортографическая 3/4 (tileDepth/tileWidth = 40/64 = 0.625). */
 const projection = new GridProjection({
-  halfTileWidth: 32,
-  halfTileHeight: 16,
+  tileWidth: 64,
+  tileDepth: 40,
   originX: 128,
   originY: 96,
-  elevationStep: 16,
+  elevationStep: 48,
 });
 
-describe('GridProjection (WORLD_SIMULATION.md §4.4)', () => {
-  it('worldToScreen использует изометрическую формулу с elevation', () => {
+describe('GridProjection (WORLD_SIMULATION.md §4.4, фронтальная 3/4 oblique)', () => {
+  it('worldToScreen использует фронтальную 3/4 формулу с elevation', () => {
     expect(projection.worldToScreen({ x: 0, y: 0 })).toEqual({ x: 128, y: 96 });
-    expect(projection.worldToScreen({ x: 1, y: 0 })).toEqual({ x: 160, y: 112 });
-    expect(projection.worldToScreen({ x: 0, y: 1 })).toEqual({ x: 96, y: 112 });
+    expect(projection.worldToScreen({ x: 1, y: 0 })).toEqual({ x: 192, y: 96 });
+    expect(projection.worldToScreen({ x: 0, y: 1 })).toEqual({ x: 128, y: 136 });
     // elevation смещает только screenY (presentation-only).
-    expect(projection.worldToScreen({ x: 0, y: 0 }, 2)).toEqual({ x: 128, y: 96 - 32 });
+    expect(projection.worldToScreen({ x: 0, y: 0 }, 2)).toEqual({ x: 128, y: 96 - 96 });
   });
 
   it('screenToWorld — обратное преобразование (round-trip с погрешностью)', () => {
@@ -39,14 +39,15 @@ describe('GridProjection (WORLD_SIMULATION.md §4.4)', () => {
   });
 
   it('pointerToCell — floor(screenToWorld) по G2', () => {
-    // Указатель точно в центре клетки (2,3).
     const center = projection.cellToAnchor(2, 3);
     expect(projection.pointerToCell(center)).toEqual({ gx: 2, gy: 3 });
   });
 
-  it('depthKey — foot point worldX + worldY (сортировка по глубине)', () => {
-    expect(depthKey({ x: 2.5, y: 1.5 })).toBe(4);
-    expect(depthKey({ x: 0.25, y: 0.75 })).toBe(1);
+  it('depthKey — foot point worldY + стабильный tie-breaker worldX', () => {
+    expect(depthKey({ x: 2.5, y: 1.5 })).toBe(1.5);
+    expect(depthKey({ x: 0.25, y: 0.75 })).toBe(0.75);
+    expect(depthTieBreak({ x: 2.5, y: 1.5 })).toBe(2.5);
+    expect(depthTieBreak({ x: 0.25, y: 0.75 })).toBe(0.25);
   });
 
   it('серверная координата не меняется клиентской проекцией', () => {

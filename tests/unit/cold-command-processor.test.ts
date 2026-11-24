@@ -122,4 +122,27 @@ describe('P06 ColdCommandProcessor', () => {
     expect(flag?.value).toBe('test-value');
     expect(flag?.setBy).toBe('ENGINE');
   });
+
+  it('отсутствующая state-строка обрабатывается как currentState === undefined и откатывает транзакцию', async () => {
+    const missingSessionId = '00000000-0000-4000-8000-00000000dead' as never;
+
+    await expect(
+      processor.process({
+        command: {
+          schemaVersion: 1,
+          commandId: '00000000-0000-4000-8000-000000000030' as CommandId,
+          matchId: db.sessionId,
+          revision: 1,
+          worldEpoch: 1,
+          type: 'prototype.runtime.fact',
+          target: { participantId: db.playerId },
+          payload: { key: 'missing-state', value: true },
+        },
+        sessionId: missingSessionId,
+      }),
+    ).rejects.toThrow();
+
+    // Незафиксированная команда не должна попасть в dedup-таблицу.
+    expect(processor.getAppliedRevision('00000000-0000-4000-8000-000000000030' as CommandId)).toBeNull();
+  });
 });
