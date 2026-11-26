@@ -5,7 +5,7 @@ import { fileURLToPath } from 'node:url';
 /**
  * Vite-конфиг клиента (промпт 1.12, п.1; D103 — Svelte 5 + Vite, без UI-библиотек).
  *
- * - dev-порт 5173; proxy /health и /ws на 3000 (ws: true для WebSocket);
+ * - dev-порт 5173; proxy /health, /dev и /ws на 3000 (ws: true для WebSocket);
  * - единая точка входа index.html (v4 transitional): старая MPA (/player/, /gm/)
  *   удалена вместе с GM workflow; реалтайм-клиент P05 заменит SPA-каркас.
  *   Прод-сборка кладётся в client/dist и отдаётся сервером через @fastify/static
@@ -29,6 +29,7 @@ export default defineConfig({
     strictPort: true,
     proxy: {
       '/health': { target: 'http://localhost:3000', changeOrigin: true },
+      '/dev': { target: 'http://localhost:3000', changeOrigin: true },
       '/ws': { target: 'ws://localhost:3000', ws: true },
     },
   },

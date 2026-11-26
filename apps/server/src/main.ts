@@ -1,11 +1,13 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
+import type { FastifyInstance } from 'fastify';
 
 import { AppError, CONTRACTS_VERSION, MatchId, ParticipantId } from '@mnemosin/contracts';
 import { parseWorldPack } from '@mnemosin/core';
 import { JwtService } from '@mnemosin/gateway-http';
 import { verifyWsToken, type WsAuthenticationResult } from '@mnemosin/gateway-ws';
 import { createPrototypeWsGateway, prototypeColdScene, prototypeRealtimeLimits } from './hot-wiring.js';
+import { registerDevQuickJoinRoute, type DevQuickJoinContext } from './dev-quick-join.js';
 import { loadConfigOrExit, readPackageVersion } from '@mnemosin/config';
 import { createLogger } from '@mnemosin/logging';
 import { bootstrapDatabase } from '@mnemosin/database';
@@ -56,6 +58,7 @@ async function main(): Promise<void> {
 
   // P05-A: prototype room wiring; полный match lifecycle остаётся P10.
   let wsGateway;
+  let devQuickJoin: DevQuickJoinContext | null = null;
   const configuredSessionId = persistence.seed.sessionId;
   if (configuredSessionId !== null) {
     const repositories = persistence.uow.repos();
@@ -111,6 +114,19 @@ async function main(): Promise<void> {
           }
         },
       });
+
+      // DEV-ONLY: контекст быстрого входа (те же seeded-игроки, что и WS-прототип).
+      devQuickJoin = {
+        sessionId: configuredSessionId,
+        jwt,
+        players: await Promise.all(
+          configuredPlayers.map(async (player) => ({
+            playerId: player.playerId,
+            displayName: player.displayName,
+            characterName: (await repositories.characters.findByPlayer(player.playerId))?.name ?? null,
+          })),
+        ),
+      };
     }
   }
   if (wsGateway === undefined) {
@@ -124,6 +140,24 @@ async function main(): Promise<void> {
     persistence,
     ...(wsGateway === undefined ? {} : { wsGateway }),
   });
+
+  // DEV-ONLY: быстрый вход для локального тестирования рендера.
+  // В production маршрут не регистрируется вообще (404).
+  if (
+    registerDevQuickJoinRoute(app as unknown as FastifyInstance, {
+      isProduction: config.isProduction,
+      context: devQuickJoin,
+    })
+  ) {
+    logger.info(
+      {
+        event: 'dev_quick_join_enabled',
+        path: '/dev/quick-join',
+        seedAvailable: devQuickJoin !== null,
+      },
+      'dev_quick_join_enabled',
+    );
+  }
 
   await app.listen({ host: '0.0.0.0', port: config.env.PORT });
 

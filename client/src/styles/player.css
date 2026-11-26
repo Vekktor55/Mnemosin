@@ -875,6 +875,46 @@
   margin-top: 3px;
 }
 
+/* DEV-ONLY: быстрый вход (блок вырезается из prod-сборки через import.meta.env.DEV). */
+.dev-quick-join {
+  margin-top: 16px;
+  padding: 10px 12px;
+  border: 1px dashed var(--mn-border-iron);
+  border-radius: var(--mn-radius-sm);
+}
+
+.dev-quick-join-title {
+  font-size: 0.8rem;
+  color: var(--mn-text-dim);
+  margin-bottom: 8px;
+}
+
+.dev-quick-join-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.dev-quick-join-actions .dev {
+  padding: 7px 12px;
+  font-size: 0.85rem;
+  color: var(--mn-text-dim);
+  background: transparent;
+  border: 1px solid var(--mn-border-iron);
+  border-radius: var(--mn-radius-sm);
+  cursor: pointer;
+}
+
+.dev-quick-join-actions .dev:hover:not(:disabled) {
+  color: var(--mn-text-parchment);
+  border-color: var(--mn-accent-warn);
+}
+
+.dev-quick-join-actions .dev:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
 /* ------------------------------------------------------- визуал: рама арта */
 
 .visual-panel .scene-frame {

@@ -22,3 +22,12 @@ export {
   type HealthExtras,
   type VersionPayload,
 } from './health.js';
+export {
+  registerDevQuickJoinRoute,
+  type DevQuickJoinContext,
+  type DevQuickJoinOptions,
+  type DevQuickJoinPlayer,
+  type DevQuickJoinPlayerPayload,
+  type DevQuickJoinResponse,
+  type DevAccessTokenIssuer,
+} from './dev-quick-join.js';
