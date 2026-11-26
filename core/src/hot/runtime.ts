@@ -1,5 +1,10 @@
 import {
+  HotRecoveryPointSchema,
+  HotRuntimeSnapshotSchema,
   InputStreamId,
+  type EventId,
+  type HotRecoveryPoint,
+  type HotRuntimeSnapshot,
   type MatchId,
   ParticipantId,
   SceneInputMessageSchema,
@@ -23,6 +28,11 @@ import { HotColdRevisionBoundary } from './cold-boundary.js';
 export interface HotPlayerSpawn {
   readonly participantId: ParticipantId;
   readonly spawnPointId: string;
+}
+
+export interface HotRuntimeRecoverySnapshot {
+  readonly runtime: HotRuntimeSnapshot;
+  readonly recoveryPoint: HotRecoveryPoint;
 }
 
 export interface HotRuntimeOptions extends HotGeometryOptions {
@@ -58,7 +68,9 @@ function validateConfig(config: HotRuntimeConfig): void {
 export class HotRuntime {
   readonly geometry: HotWorldGeometry;
   readonly config: HotRuntimeConfig;
-  readonly coldBoundary: HotColdRevisionBoundary;
+  readonly matchId: MatchId;
+  readonly worldEpoch: WorldEpoch;
+  private coldBoundary: HotColdRevisionBoundary;
 
   private state: HotSimulationState;
   private pending: HotQueuedInput[] = [];
@@ -70,6 +82,8 @@ export class HotRuntime {
     validateConfig(options.config);
     this.config = { ...options.config };
     this.now = options.now ?? (() => performance.now());
+    this.matchId = options.matchId;
+    this.worldEpoch = options.worldEpoch;
     this.geometry = compileHotWorldGeometry(options.pack, options);
     this.coldBoundary = new HotColdRevisionBoundary({
       matchId: options.matchId,
@@ -103,6 +117,74 @@ export class HotRuntime {
 
   getState(): HotSimulationState {
     return this.state;
+  }
+
+  /** Согласованный recovery point: HOT clock, players и последняя применённая COLD revision. */
+  captureSnapshot(lastAppliedEventId: EventId | null): HotRuntimeRecoverySnapshot {
+    const cold = this.coldBoundary.getState();
+    return {
+      runtime: HotRuntimeSnapshotSchema.parse({
+        simulationTick: this.state.simulationTick,
+        players: this.state.players,
+        prototypeFacts: cold.prototypeFacts,
+      }),
+      recoveryPoint: HotRecoveryPointSchema.parse({
+        lastAppliedEventId,
+        matchId: this.matchId,
+        coldRevision: cold.coldRevision,
+        worldEpoch: this.worldEpoch,
+        simulationTick: this.state.simulationTick,
+      }),
+    };
+  }
+
+  /**
+   * Восстановление из versioned snapshot. Позиции/tick/facts восстанавливаются,
+   * а connection-scoped input streams и held direction обнуляются: старые
+   * клиентские inputs после restart никогда не replay'ятся. Это crash recovery,
+   * не narrative reset и не откат committed COLD GameState.
+   */
+  restoreFromSnapshot(runtimeInput: HotRuntimeSnapshot, recoveryPointInput: HotRecoveryPoint): void {
+    const runtime = HotRuntimeSnapshotSchema.parse(runtimeInput);
+    const recoveryPoint = HotRecoveryPointSchema.parse(recoveryPointInput);
+    if (recoveryPoint.matchId !== this.matchId || recoveryPoint.worldEpoch !== this.worldEpoch) {
+      throw new Error('HOT recovery: snapshot matchId/worldEpoch does not match runtime');
+    }
+    if (runtime.simulationTick !== recoveryPoint.simulationTick) {
+      throw new Error('HOT recovery: runtime tick and recovery point tick differ');
+    }
+
+    const seen = new Set<ParticipantId>();
+    const players = runtime.players.map((player) => {
+      if (seen.has(player.participantId)) throw new Error('HOT recovery: duplicate participantId');
+      seen.add(player.participantId);
+      if (
+        !isCirclePositionFree(player.position, this.config.entityRadius, this.config.collisionEpsilon, this.geometry)
+      ) {
+        throw new Error(`HOT recovery: player ${player.participantId} intersects collision geometry`);
+      }
+      return {
+        participantId: player.participantId,
+        position: { ...player.position },
+        direction: { directionX: 0, directionY: 0 },
+        velocity: { x: 0, y: 0 },
+        activeInputStreamId: null,
+        lastProcessedInputSequence: null,
+        lastInputTick: null,
+      };
+    });
+    players.sort((a, b) => a.participantId.localeCompare(b.participantId));
+
+    this.pending = [];
+    this.pendingHighWater.clear();
+    this.arrivalSequence = 0;
+    this.coldBoundary = new HotColdRevisionBoundary({
+      matchId: this.matchId,
+      worldEpoch: this.worldEpoch,
+      coldRevision: recoveryPoint.coldRevision,
+      prototypeFacts: runtime.prototypeFacts,
+    });
+    this.state = { simulationTick: runtime.simulationTick, players };
   }
 
   /** Явная смена connection epoch; старые queued packets и held direction отбрасываются. */

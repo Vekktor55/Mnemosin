@@ -1,15 +1,6 @@
 import { z } from 'zod';
 
-import {
-  EventId,
-  EventSequence,
-  InputStreamId,
-  MatchId,
-  MessageId,
-  ParticipantId,
-  SimulationTick,
-  WorldEpoch,
-} from '../ids.js';
+import { InputStreamId, MatchId, MessageId, ParticipantId } from '../ids.js';
 
 import {
   ConnectionClientReadyMessageSchema,
@@ -25,6 +16,7 @@ import {
   WorldPositionSchema,
 } from './spatial.js';
 import { SceneDeltaPayloadSchema, SceneKeyframePayloadSchema } from './scene.js';
+import { HotGameplayEventEnvelopeSchema } from './hot-event.js';
 
 export const WsErrorCodeSchema = z.enum([
   'AUTH_INVALID',
@@ -95,17 +87,14 @@ export const WsServerPayloadSchemas = {
   'scene:delta': SceneDeltaPayloadSchema,
   'scene:input-ack': StrictSceneInputAckMessageSchema,
   'scene:resync-required': SceneResyncRequiredMessageSchema.strict(),
-  /** Reliable durable gameplay event; не пересылается через scene:delta coalescing. */
-  'scene:durable-event': z
-    .object({
-      eventId: EventId,
-      eventSequence: EventSequence,
-      matchId: MatchId,
-      worldEpoch: WorldEpoch,
-      simulationTick: SimulationTick,
-      payload: z.unknown(),
-    })
-    .strict(),
+  /**
+   * Reliable durable gameplay event; не пересылается через scene:delta coalescing.
+   *
+   * Payload — строгий discriminated union того же `HotGameplayEventEnvelope`,
+   * который COLD-процессор фиксирует в журнале: тот же eventId/ревизия/поля
+   * корреляции, никаких `unknown` и никаких клиентских полей.
+   */
+  'scene:durable-event': HotGameplayEventEnvelopeSchema,
 } as const;
 
 export type WsClientMessageType = keyof typeof WsClientPayloadSchemas;

@@ -5,7 +5,7 @@ import { AppError, CONTRACTS_VERSION, MatchId, ParticipantId } from '@mnemosin/c
 import { parseWorldPack } from '@mnemosin/core';
 import { JwtService } from '@mnemosin/gateway-http';
 import { verifyWsToken, type WsAuthenticationResult } from '@mnemosin/gateway-ws';
-import { createPrototypeWsGateway, prototypeRealtimeLimits } from './hot-wiring.js';
+import { createPrototypeWsGateway, prototypeColdScene, prototypeRealtimeLimits } from './hot-wiring.js';
 import { loadConfigOrExit, readPackageVersion } from '@mnemosin/config';
 import { createLogger } from '@mnemosin/logging';
 import { bootstrapDatabase } from '@mnemosin/database';
@@ -70,16 +70,22 @@ async function main(): Promise<void> {
         refreshTtlSeconds: config.env.JWT_REFRESH_TTL_SECONDS,
       });
       const playerIds = new Set(configuredPlayers.map((player) => player.playerId));
+      // PROTOTYPE-ONLY: одна сессия = один match. matchId (HOT-контекст) и sessionId
+      // (COLD-состояние) — разные идентификаторы, здесь они намеренно совпадают по значению.
+      const prototypeMatchId = MatchId.parse(configuredSessionId);
       wsGateway = createPrototypeWsGateway({
         pack,
         players: configuredPlayers.map((player, index) => ({
           participantId: ParticipantId.parse(player.playerId),
           spawnPointId: index === 0 ? ('player-1' as const) : ('player-2' as const),
         })),
+        matchId: prototypeMatchId,
         serverVersion: config.version,
         contractsVersion: CONTRACTS_VERSION,
         limits: prototypeRealtimeLimits(config.limits),
         logger,
+        loadColdScene: async () =>
+          prototypeColdScene(pack, await repositories.state.findBySession(configuredSessionId)),
         async authenticate(token): Promise<WsAuthenticationResult> {
           try {
             const identity = await verifyWsToken({ jwt, players: repositories.players }, token);
@@ -91,7 +97,7 @@ async function main(): Promise<void> {
               actor: {
                 actorId: ParticipantId.parse(identity.playerId),
                 actorType: 'player',
-                matchId: MatchId.parse(configuredSessionId),
+                matchId: prototypeMatchId,
                 sessionId: configuredSessionId,
                 projectionKind: 'player',
                 permissions: ['scene:input', 'scene:resync'],

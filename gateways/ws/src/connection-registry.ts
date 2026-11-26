@@ -3,6 +3,8 @@ import {
   SceneSequence,
   type InputStreamId,
   type ParticipantId,
+  type ProjectionRevision,
+  type SceneObject,
   type SceneProjection,
 } from '@mnemosin/contracts';
 import type { WebSocket } from '@fastify/websocket';
@@ -13,6 +15,8 @@ import type { ConnectionActorContext, RealtimeNetworkConfig, WsConnectionState }
 export class WsConnectionRecord {
   state: WsConnectionState = 'awaiting_client_ready';
   lastProjection: SceneProjection | null = null;
+  coldObjects: readonly SceneObject[] | null = null;
+  projectionRevision: ProjectionRevision | null = null;
   lastGeneratedSceneSequence = SceneSequence.parse(0);
   lastHeartbeatAt = Date.now();
   rateWindowStartedAt = Date.now();

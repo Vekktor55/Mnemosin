@@ -1,17 +1,13 @@
 import {
-  type EventId,
-  type EventSequence,
+  type HotGameplayEventEnvelope,
   InputSequence,
-  type MatchId,
   MessageId,
   SceneSequence,
   SnapshotId,
-  type SimulationTick,
   type SceneDeltaPayload,
   type SceneKeyframePayload,
   type SceneProjection,
   type WsServerEnvelope,
-  type WorldEpoch,
 } from '@mnemosin/contracts';
 
 import type { ConnectionRegistry, WsConnectionRecord } from './connection-registry.js';
@@ -52,30 +48,40 @@ export class SceneReplicationService {
     for (const connection of this.registry.all()) connection.delivery.flush();
   }
 
-  /** Reliable durable gameplay event; bypasses delta coalescing entirely. */
-  publishDurableEvent(
-    connection: WsConnectionRecord,
-    event: {
-      readonly eventId: EventId;
-      readonly eventSequence: EventSequence;
-      readonly matchId: MatchId;
-      readonly worldEpoch: WorldEpoch;
-      readonly simulationTick: SimulationTick;
-      readonly payload: unknown;
-    },
-  ): boolean {
-    const envelope = this.envelope('scene:durable-event', {
-      eventId: event.eventId,
-      eventSequence: event.eventSequence,
-      matchId: event.matchId,
-      worldEpoch: event.worldEpoch,
-      simulationTick: event.simulationTick,
-      payload: event.payload,
-    });
-    return this.sendReliable(connection, envelope);
+  /**
+   * Reliable durable gameplay event; bypasses delta coalescing entirely.
+   *
+   * Граница публикации — место, где известна привязка match↔connection, поэтому
+   * match-контекст события проверяется здесь (D300). COLD-процессор применяет
+   * событие к явно переданной сессии и не сравнивает matchId с sessionId:
+   * это разные идентификаторы.
+   */
+  publishDurableEvent(connection: WsConnectionRecord, event: HotGameplayEventEnvelope): boolean {
+    if (event.matchId !== connection.context.matchId) {
+      this.deps.logger?.warn(
+        {
+          event: 'durable_event_match_mismatch',
+          eventId: event.eventId,
+          eventMatchId: event.matchId,
+          connectionMatchId: connection.context.matchId,
+        },
+        'durable event rejected: match context differs from connection',
+      );
+      return false;
+    }
+    return this.sendReliable(connection, this.envelope('scene:durable-event', event));
   }
 
-  sendKeyframe(connection: WsConnectionRecord): boolean {
+  async sendKeyframe(connection: WsConnectionRecord): Promise<boolean> {
+    const restoreReady = connection.state === 'ready';
+    if (restoreReady) connection.state = 'syncing'; // не запускать resync повторно каждый HOT tick
+    // COLD read разрешён только на lifecycle/reconnect границе, не в HOT tick.
+    const cold = await this.deps.loadColdScene?.(connection.context.matchId);
+    if (connection.state === 'closing' || connection.state === 'closed') return false;
+    if (cold !== undefined) {
+      connection.coldObjects = cold.objects;
+      connection.projectionRevision = cold.projectionRevision;
+    }
     const projection = this.currentProjection(connection);
     connection.delivery.discardDeltasForKeyframe();
     const player = this.deps.hot.runtime
@@ -89,7 +95,7 @@ export class SceneReplicationService {
       sceneSequence: sequence,
       simulationTick: this.deps.hot.runtime.getState().simulationTick,
       serverTimeMs: this.serverTimeMs(),
-      projectionRevision: this.deps.scene.projectionRevision,
+      projectionRevision: connection.projectionRevision ?? this.deps.scene.projectionRevision,
       worldPackVersion: this.deps.scene.worldPackVersion,
       projection,
       ...(connection.context.actorType === 'player'
@@ -103,10 +109,11 @@ export class SceneReplicationService {
     if (!this.sendReliable(connection, this.envelope('scene:keyframe', payload))) return false;
     connection.lastProjection = projection;
     connection.lastGeneratedSceneSequence = sequence;
+    if (restoreReady) connection.state = 'ready';
     return true;
   }
 
-  requestResync(connection: WsConnectionRecord): void {
+  async requestResync(connection: WsConnectionRecord): Promise<void> {
     this.sendReliable(
       connection,
       this.envelope('scene:resync-required', {
@@ -116,14 +123,14 @@ export class SceneReplicationService {
           : {}),
       }),
     );
-    this.sendKeyframe(connection);
+    await this.sendKeyframe(connection);
   }
 
   private publishDelta(connection: WsConnectionRecord): void {
     const projection = this.currentProjection(connection);
     const previous = connection.lastProjection;
     if (previous === null || previous.projectionKind !== projection.projectionKind) {
-      this.requestResync(connection);
+      void this.requestResync(connection).catch((error: unknown) => this.recoveryFailed(connection, error));
       return;
     }
     const sequence = this.allocateSequence(connection);
@@ -139,7 +146,7 @@ export class SceneReplicationService {
       baseSceneSequence,
       simulationTick: this.deps.hot.runtime.getState().simulationTick,
       serverTimeMs: this.serverTimeMs(),
-      projectionRevision: this.deps.scene.projectionRevision,
+      projectionRevision: connection.projectionRevision ?? this.deps.scene.projectionRevision,
       projectionKind: projection.projectionKind,
       ...changes,
       ...(connection.context.actorType === 'player'
@@ -159,7 +166,7 @@ export class SceneReplicationService {
           lastValidSceneSequence: baseSceneSequence,
         }),
       );
-      this.sendKeyframe(connection);
+      void this.sendKeyframe(connection).catch((error: unknown) => this.recoveryFailed(connection, error));
       return;
     }
     connection.lastProjection = projection;
@@ -170,7 +177,7 @@ export class SceneReplicationService {
     return buildProjection(
       connection.context.projectionKind,
       this.deps.hot.runtime.getState(),
-      this.deps.scene,
+      { ...this.deps.scene, objects: connection.coldObjects ?? this.deps.scene.objects },
       this.deps.hiddenFacts,
     );
   }
@@ -182,6 +189,15 @@ export class SceneReplicationService {
       connection.socket.close(4429, '{"code":"SERVER_BUSY"}');
     }
     return sent;
+  }
+
+  private recoveryFailed(connection: WsConnectionRecord, error: unknown): void {
+    this.deps.logger?.error(
+      { err: error, connectionId: connection.context.connectionId },
+      'cold keyframe recovery failed',
+    );
+    connection.state = 'closing';
+    connection.socket.close(4500, '{"code":"INTERNAL"}');
   }
 
   private serverTimeMs(): number {

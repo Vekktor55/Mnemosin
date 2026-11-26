@@ -1,25 +1,15 @@
 import type {
   EventId,
   MatchId,
-  WorldEpoch,
   HotGameplayEventEnvelope,
   HotGameplayEventAck,
   ColdToHotCommand,
   SessionId,
 } from '@mnemosin/contracts';
-import type { UnitOfWork, CommandRunner } from '../domain/ports/index.js';
-import type { JournalService } from '../turns/index.js';
-import type { StateService } from '../state/index.js';
-
-export interface ColdProcessorDeps {
-  readonly uow: UnitOfWork;
-  readonly commandRunner: CommandRunner;
-  readonly journal: JournalService;
-  readonly state: StateService;
-}
 
 export interface ProcessHotEventInput {
   readonly event: HotGameplayEventEnvelope;
+  /** COLD-сессия, чьё GameState мутируется. Это НЕ matchId: match и сессия — разные идентификаторы. */
   readonly sessionId: SessionId;
 }
 
@@ -30,14 +20,8 @@ export interface ProcessColdCommandInput {
 
 export interface ColdProcessorResult {
   readonly ack: HotGameplayEventAck;
+  /** -1 означает replay: новой journal-записи не создано. */
   readonly journalEntryId: number;
-}
-
-export interface ProcessedEventRecord {
-  readonly eventId: EventId;
-  readonly matchId: MatchId;
-  readonly worldEpoch: WorldEpoch;
-  readonly processedAt: number;
 }
 
 export interface HotEventProcessingError {

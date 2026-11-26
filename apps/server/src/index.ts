@@ -8,6 +8,7 @@ export { resolveProjectRoot } from './project-root.js';
 export {
   createPrototypeWsGateway,
   prototypeStaticScene,
+  prototypeColdScene,
   prototypeRealtimeLimits,
   PrototypeHotMatch,
   PROTOTYPE_HOT_RUNTIME_CONFIG,

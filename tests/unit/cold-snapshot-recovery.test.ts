@@ -1,174 +1,145 @@
-import { describe, expect, it, beforeEach, afterEach } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import type { SnapshotId, EventId as EventIdType, HotSnapshot } from '@mnemosin/contracts';
-import { SnapshotRecoveryOrchestrator } from '@mnemosin/core';
-import { ColdGameplayEventProcessor } from '@mnemosin/core';
+import { MatchId } from '@mnemosin/contracts';
 import { openColdTestDb, type ColdTestDb } from './cold-test-setup.js';
+import {
+  createCommandProcessor,
+  createEventProcessor,
+  createRecovery,
+  createRecoveryRuntime,
+  insertRuntimeSnapshot,
+  makeRecoveryCommand,
+  makeRecoveryEvent,
+} from './cold-recovery-fixtures.js';
 
-describe('P06 SnapshotRecoveryOrchestrator', () => {
+describe('P06 SnapshotRecoveryOrchestrator — real HOT restore + durable replay', () => {
   let db: ColdTestDb;
-  let orchestrator: SnapshotRecoveryOrchestrator;
 
   beforeEach(async () => {
     db = await openColdTestDb('cold-snapshot');
-    orchestrator = new SnapshotRecoveryOrchestrator({
-      uow: db.uow,
-      snapshotRepo: db.uow.repos().snapshots,
-      journal: db.services.journal,
-      eventProcessor: new ColdGameplayEventProcessor({
-        uow: db.uow,
-        journal: db.services.journal,
-        state: db.services.state,
-      }),
-    });
   });
 
   afterEach(async () => {
     await db?.close();
   });
 
-  it('throws when no snapshot exists for session', async () => {
-    // No snapshots inserted
-    await expect(orchestrator.recover({ matchId: db.sessionId, sessionId: db.sessionId })).rejects.toThrow(
+  it('требует HOT v1 snapshot для восстановления', async () => {
+    const recovery = createRecovery(db, createRecoveryRuntime(db));
+    await expect(recovery.recover({ matchId: MatchId.parse(db.sessionId), sessionId: db.sessionId })).rejects.toThrow(
       'No snapshot found',
     );
   });
 
-  it('recovers from latest HOT v1 snapshot', async () => {
-    const snapshot: HotSnapshot = {
-      id: '00000000-0000-4000-8000-000000000200' as SnapshotId,
-      sessionId: db.sessionId,
-      label: 'test-snapshot',
-      turnNumber: 40,
-      createdByTurnId: null,
-      createdBy: 'SYSTEM',
-      state: await db.services.state.get(db.sessionId),
-      checksum: 'a'.repeat(64),
-      createdAt: new Date().toISOString(),
-      snapshotVersion: 1,
-      recoveryPoint: {
-        lastAppliedEventId: null,
-        matchId: db.sessionId,
-        coldRevision: 2,
-        worldEpoch: 1,
-        simulationTick: 40,
-      },
-      runtime: {
-        simulationTick: 40,
-        players: [],
-        prototypeFacts: {},
-      },
-    };
+  it('восстанавливает HOT snapshot и применяет post-snapshot COLD commands на границе тика', async () => {
+    const commands = createCommandProcessor(db);
+    const original = createRecoveryRuntime(db);
+    const first = makeRecoveryCommand(db, 1);
+    const second = makeRecoveryCommand(db, 2);
+    await commands.process({ command: first, sessionId: db.sessionId });
+    await commands.process({ command: second, sessionId: db.sessionId });
+    original.receiveColdCommand(first);
+    original.receiveColdCommand(second);
+    original.tick();
+    await insertRuntimeSnapshot(db, original, 200);
 
-    await db.uow.runInTx(async (scope) => {
-      await scope.repos.snapshots.insert(snapshot);
-    });
+    // Эта команда уже есть в durable journal, но в snapshot её ещё нет.
+    const third = makeRecoveryCommand(db, 3);
+    await commands.process({ command: third, sessionId: db.sessionId });
+    const coldVersion = (await db.services.state.get(db.sessionId)).version;
 
-    const result = await orchestrator.recover({
-      matchId: db.sessionId,
+    const restartedRuntime = createRecoveryRuntime(db);
+    const result = await createRecovery(db, restartedRuntime).recover({
+      matchId: MatchId.parse(db.sessionId),
       sessionId: db.sessionId,
     });
 
-    expect(result.recoveredSnapshot).toBeDefined();
-    expect(result.recoveredSnapshot.id).toBe(snapshot.id);
-    expect(result.replayedEvents).toBe(0);
+    expect(result.appliedColdRevisions).toBe(1);
+    expect(result.recoveredRuntime.recoveryPoint.coldRevision).toBe(3);
+    expect(result.recoveredRuntime.runtime.simulationTick).toBe(2); // snapshot tick 1 + один recovery tick
+    expect(result.recoveredRuntime.runtime.prototypeFacts[db.playerId]?.['revision-3']).toBe(3);
+    expect(restartedRuntime.getColdBoundaryState().coldRevision).toBe(3);
+    expect(result.recoveryOrder).toEqual([
+      'snapshot:load',
+      'hot-runtime:restore',
+      'cold-revisions:apply-at-tick-boundary',
+      'journal:reconciled-on-boot',
+    ]);
+    // Recovery НЕ откатывает COLD GameState к старой snapshot-копии.
+    expect((await db.services.state.get(db.sessionId)).version).toBe(coldVersion);
   });
 
-  it('returns transientStateRollback=true for HOT v1 snapshots', async () => {
-    const snapshot: HotSnapshot = {
-      id: '00000000-0000-4000-8000-000000000201' as SnapshotId,
-      sessionId: db.sessionId,
-      label: 'test-snapshot-2',
-      turnNumber: 40,
-      createdByTurnId: null,
-      createdBy: 'SYSTEM',
-      state: await db.services.state.get(db.sessionId),
-      checksum: 'b'.repeat(64),
-      createdAt: new Date().toISOString(),
-      snapshotVersion: 1,
-      recoveryPoint: {
-        lastAppliedEventId: null,
-        matchId: db.sessionId,
-        coldRevision: 2,
-        worldEpoch: 1,
-        simulationTick: 40,
-      },
-      runtime: {
-        simulationTick: 40,
-        players: [],
-        prototypeFacts: {},
-      },
-    };
+  it('crash после commit до ACK: новый processor делает replay без повторной mutation/outbox', async () => {
+    const runtime = createRecoveryRuntime(db);
+    await insertRuntimeSnapshot(db, runtime, 201);
+    const event = makeRecoveryEvent(db, 101, 1, 41);
 
-    await db.uow.runInTx(async (scope) => {
-      await scope.repos.snapshots.insert(snapshot);
+    await createEventProcessor(db).process({ event, sessionId: db.sessionId });
+    const committedState = await db.services.state.get(db.sessionId);
+    const outboxBefore = await db.uow.repos().outbox.countAll();
+
+    const result = await createRecovery(db, createRecoveryRuntime(db), createEventProcessor(db)).recover({
+      matchId: MatchId.parse(db.sessionId),
+      sessionId: db.sessionId,
     });
 
-    const diag = orchestrator.getDiagnostics(snapshot);
-    expect(diag.transientStateRollback).toBe(true);
-    expect(diag.recoveryPoint.coldRevision).toBe(2);
+    expect(result.replayedEvents).toBe(1);
+    expect(result.committedEvents).toBe(0);
+    expect(result.deduplicatedEvents).toBe(1);
+    expect(result.pendingEvents).toHaveLength(0);
+    expect((await db.services.state.get(db.sessionId)).version).toBe(committedState.version);
+    expect(await db.uow.repos().outbox.countAll()).toBe(outboxBefore);
   });
 
-  it('replays pending events after recovery point', async () => {
-    const snapshot: HotSnapshot = {
-      id: '00000000-0000-4000-8000-000000000202' as SnapshotId,
-      sessionId: db.sessionId,
-      label: 'test-snapshot-3',
-      turnNumber: 40,
-      createdByTurnId: null,
-      createdBy: 'SYSTEM',
-      state: await db.services.state.get(db.sessionId),
-      checksum: 'c'.repeat(64),
-      createdAt: new Date().toISOString(),
-      snapshotVersion: 1,
-      recoveryPoint: {
-        lastAppliedEventId: '00000000-0000-4000-8000-000000000100' as EventIdType,
-        matchId: db.sessionId,
-        coldRevision: 2,
-        worldEpoch: 1,
-        simulationTick: 40,
-      },
-      runtime: {
-        simulationTick: 40,
-        players: [],
-        prototypeFacts: {},
-      },
-    };
+  it('crash между HOT event и COLD commit: pending из test log фиксируется ровно один раз', async () => {
+    await insertRuntimeSnapshot(db, createRecoveryRuntime(db), 202);
+    const event = makeRecoveryEvent(db, 102, 1, 41);
 
-    await db.uow.runInTx(async (scope) => {
-      await scope.repos.snapshots.insert(snapshot);
+    const result = await createRecovery(db, createRecoveryRuntime(db), createEventProcessor(db)).recover({
+      matchId: MatchId.parse(db.sessionId),
+      sessionId: db.sessionId,
+      pendingEvents: [event],
     });
 
-    // Add journal entry for event after the recovery point
-    await db.services.journal.append({
-      sessionId: db.sessionId,
-      turnId: null,
-      kind: 'hot_gameplay_committed',
-      payload: {
-        event: {
-          schemaVersion: 1,
-          eventId: '00000000-0000-4000-8000-000000000102',
-          matchId: db.sessionId,
-          worldEpoch: 1,
-          simulationTick: 41,
-          serverTimeMs: 2050,
-          eventSequence: 2,
-          actor: { participantId: db.playerId },
-          source: { kind: 'hot-runtime', runtimeId: '00000000-0000-4000-8000-000000000002' },
-          correlation: { correlationId: '00000000-0000-4000-8000-000000000003', causationId: null },
-          type: 'prototype.item.acquired',
-          payload: { itemId: '00000000-0000-4000-8000-000000000101', ownerId: db.playerId },
-        },
-      },
-      traceId: 'recovery-test',
-    });
+    expect(result.replayedEvents).toBe(1);
+    expect(result.committedEvents).toBe(1);
+    expect(result.deduplicatedEvents).toBe(0);
+    expect(result.pendingEvents).toHaveLength(0);
+    const state = await db.services.state.get(db.sessionId);
+    expect(state.version).toBe(1);
+    expect(state.objectStates['00000000-0000-4000-8000-000000000101']?.taken).toBe(true);
+    expect(await db.uow.repos().outbox.countAll()).toBe(1);
+  });
 
-    const result = await orchestrator.recover({
-      matchId: db.sessionId,
-      sessionId: db.sessionId,
-    });
+  it('повторный recovery не дублирует item/journal/outbox и не является narrative reset', async () => {
+    await insertRuntimeSnapshot(db, createRecoveryRuntime(db), 203);
+    const event = makeRecoveryEvent(db, 103, 1, 41);
+    await createEventProcessor(db).process({ event, sessionId: db.sessionId });
+    const before = await db.services.state.get(db.sessionId);
 
-    // The event should be replayed
-    expect(result.replayedEvents).toBeGreaterThanOrEqual(0);
+    for (let attempt = 0; attempt < 2; attempt += 1) {
+      const result = await createRecovery(db, createRecoveryRuntime(db), createEventProcessor(db)).recover({
+        matchId: MatchId.parse(db.sessionId),
+        sessionId: db.sessionId,
+      });
+      expect(result.deduplicatedEvents).toBe(1);
+      expect(result.committedEvents).toBe(0);
+    }
+
+    const after = await db.services.state.get(db.sessionId);
+    expect(after.version).toBe(before.version);
+    expect(after.endingState).toBe(before.endingState);
+    expect(
+      (await db.services.journal.listBySession(db.sessionId, 100)).filter(
+        (entry) => entry.kind === 'hot_gameplay_committed',
+      ),
+    ).toHaveLength(1);
+    expect(await db.uow.repos().outbox.countAll()).toBe(1);
+  });
+
+  it('диагностика сохраняет явный recovery point', async () => {
+    const snapshot = await insertRuntimeSnapshot(db, createRecoveryRuntime(db), 204);
+    const diagnostics = createRecovery(db, createRecoveryRuntime(db)).getDiagnostics(snapshot);
+    expect(diagnostics.transientStateRollback).toBe(true);
+    expect(diagnostics.recoveryPoint).toEqual(snapshot.recoveryPoint);
   });
 });

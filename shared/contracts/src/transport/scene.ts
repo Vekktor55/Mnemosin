@@ -40,6 +40,8 @@ export const SceneObjectSchema = z
     objectId: ObjectId,
     position: WorldPositionSchema.strict(),
     portalState: z.enum(['open', 'closed', 'locked']).optional(),
+    /** Публичный COLD-факт для P06 reconnect projection; не hidden role/infection. */
+    taken: z.boolean().optional(),
   })
   .strict();
 export type SceneObject = z.infer<typeof SceneObjectSchema>;

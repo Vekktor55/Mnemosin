@@ -14,8 +14,10 @@
  *   0.6.0 — P02: общие идентификаторы v4, message envelope, пространственные
  *           примитивы (G1/G2/G3), Player/Observer/Developer projections
  *   0.7.0 — Zod 4.6.7: prefault/record/type API и общий формат ошибок HTTP/WS
+ *   1.0.0 — P06: strict scene:durable-event envelope, revisioned COLD journal,
+ *           durable command idempotency и COLD-backed scene object facts
  */
-export const CONTRACTS_VERSION = '0.7.0';
+export const CONTRACTS_VERSION = '1.0.0';
 
 // --- базовые
 export * from './ids.js';
@@ -57,6 +59,7 @@ export * from './ai.js';
 export * from './transport/views.js';
 export * from './transport/http.js';
 export * from './transport/envelope.js';
+export * from './transport/hot-event.js';
 export * from './transport/spatial.js';
 export * from './transport/scene.js';
 export * from './transport/realtime.js';

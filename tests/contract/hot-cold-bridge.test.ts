@@ -2,11 +2,13 @@ import { describe, expect, it } from 'vitest';
 
 import {
   ColdToHotCommandSchema,
+  ColdToHotJournalPayloadSchema,
   HotGameplayEventAckSchema,
   HotGameplayEventEnvelopeSchema,
   HotGameplayEventPayloadSchemas,
   HotSnapshotSchema,
   SnapshotSchema,
+  WsServerEnvelopeSchema,
 } from '@mnemosin/contracts';
 
 const uuid = (suffix: number) => `00000000-0000-4000-8000-${String(suffix).padStart(12, '0')}`;
@@ -163,5 +165,56 @@ describe('P06 HOT/COLD contracts', () => {
     const parsed = SnapshotSchema.parse(snapshot);
     expect(parsed.snapshotVersion).toBeUndefined();
     expect(parsed.state.sessionId).toBe(uuid(1));
+  });
+
+  it('uses the full strict durable envelope as scene:durable-event payload', () => {
+    const durable = event();
+    const parsed = WsServerEnvelopeSchema.parse({
+      protocolVersion: 'v1',
+      schemaVersion: 1,
+      messageId: uuid(40),
+      type: 'scene:durable-event',
+      payload: durable,
+    });
+    expect(parsed.payload).toEqual(durable);
+    expect(parsed.type).toBe('scene:durable-event');
+  });
+
+  it('rejects unknown/mixed durable payloads at the WS serialization boundary', () => {
+    const envelope = {
+      protocolVersion: 'v1',
+      schemaVersion: 1,
+      messageId: uuid(40),
+      type: 'scene:durable-event',
+      payload: event(),
+    };
+    expect(WsServerEnvelopeSchema.safeParse({ ...envelope, payload: { arbitrary: true } }).success).toBe(false);
+    expect(
+      WsServerEnvelopeSchema.safeParse({
+        ...envelope,
+        payload: { ...event('prototype.filter.depleted'), payload: { arbitrary: true } },
+      }).success,
+    ).toBe(false);
+    expect(
+      WsServerEnvelopeSchema.safeParse({
+        ...envelope,
+        payload: { ...event(), clientPosition: { x: 1, y: 1 } },
+      }).success,
+    ).toBe(false);
+  });
+
+  it('round-trips the actual revisioned COLD command in its journal payload', () => {
+    const command = {
+      schemaVersion: 1,
+      commandId: uuid(30),
+      matchId: uuid(1),
+      revision: 7,
+      worldEpoch: 1,
+      type: 'prototype.runtime.fact',
+      target: { participantId: uuid(2) },
+      payload: { key: 'probe', value: true },
+    };
+    expect(ColdToHotJournalPayloadSchema.parse({ command })).toEqual({ command });
+    expect(ColdToHotJournalPayloadSchema.safeParse({ revision: 7 }).success).toBe(false);
   });
 });

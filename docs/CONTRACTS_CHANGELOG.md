@@ -11,7 +11,7 @@
 | Номер                         | Источник                                       | Назначение                                                                                                                                                                                                 |
 | ----------------------------- | ---------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **Workspace package version** | `shared/contracts/package.json` (`0.4.0`)      | Идентификатор npm-воркспейс-пакета; не публикуется, меняется по правилам npm-версионирования только при необходимости сборки/публикации                                                                    |
-| **Public contracts version**  | `CONTRACTS_VERSION` в `src/index.ts` (`0.7.0`) | Версия набора публичных контрактов (schemas/types/IDs), передаваемая в `HELLO`/`connection:welcome` и используемая для проверки совместимости клиент/сервер. Повышается при любом изменении публичных схем |
+| **Public contracts version**  | `CONTRACTS_VERSION` в `src/index.ts` (`1.0.0`) | Версия набора публичных контрактов (schemas/types/IDs), передаваемая в `HELLO`/`connection:welcome` и используемая для проверки совместимости клиент/сервер. Повышается при любом изменении публичных схем |
 
 **Правила повышения `CONTRACTS_VERSION`:**
 
@@ -19,9 +19,30 @@
 - **Minor** (`X.Y+1.0`) — добавление новых схем/типов без изменения существующих.
 - **Patch** (`X.Y.Z+1`) — уточнение валидации без изменения формы.
 
-**Текущее состояние:** `package.json` `0.4.0` отстаёт от `CONTRACTS_VERSION` `0.7.0` —
+**Текущее состояние:** `package.json` `0.4.0` отстаёт от `CONTRACTS_VERSION` `1.0.0` —
 это **pre-existing mismatch**, не требующий исправления, пока пакет `private` и не публикуется.
-`CONTRACTS_VERSION` `0.7.0` синхронизирован с записью `## 0.7.0` ниже.
+`CONTRACTS_VERSION` `1.0.0` синхронизирован с записью `## 1.0.0` ниже.
+
+---
+
+## 1.0.0 — 2026-11-25 (P06 durable bridge corrections)
+
+### Breaking
+
+- `scene:durable-event` теперь содержит полный строгий `HotGameplayEventEnvelope` с discriminated payload (`prototype.item.acquired`, `prototype.filter.depleted`, `prototype.capture.recorded`); неструктурированный `payload: unknown` удалён.
+- Удалён мёртвый compatibility-export `ColdToHotCommandEnvelopeSchema` / `ColdToHotCommandEnvelope` (потребителей в репозитории нет). Канонические имена — `ColdToHotCommandSchema` / `ColdToHotCommand` в `transport/hot-event.ts`.
+
+### Added
+
+- `ColdToHotJournalPayloadSchema` и `JournalKind += cold_to_hot_committed`: журнал хранит саму revisioned COLD→HOT команду для восстановления, а не вычисляет ревизию из GameState.version.
+- `CommandName += processColdToHotCommand` для durable idempotency COLD-команд через существующий `IdempotencyService`.
+- `SceneObject.taken?: boolean` — публичный committed COLD-факт в keyframe/projection после reconnect.
+
+### Compatibility notes
+
+- Существующие HOT movement input/ACK, scene:keyframe/delta/resync и handshake не изменены.
+- HOT↔COLD схемы вынесены в `transport/hot-event.ts`; прежние exports через `transport/envelope.ts` сохранены, кроме удалённого compatibility-alias `ColdToHotCommandEnvelopeSchema`.
+- Production durability guarantees HC-06…HC-10 этим версионированием не закрываются.
 
 ---
 

@@ -12,8 +12,12 @@ export interface WsRouterContext {
   sendError(record: WsConnectionRecord, code: WsErrorCode, messageKey: string, retryable: boolean): void;
 }
 
-/** P05-A: только lifecycle, ping, held direction и resync. Turn/GM/Chat handlers удалены. */
-export function routeWsMessage(record: WsConnectionRecord, message: WsClientEnvelope, context: WsRouterContext): void {
+/** P05-A lifecycle + P06 async COLD-backed keyframe. Turn/GM/Chat handlers удалены. */
+export async function routeWsMessage(
+  record: WsConnectionRecord,
+  message: WsClientEnvelope,
+  context: WsRouterContext,
+): Promise<void> {
   switch (message.type) {
     case 'connection:ping':
       context.replication.sendReliable(
@@ -31,7 +35,7 @@ export function routeWsMessage(record: WsConnectionRecord, message: WsClientEnve
         return;
       }
       record.state = 'syncing';
-      if (context.replication.sendKeyframe(record)) record.state = 'ready';
+      if (await context.replication.sendKeyframe(record)) record.state = 'ready';
       if (record.state === 'ready') {
         context.replication.sendReliable(record, context.replication.envelope('connection:ready', {}));
       }
@@ -72,7 +76,7 @@ export function routeWsMessage(record: WsConnectionRecord, message: WsClientEnve
         context.sendError(record, 'CONNECTION_NOT_READY', 'connection.not_ready', false);
         return;
       }
-      context.replication.requestResync(record);
+      await context.replication.requestResync(record);
       return;
   }
 }

@@ -1,6 +1,5 @@
 import type {
-  EventId,
-  EventSequence,
+  HotGameplayEventEnvelope,
   InputStreamId,
   MatchId,
   ParticipantId,
@@ -110,6 +109,14 @@ export interface WsStaticScene {
   readonly objects: readonly SceneObject[];
 }
 
+/** Свежая COLD read-model только для keyframe/reconnect; никогда не читается в HOT tick. */
+export interface WsColdSceneSnapshot {
+  readonly objects: readonly SceneObject[];
+  readonly projectionRevision: ProjectionRevision;
+}
+
+export type WsColdSceneLoader = (matchId: MatchId) => Promise<WsColdSceneSnapshot>;
+
 export interface WsHiddenFactSource {
   hiddenFact(participantId: ParticipantId): { readonly hiddenRole: string | null; readonly infected: boolean };
 }
@@ -122,20 +129,14 @@ export interface WsGatewayLog {
 }
 
 /** Reliable durable event channel (P06): never coalesced, delivered FIFO, confirmed by ACK. */
-export interface WsDurableEventChannel {
-  readonly eventId: EventId;
-  readonly eventSequence: EventSequence;
-  readonly matchId: MatchId;
-  readonly worldEpoch: WorldEpoch;
-  readonly simulationTick: SimulationTick;
-  readonly payload: unknown;
-}
+export type WsDurableEventChannel = HotGameplayEventEnvelope;
 
 export interface WsGatewayDeps {
   readonly hot: WsHotMatchPort;
   readonly scene: WsStaticScene;
   authenticate(token: string): Promise<WsAuthenticationResult>;
   readonly hiddenFacts?: WsHiddenFactSource;
+  readonly loadColdScene?: WsColdSceneLoader;
   readonly limits: RealtimeNetworkConfig;
   readonly serverVersion: string;
   readonly contractsVersion: string;

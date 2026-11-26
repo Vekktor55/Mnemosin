@@ -36,6 +36,8 @@ export const JournalKind = z.enum([
   'ending_reached',
   'snapshot_taken',
   'hot_gameplay_committed',
+  // P06: COLD→HOT команда применена (несёт ревизию для восстановления по журналу).
+  'cold_to_hot_committed',
   'reconciled_on_boot',
 ]);
 export type JournalKind = z.infer<typeof JournalKind>;

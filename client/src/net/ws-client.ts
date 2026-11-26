@@ -393,6 +393,9 @@ export class WSClient {
       case 'scene:input-ack':
         /* ack обрабатывается подписчиками GameWorld; протокольной логики нет. */
         break;
+      case 'scene:durable-event':
+        /* Reliable P06 channel: не coalescing и не interpolation; отдаётся подписчикам. */
+        break;
     }
   }
 

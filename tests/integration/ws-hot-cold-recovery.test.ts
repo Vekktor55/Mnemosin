@@ -1,257 +1,281 @@
-import { describe, expect, it, beforeEach, afterEach } from 'vitest';
-
-import { describe, expect, it, beforeEach, afterEach } from 'vitest';
-
-import {
-  type SessionId,
-  type MatchId,
-  type ParticipantId,
-  type SimulationTick,
-  type HotSnapshot,
-} from '@mnemosin/contracts';
-import { CrashRestartHarness } from '@mnemosin/core';
-import { type SnapshotRecoveryOrchestrator } from '@mnemosin/core';
-import { type EventId, type EventSequence, type WorldEpoch } from '@mnemosin/contracts';
-import { parseWorldPack } from '@mnemosin/core';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { type PrototypeHotMatch, prototypeRealtimeLimits, createPrototypeWsGateway } from '@mnemosin/server';
 
-const fixturePath = resolve(process.cwd(), 'tests/fixtures/worldpack.v4.test.json');
+import {
+  CONTRACTS_VERSION,
+  MatchId,
+  ParticipantId,
+  ProjectionRevision,
+  type HotGameplayEventEnvelope,
+} from '@mnemosin/contracts';
+import { loadConfig } from '@mnemosin/config';
+import { CrashRestartHarness, parseWorldPack } from '@mnemosin/core';
+import { createLogger } from '@mnemosin/logging';
+import { buildApp, createPrototypeWsGateway, prototypeStaticScene } from '@mnemosin/server';
+import type { FastifyInstance } from 'fastify';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-// Use the floorId from the fixture as matchId
-const TEST_MATCH_ID = '00000000-0000-4000-8000-000000000002' as MatchId;
-const TEST_WORLD_EPOCH = 1 as WorldEpoch;
-const TEST_SESSION_ID = '00000000-0000-4000-8000-000000000001' as SessionId;
-const TEST_PLAYER_1 = '00000000-0000-4000-8000-000000000001' as ParticipantId;
-const COMMAND_ID_1 = '00000000-0000-4000-8000-000000000010';
-const COMMAND_ID_2 = '00000000-0000-4000-8000-000000000011';
+import { openColdTestDb, type ColdTestDb } from '../unit/cold-test-setup.js';
+import {
+  createEventProcessor,
+  createRecovery,
+  createRecoveryRuntime,
+  insertRuntimeSnapshot,
+  makeRecoveryCommand,
+  makeRecoveryEvent,
+} from '../unit/cold-recovery-fixtures.js';
+import { TestWsClient, waitUntil, type ServerMessage } from './ws-test-client.js';
 
-describe('P06 HOT/COLD Recovery Integration', () => {
-  let hotMatch: PrototypeHotMatch | null = null;
+const pack = parseWorldPack(readFileSync(resolve(process.cwd(), 'tests/fixtures/worldpack.v4.test.json'), 'utf8'));
+const secondPlayer = ParticipantId.parse('00000000-0000-4000-8000-000000000102');
+const gatewayMatchId = MatchId.parse(pack.manifest.floorId);
+const itemId = '00000000-0000-4000-8000-000000000101' as const;
+
+describe('P06 real WS + SQLite HOT/COLD recovery', () => {
+  let db: ColdTestDb;
+  let app: FastifyInstance;
+  let gateway: ReturnType<typeof createPrototypeWsGateway>;
+  let clients: TestWsClient[];
+  let url: string;
+  let backpressured: boolean;
 
   beforeEach(async () => {
-    const pack = parseWorldPack(readFileSync(fixturePath, 'utf8'));
-
-    const limits = prototypeRealtimeLimits({
-      wsAuthTimeoutMs: 5000,
-      wsMaxConnectionsPerIp: 20,
-      wsMaxPayloadBytes: 16384,
-      wsRatePerConnection: { DEFAULT: 50 },
-      heartbeat: { enabled: true, intervalMs: 20000, timeoutMs: 5000 },
-    });
-
-    const wsGateway = createPrototypeWsGateway({
-      pack,
-      players: [
-        { participantId: TEST_PLAYER_1, spawnPointId: 'player-1' },
-        { participantId: '00000000-0000-4000-8000-000000000002' as ParticipantId, spawnPointId: 'player-2' },
-      ],
-      limits,
-      logger: { info: () => {}, warn: () => {}, error: () => {}, debug: () => {} },
-      serverVersion: 'test',
-      contractsVersion: '0.7.0',
-      async authenticate(_token: string) {
-        return { ok: false, code: 'AUTH_INVALID' };
+    db = await openColdTestDb('ws-p06');
+    clients = [];
+    backpressured = false;
+    const config = loadConfig({
+      cwd: process.cwd(),
+      ignoreDotenv: true,
+      version: '0.0.0-test',
+      env: {
+        NODE_ENV: 'test',
+        DATABASE_URL: 'file:./data/ws-p06-not-opened.sqlite',
+        JWT_SECRET: 'ws-p06-secret-0123456789abcdef0123456789abcdef',
+        LOG_LEVEL: 'silent',
       },
     });
-
-    hotMatch = wsGateway.hot;
-    hotMatch.scheduler.start();
+    gateway = createPrototypeWsGateway({
+      pack,
+      players: [
+        { participantId: db.playerId, spawnPointId: 'player-1' },
+        { participantId: secondPlayer, spawnPointId: 'player-2' },
+      ],
+      matchId: gatewayMatchId,
+      serverVersion: config.version,
+      contractsVersion: CONTRACTS_VERSION,
+      isBackpressured: () => backpressured,
+      loadColdScene: async () => {
+        // Свежий committed COLD read выполняется только на keyframe/reconnect.
+        const state = await db.uow.repos().state.findBySession(db.sessionId);
+        const item = state?.objectStates[itemId];
+        return {
+          projectionRevision: ProjectionRevision.parse((state?.version ?? 0) + 1),
+          objects: [
+            ...prototypeStaticScene(pack).objects,
+            { objectId: itemId, position: { x: 0.5, y: 2.5 }, taken: item?.taken ?? false },
+          ],
+        };
+      },
+      async authenticate(token) {
+        const actorId = token === 'player-one' ? db.playerId : token === 'player-two' ? secondPlayer : null;
+        if (actorId === null) return { ok: false, code: 'AUTH_INVALID' };
+        return {
+          ok: true,
+          actor: {
+            actorId,
+            actorType: 'player',
+            matchId: gatewayMatchId,
+            sessionId: db.sessionId,
+            projectionKind: 'player',
+            permissions: ['scene:input', 'scene:resync'],
+          },
+        };
+      },
+    });
+    app = await buildApp({
+      config,
+      logger: createLogger({ config, name: 'ws-p06-integration' }),
+      cwd: process.cwd(),
+      wsGateway: gateway,
+    });
+    url = `${(await app.listen({ host: '127.0.0.1', port: 0 })).replace('http:', 'ws:')}/ws`;
   });
 
   afterEach(async () => {
-    if (hotMatch) hotMatch.scheduler.stop();
+    backpressured = false;
+    for (const client of clients) await client.close();
+    await app.close();
+    await db.close();
   });
 
-  it('applies COLD→HOT revision ordering on tick boundary and rejects stale', async () => {
-    expect(hotMatch).not.toBeNull();
+  async function connect(token = 'player-one'): Promise<TestWsClient> {
+    const client = await TestWsClient.connect(url, token);
+    clients.push(client);
+    return client;
+  }
 
-    // Tick 1: apply revision 1
-    const result1 = hotMatch!.runtime.receiveColdCommand({
-      schemaVersion: 1,
-      commandId: COMMAND_ID_1,
-      matchId: TEST_MATCH_ID,
-      revision: 1,
-      worldEpoch: TEST_WORLD_EPOCH,
-      type: 'prototype.runtime.fact',
-      target: { participantId: TEST_PLAYER_1 },
-      payload: { key: 'probe', value: 1 },
-    });
+  async function finishReady(client: TestWsClient): Promise<ServerMessage<'scene:keyframe'>> {
+    client.send('connection:client-ready', {});
+    const keyframe = await client.waitFor('scene:keyframe');
+    await client.waitFor('connection:ready');
+    return keyframe;
+  }
 
-    expect(result1.accepted).toBe(true);
+  it('применяет COLD revision на границе тика и детерминированно отклоняет stale/duplicate', () => {
+    const first = { ...makeRecoveryCommand(db, 1), matchId: gatewayMatchId };
+    expect(gateway.hot.runtime.receiveColdCommand(first).accepted).toBe(true);
+    expect(gateway.hot.runtime.getColdBoundaryState().coldRevision).toBe(0);
+    const tick = gateway.hot.runtime.tick();
+    expect(tick.diagnostics.coldRevisionsApplied).toBe(1);
+    expect(gateway.hot.runtime.getColdBoundaryState().coldRevision).toBe(1);
 
-    const tickResult1 = hotMatch!.runtime.tick();
-    expect(tickResult1.diagnostics.coldRevisionsApplied).toBe(1);
-
-    // Tick 2: stale revision 1 should be rejected
-    const result2 = hotMatch!.runtime.receiveColdCommand({
-      schemaVersion: 1,
-      commandId: COMMAND_ID_2,
-      matchId: TEST_MATCH_ID,
-      revision: 1,
-      worldEpoch: TEST_WORLD_EPOCH,
-      type: 'prototype.runtime.fact',
-      target: { participantId: TEST_PLAYER_1 },
-      payload: { key: 'probe', value: 2 },
-    });
-
-    expect(result2.accepted).toBe(false);
-    expect(result2.reason).toBe('duplicate');
+    const duplicate = gateway.hot.runtime.receiveColdCommand(first);
+    expect(duplicate).toEqual({ accepted: false, reason: 'duplicate' });
   });
 
-  it('simulates crash after event creation but before COLD commit → transient state rollback to last snapshot', async () => {
-    expect(hotMatch).not.toBeNull();
+  it('не теряет и не коалесцирует strict durable events между scene:delta под backpressure', async () => {
+    const client = await connect();
+    await finishReady(client);
+    const record = app.wsGateway?.registry.all().find((candidate) => candidate.context.actorId === db.playerId);
+    expect(record).toBeDefined();
+    if (record === undefined) throw new Error('Missing WS record');
 
-    const event1: {
-      eventId: EventId;
-      eventSequence: EventSequence;
-      matchId: MatchId;
-      worldEpoch: WorldEpoch;
-      simulationTick: SimulationTick;
-      payload: unknown;
-    } = {
-      eventId: '00000000-0000-4000-8000-000000000100' as EventId,
-      eventSequence: 1 as EventSequence,
-      matchId: TEST_MATCH_ID,
-      worldEpoch: TEST_WORLD_EPOCH,
-      simulationTick: 40 as SimulationTick,
-      payload: { itemId: '00000000-0000-4000-8000-000000000101', ownerId: TEST_PLAYER_1 },
+    backpressured = true;
+    await waitUntil(() => record.delivery.deltaCount >= 1);
+    const receivedAtBlock = client.messageCount;
+    const first: HotGameplayEventEnvelope = { ...makeRecoveryEvent(db, 201, 1, 1), matchId: gatewayMatchId };
+    const second: HotGameplayEventEnvelope = { ...makeRecoveryEvent(db, 202, 2, 2), matchId: gatewayMatchId };
+    expect(app.wsGateway?.replication.publishDurableEvent(record, first)).toBe(true);
+    expect(app.wsGateway?.replication.publishDurableEvent(record, second)).toBe(true);
+    await waitUntil(() => record.delivery.reliableCount >= 2);
+    await new Promise((resolveWait) => setTimeout(resolveWait, 120));
+    expect(record.delivery.reliableCount).toBe(2);
+    expect(record.delivery.deltaCount).toBeGreaterThanOrEqual(1);
+
+    backpressured = false;
+    record.delivery.flush();
+    await client.waitFor('scene:durable-event', (message) => message.payload.eventId === first.eventId);
+    await client.waitFor('scene:durable-event', (message) => message.payload.eventId === second.eventId);
+    const delivered = client.messages.slice(receivedAtBlock);
+    const durable = delivered.filter((message) => message.type === 'scene:durable-event');
+    expect(durable.map((message) => message.payload.eventId)).toEqual([first.eventId, second.eventId]);
+    expect(durable[0]?.payload).toEqual(first);
+    expect(delivered.some((message) => message.type === 'scene:delta')).toBe(true);
+  }, 10_000);
+
+  it('после COLD commit reconnect выдаёт новый stream/epoch и keyframe из актуального GameState', async () => {
+    const original = await connect();
+    const oldWelcome = await original.waitFor('connection:welcome');
+    const initial = await finishReady(original);
+    expect(initial.payload.projection.objects.find((object) => object.objectId === itemId)?.taken).toBe(false);
+
+    const event = makeRecoveryEvent(db, 203, 1, 10);
+    const committed = await createEventProcessor(db).process({ event, sessionId: db.sessionId });
+    expect(committed.ack.outcome).toBe('committed');
+    expect((await db.services.state.get(db.sessionId)).objectStates[itemId]?.taken).toBe(true);
+
+    const reconnected = await connect();
+    const newWelcome = await reconnected.waitFor('connection:welcome');
+    expect(newWelcome.payload.connectionEpoch).toBe(oldWelcome.payload.connectionEpoch + 1);
+    expect(newWelcome.payload.inputStreamId).not.toBe(oldWelcome.payload.inputStreamId);
+    expect(await original.waitForClose()).toBe(4409);
+    const keyframe = await finishReady(reconnected);
+
+    const item = keyframe.payload.projection.objects.find((object) => object.objectId === itemId);
+    expect(item?.taken).toBe(true);
+    expect(keyframe.payload.projectionRevision).toBe(committed.ack.coldStateVersion + 1);
+    expect(keyframe.payload.inputStreamId).toBe(newWelcome.payload.inputStreamId);
+    expect(keyframe.payload.lastProcessedInputSequence).toBeUndefined();
+    expect(JSON.stringify(keyframe.payload)).not.toMatch(/hiddenRole|infected/);
+  }, 10_000);
+
+  it('matchId и sessionId остаются разными идентификаторами: match приходит из wiring, сессия — из COLD', async () => {
+    // Wiring задаёт match явно (одна сессия = один match в P06-прототипе),
+    // а COLD-состояние живёт в sessionId — это разные идентификаторы.
+    expect(gateway.hot.matchId).toBe(gatewayMatchId);
+    expect(gateway.hot.runtime.getState().players).toHaveLength(2);
+
+    // Durable event с match-контекстом применяется к COLD-сессии даже когда
+    // matchId и sessionId не совпадают по значению: процессор привязан к
+    // match сессии (из wiring), а мутирует GameState по sessionId.
+    const event: HotGameplayEventEnvelope = {
+      ...makeRecoveryEvent(db, 205, 1, 12),
+      matchId: gatewayMatchId,
+    };
+    expect(String(event.matchId)).not.toBe(String(db.sessionId));
+
+    const committed = await createEventProcessor(db, gatewayMatchId).process({ event, sessionId: db.sessionId });
+    expect(committed.ack.outcome).toBe('committed');
+    expect(committed.ack.matchId).toBe(gatewayMatchId);
+
+    // Повтор того же eventId после «рестарта» не дублирует эффект.
+    const replayed = await createEventProcessor(db, gatewayMatchId).process({ event, sessionId: db.sessionId });
+    expect(replayed.ack.outcome).toBe('replayed');
+    expect((await db.services.state.get(db.sessionId)).version).toBe(1);
+
+    // Событие чужого match (не match этой сессии) отклоняется до commit.
+    const foreign: HotGameplayEventEnvelope = {
+      ...makeRecoveryEvent(db, 208, 2, 13),
+      matchId: MatchId.parse('00000000-0000-4000-8000-000000000996'),
+    };
+    await expect(
+      createEventProcessor(db, gatewayMatchId).process({ event: foreign, sessionId: db.sessionId }),
+    ).rejects.toMatchObject({ code: 'CORE_INVALID_STATE_TRANSITION' });
+    expect((await db.services.state.get(db.sessionId)).version).toBe(1);
+  }, 10_000);
+
+  it('durable event чужого match не публикуется в сцену соединения', async () => {
+    const client = await connect();
+    await finishReady(client);
+    const record = app.wsGateway?.registry.all().find((candidate) => candidate.context.actorId === db.playerId);
+    expect(record).not.toBeUndefined();
+    if (record === undefined) throw new Error('Missing WS record');
+
+    const before = client.messageCount;
+    const foreign: HotGameplayEventEnvelope = {
+      ...makeRecoveryEvent(db, 206, 1, 13),
+      matchId: MatchId.parse('00000000-0000-4000-8000-000000000997'),
     };
 
-    const recovery = {
-      recover: async () => ({
-        recoveredSnapshot: null as unknown as HotSnapshot,
-        replayedEvents: 0,
-        appliedColdRevisions: 0,
-      }),
-    } as SnapshotRecoveryOrchestrator;
+    expect(app.wsGateway?.replication.publishDurableEvent(record, foreign)).toBe(false);
+    await new Promise((resolveWait) => setTimeout(resolveWait, 60));
+    expect(client.messages.slice(before).some((message) => message.type === 'scene:durable-event')).toBe(false);
 
-    const harness = new CrashRestartHarness({ recovery });
-    harness.recordEventCreated(event1);
-    harness.recordEventCreated({ ...event1, eventId: '00000000-0000-4000-8000-000000000102' as EventId });
-
-    const result = await harness.simulateCrashAndRestart(TEST_SESSION_ID, TEST_MATCH_ID, {
-      afterEventCreated: true,
-      afterColdCommit: false,
-      afterAckSent: false,
-      afterSnapshotWritten: false,
-    });
-
-    expect(result.window.afterEventCreated).toBe(true);
-    expect(result.window.afterColdCommit).toBe(false);
-    expect(result.pendingEventsBeforeCrash).toBe(2);
-    expect(result.recoveredSnapshot).toBeNull(); // no snapshot → null
-    expect(result.transientStateRollback).toBe(false);
-  });
-
-  it('simulates crash after COLD commit but before ACK → replay on recovery', async () => {
-    expect(hotMatch).not.toBeNull();
-
-    const event1 = {
-      eventId: '00000000-0000-4000-8000-000000000103' as EventId,
-      eventSequence: 1 as EventSequence,
-      matchId: TEST_MATCH_ID,
-      worldEpoch: TEST_WORLD_EPOCH,
-      simulationTick: 40 as SimulationTick,
-      payload: { itemId: '00000000-0000-4000-8000-000000000104', ownerId: TEST_PLAYER_1 },
+    // Событие своего match публикуется.
+    const own: HotGameplayEventEnvelope = {
+      ...makeRecoveryEvent(db, 207, 1, 14),
+      matchId: gatewayMatchId,
     };
+    expect(app.wsGateway?.replication.publishDurableEvent(record, own)).toBe(true);
+    await client.waitFor('scene:durable-event', (message) => message.payload.eventId === own.eventId);
+  }, 10_000);
 
-    const mockSnapshot: HotSnapshot = {
-      id: '00000000-0000-4000-8000-000000000200',
-      sessionId: TEST_SESSION_ID,
-      label: 'test',
-      turnNumber: 40,
-      createdByTurnId: null,
-      createdBy: 'SYSTEM',
-      state: {
-        sessionId: TEST_SESSION_ID,
-        worldState: {
-          currentLocationId: '00000000-0000-4000-8000-000000000001',
-          timeOfDay: 'NIGHT',
-          weather: null,
-          ambientFlags: {},
-        },
-        storyFlags: {},
-        objectStates: {},
-        playerKnowledge: {},
-        endingState: null,
-        version: 1,
-        updatedAt: new Date().toISOString(),
-      },
-      checksum: 'a'.repeat(64),
-      createdAt: new Date().toISOString(),
-      snapshotVersion: 1,
-      recoveryPoint: {
-        lastAppliedEventId: null,
-        matchId: TEST_MATCH_ID,
-        coldRevision: 2,
-        worldEpoch: TEST_WORLD_EPOCH,
-        simulationTick: 40 as SimulationTick,
-      },
-      runtime: {
-        simulationTick: 40 as SimulationTick,
-        players: [],
-        prototypeFacts: {},
-      },
-    } as HotSnapshot;
+  it('restart после COLD commit до ACK: recovery делает idempotent replay на реальной P03 geometry', async () => {
+    const snapshot = await insertRuntimeSnapshot(db, createRecoveryRuntime(db), 700);
+    const event = makeRecoveryEvent(db, 204, 1, 41);
+    const harness = new CrashRestartHarness({
+      processor: createEventProcessor(db),
+      recovery: createRecovery(db, createRecoveryRuntime(db), createEventProcessor(db)),
+      snapshotRepo: db.uow.repos().snapshots,
+      journal: db.services.journal,
+    });
+    harness.recordSnapshotWritten(snapshot);
+    harness.recordEventCreated(event);
 
-    const recovery = {
-      recover: async () => ({
-        recoveredSnapshot: mockSnapshot,
-        replayedEvents: 1,
-        appliedColdRevisions: 1,
-      }),
-    } as SnapshotRecoveryOrchestrator;
-
-    const harness = new CrashRestartHarness({ recovery });
-    harness.recordEventCreated(event1);
-    harness.recordColdCommit();
-    harness.recordSnapshotWritten(mockSnapshot);
-
-    const result = await harness.simulateCrashAndRestart(TEST_SESSION_ID, TEST_MATCH_ID, {
+    const result = await harness.simulateCrashAndRestart(db.sessionId, MatchId.parse(db.sessionId), {
       afterEventCreated: true,
       afterColdCommit: true,
       afterAckSent: false,
       afterSnapshotWritten: true,
     });
 
-    expect(result.window.afterColdCommit).toBe(true);
-    expect(result.window.afterSnapshotWritten).toBe(true);
-    expect(result.replayedEvents).toBe(1);
-    expect(result.recoveredSnapshot).not.toBeNull();
-    expect(result.transientStateRollback).toBe(true);
-  });
-
-  it('durable event channel is separate from scene:delta and never coalesced', async () => {
-    expect(hotMatch).not.toBeNull();
-
-    // Verify scene:durable-event is in the contract (implicitly via publishDurableEvent in replication)
-    // This test confirms the schema exists and is separate from scene:delta
-    const event = {
-      eventId: '00000000-0000-4000-8000-000000000105' as EventId,
-      eventSequence: 1 as EventSequence,
-      matchId: TEST_MATCH_ID,
-      worldEpoch: TEST_WORLD_EPOCH,
-      simulationTick: 41 as SimulationTick,
-      payload: { filterId: '00000000-0000-4000-8000-000000000106' },
-    };
-
-    // Just verify the types work - actual WS delivery tested in ws-delivery tests
-    expect(event.eventSequence).toBe(1);
-    expect(event.matchId).toBeDefined();
-  });
-
-  it('reconnect after crash receives fresh keyframe consistent with COLD state', async () => {
-    expect(hotMatch).not.toBeNull();
-
-    // Verify scheduler is running
-    const status = hotMatch!.scheduler.status();
-    expect(status.started).toBe(true);
-
-    // Verify runtime state is consistent
-    const state = hotMatch!.runtime.getState();
-    expect(state.players).toHaveLength(2);
-    expect(state.simulationTick).toBeDefined();
+    expect(result.committedBeforeCrash).toBe(1);
+    expect(result.acknowledgedBeforeCrash).toBe(0);
+    expect(result.deduplicatedEvents).toBe(1);
+    expect(result.committedEvents).toBe(0);
+    expect(result.pendingEventsAfterRecovery).toBe(0);
+    expect(result.transientTicksLost).toBe(41);
+    expect(await db.uow.repos().outbox.countAll()).toBe(1);
+    expect((await db.services.state.get(db.sessionId)).version).toBe(1);
   });
 });

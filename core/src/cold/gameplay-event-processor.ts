@@ -1,195 +1,237 @@
 import {
+  AppError,
   CoreError,
+  ERROR_TABLE,
   HotGameplayEventAckSchema,
+  HotGameplayEventEnvelopeSchema,
   HotGameplayJournalPayloadSchema,
+  HOT_GAMEPLAY_EVENT_TYPES,
   nowIso,
-  type HotGameplayEventEnvelope,
-  type HotGameplayEventAck,
-  type SessionId,
+  SessionId,
   type FlagKey,
-  type ObjectId,
+  type HotGameplayEventAck,
+  type HotGameplayEventEnvelope,
+  type HotGameplayEventType,
+  type MatchId,
   type StateMutation,
 } from '@mnemosin/contracts';
-import type { UnitOfWork } from '../domain/ports/index.js';
+import type { CommandRunner, TxScope } from '../domain/ports/index.js';
+import { runCommand } from '../domain/command.js';
 import type { JournalService } from '../turns/index.js';
 import type { StateService } from '../state/index.js';
-import { appendOutbox, createEvent } from '../events/index.js';
+import type { ColdProcessorResult, ProcessHotEventInput } from './types.js';
 
-const PROTOTYPE_RETRY_ATTEMPTS = 3;
-const PROTOTYPE_RETRY_BASE_MS = 50;
+/** PROTOTYPE-ONLY (HC-09): bounded retry; production pause policy remains open. */
+export const PROTOTYPE_COLD_EVENT_RETRY = Object.freeze({ attempts: 3, baseDelayMs: 50 });
 
-interface ProcessedEventRecord {
-  readonly eventId: string;
-  readonly matchId: string;
-  readonly worldEpoch: number;
-  readonly processedAt: number;
+export interface ColdEventRetryOptions {
+  readonly attempts?: number;
+  readonly baseDelayMs?: number;
+  /** Test-only deterministic sleep; production wiring uses setTimeout. */
+  readonly sleep?: (delayMs: number) => Promise<void>;
 }
 
+export interface ColdGameplayEventProcessorDeps {
+  readonly commandRunner: CommandRunner;
+  readonly journal: JournalService;
+  readonly state: StateService;
+  /**
+   * Match, которому принадлежит обслуживаемая COLD-сессия.
+   *
+   * PROTOTYPE-ONLY (одна сессия = один match): привязка известна в wiring,
+   * поэтому событие чужого match отклоняется ДО транзакции — в журнал и
+   * GameState чужой match не попадает (иначе recovery вынужден был бы
+   * fail-closed на расхождении COLD и HOT).
+   */
+  readonly matchId: MatchId;
+  readonly retry?: ColdEventRetryOptions;
+}
+
+/**
+ * HOT → COLD durable event consumer (at-least-once + idempotent consumer).
+ *
+ * Идемпотентность НЕ хранится в памяти процесса. `CommandRunner` — существующий
+ * `IdempotencyService`: ключ, StateService mutation, journal/outbox и сохранённый
+ * результат коммитятся одной SQLite-транзакцией. Поэтому новый processor после
+ * restart получает тот же ACK через `replayed`, не повторяя игровой эффект.
+ */
 export class ColdGameplayEventProcessor {
-  private readonly uow: UnitOfWork;
+  private readonly commandRunner: CommandRunner;
   private readonly journal: JournalService;
   private readonly state: StateService;
-  private readonly processedEvents = new Map<string, ProcessedEventRecord>();
+  /** Match, которому принадлежит обслуживаемая COLD-сессия. */
+  readonly matchId: MatchId;
+  private readonly attempts: number;
+  private readonly baseDelayMs: number;
+  private readonly sleep: (delayMs: number) => Promise<void>;
 
-  constructor(deps: { readonly uow: UnitOfWork; readonly journal: JournalService; readonly state: StateService }) {
-    this.uow = deps.uow;
+  constructor(deps: ColdGameplayEventProcessorDeps) {
+    this.commandRunner = deps.commandRunner;
     this.journal = deps.journal;
     this.state = deps.state;
+    this.matchId = deps.matchId;
+    this.attempts = deps.retry?.attempts ?? PROTOTYPE_COLD_EVENT_RETRY.attempts;
+    this.baseDelayMs = deps.retry?.baseDelayMs ?? PROTOTYPE_COLD_EVENT_RETRY.baseDelayMs;
+    this.sleep = deps.retry?.sleep ?? ((delayMs) => new Promise<void>((resolve) => setTimeout(resolve, delayMs)));
+    if (!Number.isSafeInteger(this.attempts) || this.attempts <= 0) {
+      throw new Error('COLD event retry attempts must be a positive safe integer');
+    }
+    if (!Number.isFinite(this.baseDelayMs) || this.baseDelayMs < 0) {
+      throw new Error('COLD event retry baseDelayMs must be a non-negative finite number');
+    }
   }
 
-  async process(input: { readonly event: HotGameplayEventEnvelope; readonly sessionId: string }): Promise<{
-    readonly ack: HotGameplayEventAck;
-    readonly journalEntryId: number;
-  }> {
-    const { event, sessionId } = input;
-
-    const existing = this.processedEvents.get(event.eventId);
-    if (existing !== undefined) {
-      const state = await this.state.get(sessionId as SessionId);
-      return {
-        ack: HotGameplayEventAckSchema.parse({
-          eventId: event.eventId,
-          matchId: event.matchId,
-          worldEpoch: event.worldEpoch,
-          eventSequence: event.eventSequence,
-          simulationTick: event.simulationTick,
-          outcome: 'replayed' as const,
-          coldStateVersion: state.version,
-          committedAt: nowIso(),
-        }),
-        journalEntryId: -1,
-      };
-    }
-
+  async process(input: ProcessHotEventInput): Promise<ColdProcessorResult> {
+    const sessionId = SessionId.parse(input.sessionId);
+    const event = validateHotEvent(input.event, this.matchId);
     let lastError: unknown;
-    for (let attempt = 0; attempt < PROTOTYPE_RETRY_ATTEMPTS; attempt += 1) {
+
+    for (let attempt = 0; attempt < this.attempts; attempt += 1) {
       try {
-        return await this.processOnce(event, sessionId, attempt);
-      } catch (err) {
-        lastError = err;
-        if (attempt < PROTOTYPE_RETRY_ATTEMPTS - 1) {
-          const delay = PROTOTYPE_RETRY_BASE_MS * 2 ** attempt;
-          await new Promise((resolve) => setTimeout(resolve, delay));
-        }
+        return await this.processOnce(event, sessionId);
+      } catch (error) {
+        lastError = error;
+        if (!isRetryable(error)) throw error;
+        if (attempt < this.attempts - 1) await this.sleep(this.baseDelayMs * 2 ** attempt);
       }
     }
 
-    throw new CoreError('CORE_EVENT_NOT_REGISTERED', 'Durable event processing failed after retries', {
+    // Цикл всегда возвращает результат или выбрасывает ошибку; защита от будущих правок.
+    throw new AppError('INTERNAL', 'Durable event processing failed', {
       eventId: event.eventId,
       cause: lastError instanceof Error ? lastError.message : String(lastError),
     });
   }
 
-  private async processOnce(
-    event: HotGameplayEventEnvelope,
-    sessionId: string,
-    attempt: number,
-  ): Promise<{ readonly ack: HotGameplayEventAck; readonly journalEntryId: number }> {
-    const traceId = `hot-event-${event.eventId}-${attempt}`;
-
-    const result = await this.uow.runInTx(async (scope) => {
-      const mutations = this.toStateMutations(event);
-      const currentState = await scope.repos.state.findBySession(sessionId as SessionId);
-      const stateResult = await this.state.apply({
-        sessionId: sessionId as SessionId,
-        mutations,
-        expectedVersion: currentState?.version ?? 0,
+  private async processOnce(event: HotGameplayEventEnvelope, sessionId: SessionId): Promise<ColdProcessorResult> {
+    const result = await runCommand(
+      this.commandRunner,
+      {
+        key: hotEventIdempotencyKey(event),
+        command: 'processHotGameplayEvent',
+        sessionId,
         turnId: null,
-        traceId,
-        scope,
-      });
+        traceId: `hot-event-${event.eventId}`,
+      },
+      (scope) => this.commit(event, sessionId, scope),
+    );
 
-      const journalEntry = await this.journal.append(
-        {
-          sessionId: sessionId as SessionId,
-          turnId: null,
-          kind: 'hot_gameplay_committed',
-          payload: { event: HotGameplayJournalPayloadSchema.parse({ event }) },
-          traceId,
-        },
-        scope,
-      );
+    if (result.replayed) {
+      return { ack: { ...result.value.ack, outcome: 'replayed' }, journalEntryId: -1 };
+    }
+    // runCommand возвращается только после commit CommandRunner; ACK раньше не существует.
+    return result.value;
+  }
 
-      await appendOutbox(
-        [
-          createEvent(
-            'STATE_COMMITTED',
-            {
-              sessionId: sessionId as SessionId,
-              version: stateResult.version,
-              changedKeys: stateResult.changedKeys.map((k: string) => k.slice(0, 120)),
-            },
-            traceId,
-          ),
-        ],
-        scope,
-      );
-
-      return { stateResult, journalEntry };
+  private async commit(
+    event: HotGameplayEventEnvelope,
+    sessionId: SessionId,
+    scope: TxScope,
+  ): Promise<ColdProcessorResult> {
+    const currentState = await scope.repos.state.findBySession(sessionId);
+    const stateResult = await this.state.apply({
+      sessionId,
+      mutations: this.toStateMutations(event),
+      expectedVersion: currentState?.version ?? 0,
+      turnId: null,
+      traceId: `hot-event-${event.eventId}`,
+      scope,
     });
 
-    const record: ProcessedEventRecord = {
+    const journalEntry = await this.journal.append(
+      {
+        sessionId,
+        turnId: null,
+        kind: 'hot_gameplay_committed',
+        payload: HotGameplayJournalPayloadSchema.parse({ event }),
+        traceId: `hot-event-${event.eventId}`,
+      },
+      scope,
+    );
+
+    const ack: HotGameplayEventAck = HotGameplayEventAckSchema.parse({
       eventId: event.eventId,
       matchId: event.matchId,
       worldEpoch: event.worldEpoch,
-      processedAt: Date.now(),
-    };
-    this.processedEvents.set(event.eventId, record);
-
-    return {
-      ack: HotGameplayEventAckSchema.parse({
-        eventId: event.eventId,
-        matchId: event.matchId,
-        worldEpoch: event.worldEpoch,
-        eventSequence: event.eventSequence,
-        simulationTick: event.simulationTick,
-        outcome: 'committed' as const,
-        coldStateVersion: result.stateResult.version,
-        committedAt: nowIso(),
-      }),
-      journalEntryId: result.journalEntry.id,
-    };
+      eventSequence: event.eventSequence,
+      simulationTick: event.simulationTick,
+      outcome: 'committed',
+      coldStateVersion: stateResult.version,
+      committedAt: nowIso(),
+    });
+    return { ack, journalEntryId: journalEntry.id };
   }
 
   private toStateMutations(event: HotGameplayEventEnvelope): StateMutation[] {
     switch (event.type) {
-      case 'prototype.item.acquired': {
-        const payload = event.payload as { itemId: string; ownerId: string };
+      case 'prototype.item.acquired':
         return [
-          { kind: 'OBJECT_TAKEN', objectId: payload.itemId as ObjectId, taken: true },
+          { kind: 'OBJECT_TAKEN', objectId: event.payload.itemId, taken: true },
           {
             kind: 'SET_FLAG',
-            key: `prototype.item.${payload.itemId}.owner` as FlagKey,
-            value: payload.ownerId,
+            key: `prototype.item.${event.payload.itemId}.owner` as FlagKey,
+            value: event.payload.ownerId,
             setBy: 'ENGINE',
           },
         ];
-      }
-      case 'prototype.filter.depleted': {
-        const payload = event.payload as { filterId: string };
+      case 'prototype.filter.depleted':
         return [
-          { kind: 'OBJECT_PATCH', objectId: payload.filterId as ObjectId, patch: { charge: 0, depleted: true } },
+          {
+            kind: 'OBJECT_PATCH',
+            objectId: event.payload.filterId,
+            patch: { charge: 0, depleted: true },
+          },
           {
             kind: 'SET_FLAG',
-            key: `prototype.filter.${payload.filterId}.depleted` as FlagKey,
+            key: `prototype.filter.${event.payload.filterId}.depleted` as FlagKey,
             value: true,
             setBy: 'ENGINE',
           },
         ];
-      }
-      case 'prototype.capture.recorded': {
-        const payload = event.payload as { capturedParticipantId: string };
+      case 'prototype.capture.recorded':
         return [
           {
             kind: 'SET_FLAG',
-            key: `prototype.capture.${payload.capturedParticipantId}` as FlagKey,
+            key: `prototype.capture.${event.payload.capturedParticipantId}` as FlagKey,
             value: true,
             setBy: 'ENGINE',
           },
         ];
-      }
-      default:
-        return [];
     }
   }
+}
+
+export function hotEventIdempotencyKey(event: HotGameplayEventEnvelope): string {
+  return `hot-event:${event.matchId}:${event.worldEpoch}:${event.eventId}`;
+}
+
+function validateHotEvent(event: HotGameplayEventEnvelope, expectedMatchId: MatchId): HotGameplayEventEnvelope {
+  const eventType = (event as { type?: unknown }).type;
+  if (typeof eventType !== 'string' || !HOT_GAMEPLAY_EVENT_TYPES.includes(eventType as HotGameplayEventType)) {
+    throw new CoreError('CORE_EVENT_NOT_REGISTERED', `Unknown durable HOT event type: ${String(eventType)}`, {
+      eventId: (event as { eventId?: unknown }).eventId,
+      eventType,
+    });
+  }
+  const parsed = HotGameplayEventEnvelopeSchema.safeParse(event);
+  if (!parsed.success) {
+    throw new AppError('VALIDATION', 'Durable HOT event failed HotGameplayEventEnvelopeSchema', {
+      issues: parsed.error.issues.slice(0, 3).map((issue) => `${issue.path.join('.')}: ${issue.message}`),
+    });
+  }
+  // Fail-closed: событие другого match не должно попасть в GameState/журнал этой сессии.
+  if (parsed.data.matchId !== expectedMatchId) {
+    throw new CoreError('CORE_INVALID_STATE_TRANSITION', 'Durable HOT event belongs to a different match', {
+      eventId: parsed.data.eventId,
+      eventMatchId: parsed.data.matchId,
+      expectedMatchId,
+    });
+  }
+  return parsed.data;
+}
+
+function isRetryable(error: unknown): boolean {
+  if (!(error instanceof AppError)) return true;
+  const category = ERROR_TABLE[error.code]?.category;
+  return category !== 'validation' && category !== 'rules' && category !== 'content';
 }

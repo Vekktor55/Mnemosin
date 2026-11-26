@@ -1,6 +1,6 @@
 import { describe, expect, it, beforeEach, afterEach } from 'vitest';
 
-import { id, ObjectId, ParticipantId, EventId } from '@mnemosin/contracts';
+import { id, ObjectId, ParticipantId, EventId, MatchId } from '@mnemosin/contracts';
 import type { WorldEpoch, SimulationTick, EventSequence, HotGameplayEventEnvelope } from '@mnemosin/contracts';
 import { ColdGameplayEventProcessor } from '@mnemosin/core';
 import { openColdTestDb, type ColdTestDb } from './cold-test-setup.js';
@@ -12,9 +12,10 @@ describe('P06 ColdGameplayEventProcessor', () => {
   beforeEach(async () => {
     db = await openColdTestDb('cold-event');
     processor = new ColdGameplayEventProcessor({
-      uow: db.uow,
+      commandRunner: db.idempotency,
       journal: db.services.journal,
       state: db.services.state,
+      matchId: MatchId.parse(db.sessionId),
     });
   });
 
@@ -67,11 +68,26 @@ describe('P06 ColdGameplayEventProcessor', () => {
     const event = makeEvent();
 
     await processor.process({ event, sessionId: db.sessionId });
+    const committedState = await db.services.state.get(db.sessionId);
+    // Restart: новый экземпляр не имеет никакого RAM dedup state.
+    processor = new ColdGameplayEventProcessor({
+      commandRunner: db.idempotency,
+      journal: db.services.journal,
+      state: db.services.state,
+      matchId: MatchId.parse(db.sessionId),
+    });
     const replayed = await processor.process({ event, sessionId: db.sessionId });
 
     expect(replayed.ack.outcome).toBe('replayed');
-    expect(replayed.ack.coldStateVersion).toBeGreaterThan(0);
+    expect(replayed.ack.coldStateVersion).toBe(committedState.version);
     expect(replayed.journalEntryId).toBe(-1);
+    expect((await db.services.state.get(db.sessionId)).version).toBe(committedState.version);
+    expect(
+      (await db.services.journal.listBySession(db.sessionId, 100)).filter(
+        (entry) => entry.kind === 'hot_gameplay_committed',
+      ),
+    ).toHaveLength(1);
+    expect(await db.uow.repos().outbox.countAll()).toBe(1);
   });
 
   it('processes prototype.filter.depleted event', async () => {

@@ -14,6 +14,7 @@ import { HotSchedulerSupervisor } from './scheduler-supervisor.js';
 
 export interface WsGatewayHandle {
   readonly registry: ConnectionRegistry;
+  readonly replication: SceneReplicationService;
   closeAll(): void;
 }
 
@@ -40,7 +41,7 @@ export async function registerWsGateway(app: FastifyInstance, deps: WsGatewayDep
     replication.sendReliable(record, envelope('connection:error', { code, messageKey, retryable }));
   }
 
-  function handleMessage(record: WsConnectionRecord, raw: Buffer): void {
+  async function handleMessage(record: WsConnectionRecord, raw: Buffer): Promise<void> {
     record.lastHeartbeatAt = now();
     if (record.state === 'closing' || record.state === 'closed') return;
     let json: unknown;
@@ -55,7 +56,7 @@ export async function registerWsGateway(app: FastifyInstance, deps: WsGatewayDep
       sendError(record, 'PROTOCOL_INVALID_MESSAGE', 'protocol.invalid_message', false);
       return;
     }
-    routeWsMessage(record, parsed.data, {
+    await routeWsMessage(record, parsed.data, {
       runtime: deps.hot.runtime,
       replication,
       now,
@@ -157,8 +158,17 @@ export async function registerWsGateway(app: FastifyInstance, deps: WsGatewayDep
         );
         return;
       }
-      handleMessage(record, raw);
-      lifecycleState = record.state;
+      const activeRecord = record;
+      void handleMessage(activeRecord, raw)
+        .then(() => {
+          lifecycleState = activeRecord.state;
+        })
+        .catch((error: unknown) => {
+          deps.logger?.error({ err: error, connectionId: activeRecord.context.connectionId }, 'ws route failed');
+          activeRecord.state = 'closing';
+          lifecycleState = 'closing';
+          closeWithCode(activeRecord.socket, WS_CLOSE_CODE.INTERNAL, { code: 'INTERNAL' }, deps.logger);
+        });
     });
 
     // Pending и authenticated sockets занимают один и тот же per-IP бюджет.
@@ -224,6 +234,7 @@ export async function registerWsGateway(app: FastifyInstance, deps: WsGatewayDep
 
   return {
     registry,
+    replication,
     closeAll() {
       clearInterval(heartbeat);
       schedulerSupervisor.stop();
