@@ -14,9 +14,9 @@ import { StatePathSchema } from './state-path.js';
 export const FirstTimeScope = z.enum(['LOCATION', 'OBJECT', 'EVENT']);
 export type FirstTimeScope = z.infer<typeof FirstTimeScope>;
 
-// ZodType<Condition, ZodTypeDef, unknown>: на входе бренды ещё не проставлены
-// (input у branded-схем — обычный string), поэтому третий параметр ослаблен.
-export const ConditionSchema: z.ZodType<Condition, z.ZodTypeDef, unknown> = z.lazy(() =>
+// ZodType<Condition, unknown>: на входе бренды ещё не проставлены
+// (input у branded-схем — обычный string), поэтому Input ослаблен до unknown.
+export const ConditionSchema: z.ZodType<Condition, unknown> = z.lazy(() =>
   z.discriminatedUnion('op', [
     z.object({ op: z.literal('AND'), items: z.array(ConditionSchema).min(1) }),
     z.object({ op: z.literal('OR'), items: z.array(ConditionSchema).min(1) }),

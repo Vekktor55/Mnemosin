@@ -43,9 +43,9 @@ export interface BuildAppOptions {
    */
   readonly httpGateway?: HttpGatewayDeps;
   /**
-   * Зависимости WS-шлюза (промпт 1.11): /ws — handshake-auth, heartbeat,
-   * router, проекции и доставка по WS_PRIVACY_POLICY. Handle доступен как
-   * app.wsGateway (shutdown: closeAll до outbox drain).
+   * Зависимости P05-A WS-шлюза: /ws — handshake-auth, lifecycle,
+   * HOT input, role-specific scene replication и delivery queue. Handle
+   * доступен как app.wsGateway (shutdown: closeAll до остановки scheduler).
    */
   readonly wsGateway?: WsGatewayDeps;
 }
@@ -75,7 +75,9 @@ export async function buildApp({
     },
     // disableRequestLogging deprecated в fastify 5.12 (→ logController, будет удалён в fastify 6).
     // Не используем: подробность логов управляется LOG_LEVEL, а traceId проставляется через genReqId.
-    trustProxy: config.isProduction,
+    // До явного trusted-proxy CIDR/hop policy X-Forwarded-For не доверен.
+    // Это fail-closed для HTTP/WS rate limits при прямом доступе к Node.
+    trustProxy: false,
     bodyLimit: 1_048_576, // 1 МБ (docs/SPEC_STAGE1.md §6.1)
   });
 
@@ -144,10 +146,14 @@ export async function buildApp({
     await registerHttpRoutes(app as unknown as FastifyInstance, httpGateway);
   }
 
-  // Промпт 1.11: WS-транспорт — /ws (auth-handshake, heartbeat, router,
-  // broadcast по WS_PRIVACY_POLICY). Handle — для graceful shutdown (closeAll).
+  // P05-A: typed WS router, HOT input и scene replication; supervisor
+  // возобновляет controlled backlog pause, closeAll останавливает timers.
   if (wsGateway !== undefined) {
-    app.wsGateway = await registerWsGateway(app as unknown as FastifyInstance, wsGateway);
+    const handle = await registerWsGateway(app as unknown as FastifyInstance, wsGateway);
+    app.wsGateway = handle;
+    app.addHook('onClose', async () => {
+      handle.closeAll();
+    });
   }
 
   return app;

@@ -5,6 +5,7 @@ import {
   GMNoteSchema,
   JournalEntrySchema,
   OutboxRecordSchema,
+  HotSnapshotSchema,
   SnapshotSchema,
   type ChatMessage,
   type GmAuditEntry,
@@ -13,17 +14,8 @@ import {
   type OutboxRecord,
   type Snapshot,
 } from '@mnemosin/contracts';
-import type { AiDecisionRecord } from '@mnemosin/core/domain/ports';
 
-import type {
-  aiDecisions,
-  chatMessages,
-  gmAuditLog,
-  gmNotes,
-  journalEntries,
-  eventOutbox,
-  snapshots,
-} from '../schema.js';
+import type { chatMessages, gmAuditLog, gmNotes, journalEntries, eventOutbox, snapshots } from '../schema.js';
 import { asJson, assertMatches, parseBody } from './index.js';
 
 export function chatFromRow(row: typeof chatMessages.$inferSelect): ChatMessage {
@@ -107,23 +99,48 @@ export function outboxFromRow(row: typeof eventOutbox.$inferSelect): OutboxRecor
 }
 
 export function snapshotFromRow(row: typeof snapshots.$inferSelect): Snapshot {
-  // state_json хранит ТОЛЬКО GameState; остальные поля Snapshot — обычные колонки.
-  const state = parseBody(GameStateSchema, row.stateJson, 'snapshots.state');
-  const candidate = {
+  const metadata = {
     id: row.snapshotId,
     sessionId: row.sessionId,
     label: row.label,
     turnNumber: row.turnNumber,
     createdByTurnId: row.createdByTurnId,
     createdBy: row.createdBy,
-    state,
     checksum: row.checksum,
     createdAt: row.createdAt,
   };
-  return parseBody(SnapshotSchema, candidate, 'snapshots');
+  const stored = row.stateJson as unknown;
+  if (isHotSnapshotPayload(stored)) {
+    return parseBody(HotSnapshotSchema, { ...metadata, ...stored }, 'snapshots.hot');
+  }
+  // Legacy state_json хранит только GameState и остаётся обратно-совместимым.
+  const state = parseBody(GameStateSchema, stored, 'snapshots.state');
+  return parseBody(SnapshotSchema, { ...metadata, state }, 'snapshots');
+}
+
+function isHotSnapshotPayload(
+  value: unknown,
+): value is { state: unknown; snapshotVersion: 1; recoveryPoint: unknown; runtime: unknown } {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    (value as { snapshotVersion?: unknown }).snapshotVersion === 1 &&
+    'state' in value &&
+    'recoveryPoint' in value &&
+    'runtime' in value
+  );
 }
 
 export function snapshotToRow(snapshot: Snapshot): typeof snapshots.$inferInsert {
+  const hot = snapshot.snapshotVersion === 1 ? HotSnapshotSchema.parse(snapshot) : null;
+  const stateJson = hot
+    ? {
+        state: hot.state,
+        snapshotVersion: hot.snapshotVersion,
+        recoveryPoint: hot.recoveryPoint,
+        runtime: hot.runtime,
+      }
+    : snapshot.state;
   return {
     snapshotId: snapshot.id,
     sessionId: snapshot.sessionId,
@@ -133,24 +150,6 @@ export function snapshotToRow(snapshot: Snapshot): typeof snapshots.$inferInsert
     createdBy: snapshot.createdBy,
     checksum: snapshot.checksum,
     createdAt: snapshot.createdAt,
-    stateJson: asJson(snapshot.state as unknown, 'snapshots.insert'),
-  };
-}
-
-export function aiDecisionFromRow(row: typeof aiDecisions.$inferSelect): AiDecisionRecord {
-  return {
-    id: row.id,
-    sessionId: row.sessionId,
-    turnId: row.turnId,
-    providerId: row.providerId,
-    model: row.model,
-    status: row.status as AiDecisionRecord['status'],
-    promptHash: row.promptHash,
-    responseJson: row.responseJson === null ? null : JSON.stringify(row.responseJson),
-    violationsCount: row.violationsCount,
-    latencyMs: row.latencyMs,
-    errorCode: row.errorCode,
-    traceId: row.traceId,
-    createdAt: row.createdAt,
+    stateJson: asJson(stateJson as unknown, 'snapshots.insert'),
   };
 }

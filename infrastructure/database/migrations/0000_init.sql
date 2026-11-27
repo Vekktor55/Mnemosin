@@ -126,7 +126,7 @@ CREATE INDEX `idx_idempotency_expires` ON `idempotency_records` (`expires_at`);-
 CREATE INDEX `idx_idempotency_session` ON `idempotency_records` (`session_id`);--> statement-breakpoint
 CREATE TABLE `journal_entries` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
-	`turn_id` text NOT NULL,
+	`turn_id` text,
 	`session_id` text NOT NULL,
 	`trace_id` text NOT NULL,
 	`kind` text NOT NULL,

@@ -15,14 +15,12 @@ import {
   type PlayerId,
   type Session,
   type SessionId,
-  type TurnId,
 } from '@mnemosin/contracts';
 import { newTraceId, parseIdempotencyKey, runCommand } from '../domain/command.js';
 import type { CommandRunner, TxScope, UnitOfWork } from '../domain/ports/index.js';
 import { assertTransition } from '../domain/transition.js';
 import { appendOutbox, createEvent } from '../events/outbox.js';
 import type { LocationService, WorldPackData } from '../locations/location-service.js';
-import type { TurnService } from '../turns/turn-service.js';
 
 /**
  * SessionService — жизненный цикл сессии и партии (промпт 1.6; v3 §II.2–II.3).
@@ -41,9 +39,8 @@ import type { TurnService } from '../turns/turn-service.js';
  *  - joinSession: только LOBBY; состав ≤ limits.maxPlayersPerSession (12);
  *    displayName уникален среди неушедших игроков сессии; персонаж — новый
  *    (имя = displayName, D157) или существующий свободный characterId;
- *  - startSession: LOBBY→ACTIVE, требует GM и ≥1 игрока НЕ-GM (D222),
- *    открывает ход №1 через TurnService.openTurn (в той же транзакции —
- *    вложенный runInTx присоединяется через ALS);
+ *  - startSession: LOBBY→ACTIVE, требует GM и ≥1 игрока НЕ-GM (D222).
+ *    Ход не открывается: Turn Engine удалён, инициализация партии — в P10;
  *  - endSession: любой→ENDED + archivedAt (D108: завершённая сессия уходит
  *    в архив, а не удаляется); события SESSION_STATUS_CHANGED + SESSION_ENDED;
  *  - removePlayer (GM) / leaveSession (сам игрок): статус LEFT + исключение из
@@ -59,7 +56,6 @@ import type { TurnService } from '../turns/turn-service.js';
 export interface SessionServiceDeps {
   readonly uow: UnitOfWork;
   readonly guard: CommandRunner;
-  readonly turns: TurnService;
   readonly locations: LocationService;
   readonly pack: WorldPackData;
   readonly limits: { readonly maxPlayersPerSession: number };
@@ -84,15 +80,12 @@ export interface JoinSessionResult {
 export interface StartSessionResult {
   readonly sessionId: SessionId;
   readonly status: Session['status'];
-  readonly turnId: TurnId;
-  readonly turnNumber: number;
   readonly replayed: boolean;
 }
 
 export class SessionService {
   private readonly uow: UnitOfWork;
   private readonly guard: CommandRunner;
-  private readonly turns: TurnService;
   private readonly locations: LocationService;
   private readonly pack: WorldPackData;
   private readonly maxPlayersPerSession: number;
@@ -100,7 +93,6 @@ export class SessionService {
   constructor(deps: SessionServiceDeps) {
     this.uow = deps.uow;
     this.guard = deps.guard;
-    this.turns = deps.turns;
     this.locations = deps.locations;
     this.pack = deps.pack;
     this.maxPlayersPerSession = deps.limits.maxPlayersPerSession;
@@ -344,7 +336,7 @@ export class SessionService {
     return { ...result.value, replayed: result.replayed };
   }
 
-  /** LOBBY→ACTIVE: требует GM и ≥1 игрока не-GM (D222); открывает ход №1. */
+  /** LOBBY→ACTIVE: требует GM и ≥1 игрока не-GM (D222). Без открытия хода (v4). */
   async startSession(input: {
     sessionId: SessionId;
     idempotencyKey: string;
@@ -365,7 +357,7 @@ export class SessionService {
             reason: 'start_requires_lobby',
           });
         }
-        assertTransition('session', session.status, 'ACTIVE');
+        assertTransition(session.status, 'ACTIVE');
 
         const players = await scope.repos.players.listBySession(input.sessionId);
         const gm = players.find((p) => p.playerId === session.gmPlayerId);
@@ -385,14 +377,12 @@ export class SessionService {
           scope,
         );
 
-        // Ход №1 — в той же транзакции (вложенный runInTx присоединяется, D196/ALS);
-        // ключ детерминированный: повтор startSession не откроет второй ход.
-        const turn = await this.turns.openTurn({
+        // v4: старт сессии не открывает ход — Turn Engine удалён; инициализация
+        // партии/фазы этажа переносится в Match lifecycle (P10).
+        return {
           sessionId: input.sessionId,
-          idempotencyKey: `start-turn:${input.sessionId}`,
-          traceId,
-        });
-        return { sessionId: input.sessionId, status: 'ACTIVE' as const, turnId: turn.turnId, turnNumber: turn.number };
+          status: 'ACTIVE' as const,
+        } as StartSessionResult;
       },
     );
     return { ...result.value, replayed: result.replayed };
@@ -430,7 +420,7 @@ export class SessionService {
       { key, command: 'endSession', sessionId: input.sessionId, turnId: null, traceId },
       async (scope) => {
         const session = await this.sessionIn(scope, input.sessionId);
-        assertTransition('session', session.status, 'ENDED');
+        assertTransition(session.status, 'ENDED');
         const at = nowIso();
         await scope.repos.sessions.update({ ...session, status: 'ENDED', archivedAt: at, updatedAt: at });
         await appendOutbox(
@@ -525,7 +515,7 @@ export class SessionService {
             to,
           });
         }
-        assertTransition('session', session.status, to);
+        assertTransition(session.status, to);
         await scope.repos.sessions.patchPhase(input.sessionId, { status: to, updatedAt: nowIso() });
         await appendOutbox(
           [createEvent('SESSION_STATUS_CHANGED', { sessionId: input.sessionId, from: session.status, to }, traceId)],

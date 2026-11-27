@@ -1,4 +1,3 @@
-import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
 
 /**
@@ -77,8 +76,85 @@ export type HostId = z.infer<typeof HostId>;
 export const Scalar = z.union([z.boolean(), z.number(), z.string().max(500)]);
 export type Scalar = z.infer<typeof Scalar>;
 
+// --- v4 common identifiers (P02) ---
+
+/** Идентификатор матча/партии — отдельный от SessionId для будущего Match aggregate. */
+export const MatchId = z.string().uuid().brand<'MatchId'>();
+export type MatchId = z.infer<typeof MatchId>;
+
+/** Идентификатор участника матча (player/observer/developer в контексте конкретного матча). */
+export const ParticipantId = z.string().uuid().brand<'ParticipantId'>();
+export type ParticipantId = z.infer<typeof ParticipantId>;
+
+/** Идентификатор игрового мира/комплекса. */
+export const WorldId = z.string().uuid().brand<'WorldId'>();
+export type WorldId = z.infer<typeof WorldId>;
+
+/** Идентификатор этажа. */
+export const FloorId = z.string().uuid().brand<'FloorId'>();
+export type FloorId = z.infer<typeof FloorId>;
+
+/** Идентификатор мирового пространства (координатной области этажа). */
+export const WorldSpaceId = z.string().uuid().brand<'WorldSpaceId'>();
+export type WorldSpaceId = z.infer<typeof WorldSpaceId>;
+
+/**
+ * Поколение активного пространственного состояния (NETWORK_PROTOCOL.md §5.2, §9.2).
+ * Инкрементируется ТОЛЬКО при реальном переходе или сбросе пространственного мира
+ * (смена этажа, пересоздание WorldSpace), когда прежний scene stream становится
+ * недействительным. Обычный reconnect/resync и повторная отправка keyframe сами по
+ * себе НЕ увеличивают WorldEpoch.
+ * НЕ является версией World Pack: `worldPackVersion` описывает содержимое/формат
+ * pack'а и остаётся отдельным строковым значением.
+ */
+export const WorldEpoch = z.number().int().nonnegative().safe().brand<'WorldEpoch'>();
+export type WorldEpoch = z.infer<typeof WorldEpoch>;
+
+/** Идентификатор команды (COLD command) — для идемпотентности и корреляции. */
+export const CommandId = z.string().uuid().brand<'CommandId'>();
+export type CommandId = z.infer<typeof CommandId>;
+
+/** Идентификатор потока ввода движения (connection epoch / input stream). */
+export const InputStreamId = z.string().uuid().brand<'InputStreamId'>();
+export type InputStreamId = z.infer<typeof InputStreamId>;
+
+/** Порядковый номер ввода в пределах одного input stream (monotonic). */
+export const InputSequence = z.number().int().nonnegative().safe().brand<'InputSequence'>();
+export type InputSequence = z.infer<typeof InputSequence>;
+
+/** Порядковый номер scene replication update (monotonic per projection stream). */
+export const SceneSequence = z.number().int().nonnegative().safe().brand<'SceneSequence'>();
+export type SceneSequence = z.infer<typeof SceneSequence>;
+
+/** Номер HOT simulation tick. */
+export const SimulationTick = z.number().int().nonnegative().safe().brand<'SimulationTick'>();
+export type SimulationTick = z.infer<typeof SimulationTick>;
+
+/** Ревизия COLD projection / read model. */
+export const ProjectionRevision = z.number().int().nonnegative().safe().brand<'ProjectionRevision'>();
+export type ProjectionRevision = z.infer<typeof ProjectionRevision>;
+
+/** Порядковый номер durable event в пределах match/world epoch. */
+export const EventSequence = z.number().int().nonnegative().safe().brand<'EventSequence'>();
+export type EventSequence = z.infer<typeof EventSequence>;
+
+/** Поколение соединения (connection epoch). */
+export const ConnectionEpoch = z.number().int().nonnegative().safe().brand<'ConnectionEpoch'>();
+export type ConnectionEpoch = z.infer<typeof ConnectionEpoch>;
+
+/**
+ * Генерация UUID. Browser-safe (Web Crypto) с fallback для сред без
+ * `crypto.randomUUID` — contracts больше не импортируют `node:crypto`,
+ * поэтому лист-пакет остаётся пригодным для клиентского бандла.
+ */
 export function newId(): string {
-  return randomUUID();
+  const crypto = globalThis.crypto as { randomUUID?: () => string } | undefined;
+  if (crypto !== undefined && typeof crypto.randomUUID === 'function') return crypto.randomUUID();
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (char) => {
+    const rand = Math.floor(Math.random() * 16);
+    const value = char === 'x' ? rand : (rand & 0x3) | 0x8;
+    return value.toString(16);
+  });
 }
 
 /**

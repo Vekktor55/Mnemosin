@@ -1,6 +1,7 @@
 import { readFileSync, readdirSync, statSync, existsSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { join, relative, resolve } from 'node:path';
+import ts from 'typescript';
 
 /**
  * Хелперы architecture-тестов (промпт 1.3, критерии A1.2 и A1.14).
@@ -23,36 +24,59 @@ export function listSourceFiles(dir: string, exts = ['.ts']): string[] {
       const stat = statSync(full);
       if (stat.isDirectory()) walk(full);
       else if (exts.some((ext) => full.endsWith(ext)) && !full.endsWith('.d.ts'))
-        // Windows: path.relative даёт backslashes — нормализуем к posix,
-        // иначе манифесты/allowlist'ы (всегда с '/') не совпадают (промпт 1.13, e2e-win).
-        out.push(relative(ROOT, full).replace(/\\+/g, '/'));
+        out.push(relative(ROOT, full).replace(/\\/g, '/'));
     }
   };
   walk(abs);
   return out.sort();
 }
 
-const IMPORT_PATTERNS = [
-  /(?:^|\n)\s*import\s+(?:[\s\S]*?)\s*from\s*['"]([^'"]+)['"]/g,
-  /(?:^|\n)\s*import\s*['"]([^'"]+)['"]/g,
-  /(?:^|\n)\s*export\s+(?:[\s\S]*?)\s*from\s*['"]([^'"]+)['"]/g,
-  /import\s*\(\s*['"]([^'"]+)['"]\s*\)/g,
-  /require\s*\(\s*['"]([^'"]+)['"]\s*\)/g,
-];
+/**
+ * Все спецификаторы импортов исходника (включая `import type` и динамические).
+ * AST не пересекает границы синтаксических конструкций, поэтому JSON-поле
+ * `"from"` или import-like текст в строке/комментарии не даёт ложного нарушения.
+ */
+export function importsFromSource(source: string, fileName = 'module.ts'): string[] {
+  const sourceFile = ts.createSourceFile(
+    fileName,
+    source,
+    ts.ScriptTarget.Latest,
+    true,
+    fileName.endsWith('.tsx') ? ts.ScriptKind.TSX : ts.ScriptKind.TS,
+  );
+  const found = new Set<string>();
+
+  const visit = (node: ts.Node): void => {
+    if (
+      (ts.isImportDeclaration(node) || ts.isExportDeclaration(node)) &&
+      node.moduleSpecifier !== undefined &&
+      ts.isStringLiteralLike(node.moduleSpecifier)
+    ) {
+      found.add(node.moduleSpecifier.text);
+    } else if (
+      ts.isImportEqualsDeclaration(node) &&
+      ts.isExternalModuleReference(node.moduleReference) &&
+      ts.isStringLiteralLike(node.moduleReference.expression)
+    ) {
+      found.add(node.moduleReference.expression.text);
+    } else if (ts.isCallExpression(node)) {
+      const [argument] = node.arguments;
+      const isDynamicImport = node.expression.kind === ts.SyntaxKind.ImportKeyword;
+      const isRequire = ts.isIdentifier(node.expression) && node.expression.text === 'require';
+      if ((isDynamicImport || isRequire) && argument !== undefined && ts.isStringLiteralLike(argument)) {
+        found.add(argument.text);
+      }
+    }
+    ts.forEachChild(node, visit);
+  };
+
+  visit(sourceFile);
+  return [...found];
+}
 
 /** Все спецификаторы импортов файла (включая `import type` и динамические). */
 export function importsOf(file: string): string[] {
-  const source = readFileSync(resolve(ROOT, file), 'utf8');
-  const found = new Set<string>();
-  for (const pattern of IMPORT_PATTERNS) {
-    pattern.lastIndex = 0;
-    let match: RegExpExecArray | null;
-    while ((match = pattern.exec(source)) !== null) {
-      const specifier = match[1];
-      if (specifier !== undefined) found.add(specifier);
-    }
-  }
-  return [...found];
+  return importsFromSource(readFileSync(resolve(ROOT, file), 'utf8'), file);
 }
 
 export function sha256(text: string): string {
@@ -224,6 +248,8 @@ export const LAYER_RULES: readonly LayerRule[] = [
       'vite',
       '@sveltejs/vite-plugin-svelte',
       'node:url',
+      // P05-B: PixiJS — единственный разрешённый рендер-движок клиента (WORLD_SIMULATION.md §4).
+      'pixi.js',
     ],
     forbiddenNote: 'клиент импортирует только контракты (v3 §IX.6): core/modules/database/gateways недоступны',
   },

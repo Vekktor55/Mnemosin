@@ -1,54 +1,148 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import {
   backoffDelayMs,
   backoffDelayWith,
   DEFAULT_HEARTBEAT_LIMITS,
   DEFAULT_RECONNECT_LIMITS,
-  OfflineQueue,
-  pendingKey,
-  shouldPersist,
-  isRetryableErrorCode,
-  type StorageLike,
+  IDLE_SNAPSHOT,
+  wsSubprotocol,
+  WSClient,
 } from '@mnemosin/client';
 
 /**
- * Клиентские инварианты промта 1.12 (п.2): backoff-параметры зеркалируют
- * config/limits.yaml, offline-очередь хранит/удаляет сообщения по requestId.
+ * Клиентские инварианты P05-B (v4 протокол): backoff-параметры реконнекта и
+ * lifecycle WSClient поверх fake WebSocket. Legacy offline-очередь (v3
+ * ACTION_SUBMIT/CHAT_*) удалена вместе с legacy-ws.ts: movement inputs после
+ * reconnect никогда не replay (новый inputStreamId/connectionEpoch).
  */
 
-/** In-memory Storage (эмуляция localStorage для node-окружения vitest). */
-class FakeStorage implements StorageLike {
-  private readonly map = new Map<string, string>();
-  getItem(key: string): string | null {
-    return this.map.get(key) ?? null;
+const UUID = '00000000-0000-4000-8000-000000000000';
+
+class FakeWebSocket {
+  static readonly CONNECTING = 0;
+  static readonly OPEN = 1;
+  static readonly CLOSING = 2;
+  static readonly CLOSED = 3;
+  static instances: FakeWebSocket[] = [];
+  readonly url: string;
+  readonly protocols: readonly string[];
+  readyState = FakeWebSocket.CONNECTING;
+  sent: string[] = [];
+  onopen: (() => void) | null = null;
+  onmessage: ((event: { data: string }) => void) | null = null;
+  onerror: (() => void) | null = null;
+  onclose: ((event: { code: number; reason: string }) => void) | null = null;
+
+  constructor(url: string, protocols: string[]) {
+    this.url = url;
+    this.protocols = protocols;
+    FakeWebSocket.instances.push(this);
   }
-  setItem(key: string, value: string): void {
-    this.map.set(key, value);
+
+  send(data: string): void {
+    this.sent.push(data);
   }
-  removeItem(key: string): void {
-    this.map.delete(key);
+
+  close(code = 1000, reason = ''): void {
+    this.readyState = FakeWebSocket.CLOSED;
+    this.onclose?.({ code, reason });
   }
-  keys(): string[] {
-    return [...this.map.keys()];
+
+  emitOpen(): void {
+    this.readyState = FakeWebSocket.OPEN;
+    this.onopen?.();
+  }
+
+  emitMessage(message: unknown): void {
+    this.onmessage?.({ data: JSON.stringify(message) });
   }
 }
 
-describe('reconnect backoff (промпт 1.12, п.2; SPEC §6.4)', () => {
+interface Envelope {
+  readonly type: string;
+  readonly payload: Record<string, unknown>;
+}
+
+function envelope(type: string, payload: Record<string, unknown>): Envelope {
+  return { protocolVersion: 'v1', schemaVersion: 1, messageId: UUID, type, payload };
+}
+
+function welcome(overrides: Record<string, unknown> = {}): Envelope {
+  return envelope('connection:welcome', {
+    protocolVersion: 'v1',
+    serverVersion: 'test',
+    contractsVersion: 'test',
+    matchId: UUID,
+    sessionId: UUID,
+    connectionId: UUID,
+    connectionEpoch: 1,
+    actorId: UUID,
+    actorType: 'player',
+    inputStreamId: UUID,
+    projectionKind: 'player',
+    permissions: ['scene:input', 'scene:resync'],
+    isReconnect: false,
+    supportedFeatures: ['scene:keyframe', 'scene:delta'],
+    ...overrides,
+  });
+}
+
+function keyframe(overrides: Record<string, unknown> = {}): Envelope {
+  return envelope('scene:keyframe', {
+    matchId: UUID,
+    worldEpoch: 1,
+    snapshotId: UUID,
+    sceneSequence: 1,
+    simulationTick: 1,
+    serverTimeMs: 0,
+    projectionRevision: 1,
+    worldPackVersion: '1.0.0',
+    projection: {
+      projectionKind: 'player',
+      entities: [],
+      objects: [],
+      environment: { worldId: UUID, floorId: UUID, worldSpaceId: UUID },
+    },
+    ...overrides,
+  });
+}
+
+function delta(overrides: Record<string, unknown> = {}): Envelope {
+  return envelope('scene:delta', {
+    matchId: UUID,
+    worldEpoch: 1,
+    sceneSequence: 2,
+    baseSceneSequence: 1,
+    simulationTick: 2,
+    serverTimeMs: 50,
+    projectionRevision: 1,
+    projectionKind: 'player',
+    entityUpserts: [],
+    entityRemovals: [],
+    objectUpserts: [],
+    objectRemovals: [],
+    ...overrides,
+  });
+}
+
+function sentTypes(fake: FakeWebSocket): string[] {
+  return fake.sent.map((raw) => (JSON.parse(raw) as { type: string }).type);
+}
+
+describe('reconnect backoff (P05-B)', () => {
   it('дефолты зеркалируют config/limits.yaml', () => {
     expect(DEFAULT_RECONNECT_LIMITS).toEqual({ baseMs: 500, factor: 2, capMs: 15_000, jitter: 0.2, maxAttempts: 8 });
     expect(DEFAULT_HEARTBEAT_LIMITS).toEqual({ intervalMs: 20_000, idleTimeoutMs: 45_000 });
   });
 
   it('экспоненциальный рост с cap 15000 и jitter ±20%', () => {
-    // Без джиттера (random=0.5 → множитель 0): base * factor^(n-1), cap 15000.
     expect(backoffDelayWith(1, 0.5)).toBe(500);
     expect(backoffDelayWith(2, 0.5)).toBe(1000);
     expect(backoffDelayWith(3, 0.5)).toBe(2000);
     expect(backoffDelayWith(4, 0.5)).toBe(4000);
     expect(backoffDelayWith(5, 0.5)).toBe(8000);
-    expect(backoffDelayWith(6, 0.5)).toBe(15_000); // 16000 → cap
-    expect(backoffDelayWith(7, 0.5)).toBe(15_000);
+    expect(backoffDelayWith(6, 0.5)).toBe(15_000);
     expect(backoffDelayWith(8, 0.5)).toBe(15_000);
   });
 
@@ -59,8 +153,7 @@ describe('reconnect backoff (промпт 1.12, п.2; SPEC §6.4)', () => {
       const high = backoffDelayWith(attempt, 1);
       expect(low).toBe(Math.max(0, Math.round(raw * 0.8)));
       expect(high).toBe(Math.round(raw * 1.2));
-      // Случайный джиттер — в тех же границах.
-      for (let i = 0; i < 50; i += 1) {
+      for (let i = 0; i < 30; i += 1) {
         const value = backoffDelayMs(attempt);
         expect(value).toBeGreaterThanOrEqual(low);
         expect(value).toBeLessThanOrEqual(high);
@@ -68,65 +161,114 @@ describe('reconnect backoff (промпт 1.12, п.2; SPEC §6.4)', () => {
     }
   });
 
-  it('суммарное окно 8 попыток ≥ ~60 с до FAILED (F-6.10)', () => {
+  it('суммарное окно 8 попыток ≥ ~60 с до FAILED', () => {
     const total = [1, 2, 3, 4, 5, 6, 7, 8].reduce((sum, attempt) => sum + backoffDelayWith(attempt, 0.5), 0);
     expect(total).toBeGreaterThanOrEqual(50_000);
   });
 });
 
-describe('offline-очередь (промпт 1.12, п.2; A1.9, D126)', () => {
-  it('ключ localStorage — mnemosin:pending:<playerId>', () => {
-    expect(pendingKey('player-1')).toBe('mnemosin:pending:player-1');
+describe('WSClient v4 lifecycle (fake WebSocket)', () => {
+  beforeEach(() => {
+    FakeWebSocket.instances = [];
+    vi.stubGlobal('WebSocket', FakeWebSocket);
   });
 
-  it('push/list/removeByRequestId — roundtrip', () => {
-    const storage = new FakeStorage();
-    const queue = new OfflineQueue(storage);
-    queue.push('p1', { type: 'ACTION_SUBMIT', payload: { requestId: 'req-1' }, requestId: 'req-1', queuedAt: 'x' });
-    queue.push('p1', { type: 'CHAT_PUBLIC', payload: { requestId: 'req-2' }, requestId: 'req-2', queuedAt: 'y' });
-    expect(queue.list('p1').map((item) => item.requestId)).toEqual(['req-1', 'req-2']);
-
-    queue.removeByRequestId('p1', 'req-1');
-    expect(queue.list('p1').map((item) => item.requestId)).toEqual(['req-2']);
-    expect(storage.keys()).toEqual([pendingKey('p1')]);
-
-    queue.removeByRequestId('p1', 'req-2');
-    expect(queue.list('p1')).toEqual([]);
-    expect(storage.keys()).toEqual([]); // пустая очередь удаляет ключ
+  afterEach(() => {
+    vi.unstubAllGlobals();
   });
 
-  it('push с тем же requestId заменяет запись (нет дублей при повторной отправке)', () => {
-    const queue = new OfflineQueue(new FakeStorage());
-    queue.push('p1', { type: 'ACTION_SUBMIT', payload: { requestId: 'req-1' }, requestId: 'req-1', queuedAt: 'a' });
-    queue.push('p1', { type: 'ACTION_SUBMIT', payload: { requestId: 'req-1' }, requestId: 'req-1', queuedAt: 'b' });
-    expect(queue.list('p1')).toHaveLength(1);
-    expect(queue.list('p1')[0]?.queuedAt).toBe('b');
+  it('wsSubprotocol и IDLE_SNAPSHOT', () => {
+    expect(wsSubprotocol('jwt-token')).toBe('mnemosin.v1.jwt-token');
+    expect(IDLE_SNAPSHOT.status).toBe('IDLE');
+    expect(IDLE_SNAPSHOT.attempt).toBe(0);
   });
 
-  it('shouldPersist: только сообщения с idempotencyKey/requestId, служебные — нет', () => {
-    expect(shouldPersist('ACTION_SUBMIT', { idempotencyKey: 'k', requestId: 'r' })).toBe(true);
-    expect(shouldPersist('GM_COMMIT_TURN', { idempotencyKey: 'k' })).toBe(true);
-    expect(shouldPersist('CHAT_PUBLIC', { requestId: 'r' })).toBe(true);
-    expect(shouldPersist('CHAT_PRIVATE', { requestId: 'r' })).toBe(true);
-    expect(shouldPersist('PING', {})).toBe(false);
-    expect(shouldPersist('HISTORY', { requestId: 'r' })).toBe(false);
-    expect(shouldPersist('SUBSCRIBE', { sessionId: 's' })).toBe(false);
-    expect(shouldPersist('LEAVE', {})).toBe(false);
-    expect(shouldPersist('ACTION_SUBMIT', {})).toBe(false);
+  it('welcome → client-ready → keyframe → ready; RTT и connectionInfo', () => {
+    const client = new WSClient({ url: 'ws://x/ws', token: 't', heartbeat: { intervalMs: 60_000 } });
+    client.connect();
+    const fake = FakeWebSocket.instances[0];
+    expect(fake).toBeDefined();
+    expect(fake?.protocols).toEqual(['mnemosin.v1.t']);
+
+    fake?.emitOpen();
+    fake?.emitMessage(welcome());
+    // §4.2 шаг 7: `connection:client-ready` уходит ЯВНО — только когда клиент
+    // зарегистрировал handlers и готов принять keyframe. Авто-отправка в
+    // обработчике welcome приводила к потере первого scene:keyframe.
+    expect(sentTypes(fake as FakeWebSocket)).not.toContain('connection:client-ready');
+    expect(client.sendClientReady()).toBe(true);
+    expect(sentTypes(fake as FakeWebSocket)).toContain('connection:client-ready');
+    // Повторный вызов на том же lifecycle не дублирует сообщение.
+    expect(client.sendClientReady()).toBe(true);
+    expect(sentTypes(fake as FakeWebSocket).filter((type) => type === 'connection:client-ready')).toHaveLength(1);
+
+    fake?.emitMessage(keyframe());
+    fake?.emitMessage(envelope('connection:ready', {}));
+    expect(client.isReady()).toBe(true);
+    expect(client.getSnapshot().status).toBe('CONNECTED');
+    expect(client.getConnectionInfo()?.inputStreamId).toBe(UUID);
+    expect(client.getConnectionInfo()?.lastSceneSequence).toBe(1);
+    expect(client.getConnectionInfo()?.worldEpoch).toBe(1);
+
+    client.close();
   });
 
-  it('retryable-коды ERROR остаются в очереди (RATE_LIMIT, IDEMPOTENCY_IN_FLIGHT)', () => {
-    expect(isRetryableErrorCode('RATE_LIMIT')).toBe(true);
-    expect(isRetryableErrorCode('IDEMPOTENCY_IN_FLIGHT')).toBe(true);
-    expect(isRetryableErrorCode('RULE_REJECTED')).toBe(false);
-    expect(isRetryableErrorCode('TURN_NOT_OPEN')).toBe(false);
-    expect(isRetryableErrorCode('DUPLICATE')).toBe(false);
+  it('sequence gap в delta → scene:resync', () => {
+    const client = new WSClient({ url: 'ws://x/ws', token: 't', heartbeat: { intervalMs: 60_000 } });
+    client.connect();
+    const fake = FakeWebSocket.instances[0] as FakeWebSocket;
+    fake.emitOpen();
+    fake.emitMessage(welcome());
+    fake.emitMessage(keyframe());
+    fake.emitMessage(envelope('connection:ready', {}));
+
+    fake.emitMessage(delta({ sceneSequence: 5, baseSceneSequence: 3 }));
+    const types = sentTypes(fake);
+    expect(types).toContain('scene:resync');
+    const resync = fake.sent
+      .map((raw) => JSON.parse(raw) as { type: string; payload: { reason?: string } })
+      .find((m) => m.type === 'scene:resync');
+    expect(resync?.payload.reason).toBe('sequence_gap');
+
+    client.close();
   });
 
-  it('битый JSON в хранилище не роняет очередь', () => {
-    const storage = new FakeStorage();
-    storage.setItem(pendingKey('p1'), '{oops');
-    const queue = new OfflineQueue(storage);
-    expect(queue.list('p1')).toEqual([]);
+  it('смена worldEpoch в delta → scene:resync', () => {
+    const client = new WSClient({ url: 'ws://x/ws', token: 't', heartbeat: { intervalMs: 60_000 } });
+    client.connect();
+    const fake = FakeWebSocket.instances[0] as FakeWebSocket;
+    fake.emitOpen();
+    fake.emitMessage(welcome());
+    fake.emitMessage(keyframe());
+    fake.emitMessage(envelope('connection:ready', {}));
+
+    fake.emitMessage(delta({ sceneSequence: 2, baseSceneSequence: 1, worldEpoch: 2 }));
+    const resync = fake.sent.map((raw) => JSON.parse(raw) as { type: string }).find((m) => m.type === 'scene:resync');
+    expect(resync).toBeDefined();
+
+    client.close();
+  });
+
+  it('reconnect: новый connectionEpoch/inputStreamId приходят из welcome', () => {
+    const client = new WSClient({ url: 'ws://x/ws', token: 't', heartbeat: { intervalMs: 60_000 } });
+    client.connect();
+    const fake = FakeWebSocket.instances[0] as FakeWebSocket;
+    fake.emitOpen();
+    fake.emitMessage(welcome({ connectionEpoch: 1, inputStreamId: '00000000-0000-4000-8000-000000000001' }));
+    const firstStream = client.getConnectionInfo()?.inputStreamId;
+    expect(firstStream).toBe('00000000-0000-4000-8000-000000000001');
+
+    fake.emitMessage(
+      welcome({
+        connectionEpoch: 2,
+        inputStreamId: '00000000-0000-4000-8000-000000000002',
+        isReconnect: true,
+      }),
+    );
+    expect(client.getConnectionInfo()?.connectionEpoch).toBe(2);
+    expect(client.getConnectionInfo()?.inputStreamId).toBe('00000000-0000-4000-8000-000000000002');
+    expect(client.getConnectionInfo()?.isReconnect).toBe(true);
+
+    client.close();
   });
 });

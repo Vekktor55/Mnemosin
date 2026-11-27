@@ -1,44 +1,42 @@
-import { AppError, WS_CLOSE_CODE, type PlayerId, type SessionId } from '@mnemosin/contracts';
+import { AppError, WS_CLOSE_CODE, type PlayerId, type SessionId, type WsErrorCode } from '@mnemosin/contracts';
 import type { WebSocket } from '@fastify/websocket';
 
-import type { WsGatewayDeps, WsGatewayLog } from './deps.js';
+import type { WsGatewayLog } from './deps.js';
+import type { PlayerRepository } from '@mnemosin/core/domain/ports';
+
+export interface WsJwtVerifier {
+  verify(
+    token: string,
+    expectedType: 'access',
+  ): Promise<{ readonly sub: string; readonly sid: string; readonly gm: boolean; readonly iat: number }>;
+}
+
+export interface WsTokenVerificationDeps {
+  readonly jwt: WsJwtVerifier;
+  readonly players: PlayerRepository;
+}
 
 /**
  * Авторизация WS-handshake (промпт 1.11, п.1; v3 §VI.5, §VIII.2; блокер B-12).
  *
- * D123: токен передаётся через subprotocol `mnemosin.v1.<jwt>` (ОСНОВНОЙ
- * способ — не попадает в URL и, следовательно, в access-логи) ИЛИ через
- * query-параметр `?token=` (совместимость). Приоритет: subprotocol > query.
- * Токен НИКОГДА не логируется (LOG_REDACT_PLAYER_TEXT/D163 — значение не
- * попадает ни в один лог-контекст).
- *
- * D267: отсутствует токен в handshake — соединение НЕ закрывается сразу:
- * открывается окно wsAuthTimeoutMs, в течение которого клиент обязан
- * прислать AUTH{token} (тип AUTH есть в протоколе WSClientMessage именно
- * для этого сценария). Промедление → close 4408. Невалидный/истёкший токен
- * (в handshake или в AUTH) → close 4401 немедленно.
+ * P05-A: сохраняется только существующий subprotocol `mnemosin.v1.<jwt>`.
+ * Query-token не принимается: NETWORK_PROTOCOL запрещает секреты в URL.
+ * Токен и полный subprotocol никогда не логируются. Невалидный/истёкший
+ * токен → close 4401 немедленно; NET-01 остаётся открытым.
  */
 
 export const WS_SUBPROTOCOL_PREFIX = 'mnemosin.v1.';
 
 export interface HandshakeToken {
   readonly token: string;
-  readonly source: 'subprotocol' | 'query';
+  readonly source: 'subprotocol';
 }
 
-/** D123: subprotocol приоритетнее query. Возвращает null, если токена нет. */
-export function extractHandshakeToken(protocol: string | undefined, url: string): HandshakeToken | null {
-  if (typeof protocol === 'string' && protocol.startsWith(WS_SUBPROTOCOL_PREFIX)) {
-    const token = protocol.slice(WS_SUBPROTOCOL_PREFIX.length);
-    if (token.length > 0) return { token, source: 'subprotocol' };
-  }
-  try {
-    const query = new URL(url, 'http://mnemosin.internal').searchParams.get('token');
-    if (query !== null && query.length > 0) return { token: query, source: 'query' };
-  } catch {
-    // Неразбираемый URL — токена нет (соединение продолжит путь AUTH-окна).
-  }
-  return null;
+/** Только существующий subprotocol; URL/query никогда не читаются как credentials. */
+export function extractHandshakeToken(protocol: string | undefined): HandshakeToken | null {
+  if (typeof protocol !== 'string' || !protocol.startsWith(WS_SUBPROTOCOL_PREFIX)) return null;
+  const token = protocol.slice(WS_SUBPROTOCOL_PREFIX.length);
+  return token.length > 0 ? { token, source: 'subprotocol' } : null;
 }
 
 export interface WsIdentity {
@@ -52,7 +50,7 @@ export interface WsIdentity {
  * (промпт 1.10): подпись/срок, существование, совпадение сессии, отзыв
  * (B-12.3: iat < revokedBefore), статус LEFT.
  */
-export async function verifyWsToken(deps: Pick<WsGatewayDeps, 'jwt' | 'players'>, token: string): Promise<WsIdentity> {
+export async function verifyWsToken(deps: WsTokenVerificationDeps, token: string): Promise<WsIdentity> {
   const claims = await deps.jwt.verify(token, 'access'); // AUTH_EXPIRED / AUTH_INVALID
   const player = await deps.players.findById(claims.sub as PlayerId);
   if (player === null || player.sessionId !== claims.sid) {
@@ -69,8 +67,7 @@ export async function verifyWsToken(deps: Pick<WsGatewayDeps, 'jwt' | 'players'>
 
 /** Payload close-кадра (≤123 байт по RFC 6455 — reason string). */
 export interface WsClosePayload {
-  readonly code:
-    'AUTH_INVALID' | 'AUTH_EXPIRED' | 'AUTH_FORBIDDEN' | 'AUTH_TIMEOUT' | 'IDLE_TIMEOUT' | 'RATE_LIMIT' | 'INTERNAL';
+  readonly code: WsErrorCode | 'AUTH_TIMEOUT' | 'IDLE_TIMEOUT' | 'RATE_LIMIT' | 'INTERNAL';
   readonly message?: string;
 }
 

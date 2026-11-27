@@ -11,8 +11,13 @@
  *           промпт 1.9: CommandName += sendPublicMessage/sendPrivateMessage/
  *           sendSystemMessage/sendGMMessage/addNote/grantKnowledge (D246),
  *           EVENT_SUBSCRIBERS.TURN_COMMITTED += 'gm' (D245, F-3.8)
+ *   0.6.0 — P02: общие идентификаторы v4, message envelope, пространственные
+ *           примитивы (G1/G2/G3), Player/Observer/Developer projections
+ *   0.7.0 — Zod 4.6.7: prefault/record/type API и общий формат ошибок HTTP/WS
+ *   1.0.0 — P06: strict scene:durable-event envelope, revisioned COLD journal,
+ *           durable command idempotency и COLD-backed scene object facts
  */
-export const CONTRACTS_VERSION = '0.5.0';
+export const CONTRACTS_VERSION = '1.0.0';
 
 // --- базовые
 export * from './ids.js';
@@ -52,8 +57,15 @@ export * from './events/subscribers.js';
 // --- AI / транспорт
 export * from './ai.js';
 export * from './transport/views.js';
-export * from './transport/ws.js';
 export * from './transport/http.js';
+export * from './transport/envelope.js';
+export * from './transport/hot-event.js';
+export * from './transport/spatial.js';
+export * from './transport/scene.js';
+export * from './transport/realtime.js';
+
+// --- World Pack (P03)
+export * from './worldpack.js';
 
 // --- конфигурация (D162): доменные понятия CapabilitySchema и ProviderPolicySchema
 //     определены в ./capability.js; env-схема и limits.yaml остаются в

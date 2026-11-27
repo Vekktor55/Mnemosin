@@ -153,8 +153,7 @@ describe('joinSession / startSession / жизненный цикл', () => {
     expect(code).toBe('CONFLICT');
   });
 
-  it('startSession без игроков (кроме GM) → CONFLICT', async () => {
-    // Алиса есть, но для чистоты проверим на fresh-сессии позже; здесь — успешный старт:
+  it('startSession: LOBBY→ACTIVE (v4 — без открытия хода)', async () => {
     const joined = await services.sessions.joinSession({
       sessionId,
       displayName: 'Борис',
@@ -163,10 +162,8 @@ describe('joinSession / startSession / жизненный цикл', () => {
     bob = joined.playerId;
     const started = await services.sessions.startSession({ sessionId, idempotencyKey: testKey('start') });
     expect(started.status).toBe('ACTIVE');
-    expect(started.turnNumber).toBe(1);
     const session = await services.sessions.getSession(sessionId);
     expect(session.status).toBe('ACTIVE');
-    expect(session.currentTurnId).toBe(started.turnId);
   });
 
   it('join после старта → CORE_INVALID_STATE_TRANSITION (только LOBBY)', async () => {

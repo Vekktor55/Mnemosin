@@ -87,7 +87,15 @@ describe('Scheduler · базовое поведение', () => {
       concurrent -= 1;
     });
     scheduler.start();
-    await sleep(80);
+    // Poll for the job to be running and have skipped at least 2 times
+    // Use a maximum wait time to prevent infinite loop
+    const maxWaitMs = 2000;
+    const startAt = Date.now();
+    while (Date.now() - startAt < maxWaitMs) {
+      const mid = scheduler.status().find((s) => s.name === 'slow');
+      if (mid?.running && (mid?.skipped ?? 0) >= 2) break;
+      await sleep(10);
+    }
     const mid = scheduler.status().find((s) => s.name === 'slow');
     expect(mid?.running).toBe(true);
     expect(mid?.skipped).toBeGreaterThanOrEqual(2);

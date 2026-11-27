@@ -1,118 +1,94 @@
-import type { ConnectionId, PlayerId, SessionId } from '@mnemosin/contracts';
+import {
+  ConnectionEpoch,
+  SceneSequence,
+  type InputStreamId,
+  type ParticipantId,
+  type ProjectionRevision,
+  type SceneObject,
+  type SceneProjection,
+} from '@mnemosin/contracts';
 import type { WebSocket } from '@fastify/websocket';
 
-/**
- * Реестр WS-соединений (промпт 1.11, п.2) — in-memory, один процесс.
- *
- * connectionId → запись; playerId → Set<connectionId> (multi-tab, этап 3);
- * ip → Set<connectionId> (лимит wsMaxConnectionsPerIp). PLAYER_PRESENCE при
- * изменении публикует server.ts через broadcaster (registry сам ничего не
- * шлёт — он только данные; приватность — исключительно projections.ts, B-10).
- *
- * Соединение ≠ игрок: закрытие сокета уменьшает счётчик connections; статус
- * DISCONNECTED выставляется, когда у игрока не осталось соединений (D278).
- */
+import { SceneDeliveryQueue } from './delivery.js';
+import type { ConnectionActorContext, RealtimeNetworkConfig, WsConnectionState } from './deps.js';
 
-export interface WsConnectionRecord {
-  readonly connectionId: ConnectionId;
-  readonly playerId: PlayerId;
-  readonly sessionId: SessionId;
-  readonly isGM: boolean;
-  readonly ip: string;
-  readonly socket: WebSocket;
-  readonly connectedAt: string;
-  subscribedAt: string;
-  lastPongAt: number;
+export class WsConnectionRecord {
+  state: WsConnectionState = 'awaiting_client_ready';
+  lastProjection: SceneProjection | null = null;
+  coldObjects: readonly SceneObject[] | null = null;
+  projectionRevision: ProjectionRevision | null = null;
+  lastGeneratedSceneSequence = SceneSequence.parse(0);
+  lastHeartbeatAt = Date.now();
+  rateWindowStartedAt = Date.now();
+  inputCount = 0;
+  readonly delivery: SceneDeliveryQueue;
+
+  constructor(
+    readonly socket: WebSocket,
+    readonly context: ConnectionActorContext,
+    readonly inputStreamId: InputStreamId,
+    limits: RealtimeNetworkConfig,
+    isBackpressured: (bufferedAmount: number, limit: number) => boolean,
+  ) {
+    this.delivery = new SceneDeliveryQueue(
+      socket,
+      limits.maxQueuedMessages,
+      limits.maxBufferedBytes,
+      isBackpressured,
+      () => undefined,
+    );
+  }
 }
 
 export class ConnectionRegistry {
-  private readonly byId = new Map<ConnectionId, WsConnectionRecord>();
-  private readonly byPlayer = new Map<PlayerId, Set<ConnectionId>>();
-  private readonly byIp = new Map<string, Set<ConnectionId>>();
+  private readonly connections = new Map<string, WsConnectionRecord>();
+  private readonly epochs = new Map<ParticipantId, number>();
+
+  nextEpoch(participantId: ParticipantId): ConnectionEpoch {
+    const next = (this.epochs.get(participantId) ?? 0) + 1;
+    this.epochs.set(participantId, next);
+    return ConnectionEpoch.parse(next);
+  }
 
   add(record: WsConnectionRecord): void {
-    this.byId.set(record.connectionId, record);
-    let playerSet = this.byPlayer.get(record.playerId);
-    if (playerSet === undefined) {
-      playerSet = new Set();
-      this.byPlayer.set(record.playerId, playerSet);
+    this.connections.set(record.context.connectionId, record);
+  }
+
+  get(connectionId: string): WsConnectionRecord | undefined {
+    return this.connections.get(connectionId);
+  }
+
+  byInputStream(inputStreamId: InputStreamId): WsConnectionRecord | undefined {
+    return [...this.connections.values()].find(
+      (record) => record.inputStreamId === inputStreamId && record.state === 'ready',
+    );
+  }
+
+  controlling(actorId: ParticipantId, exceptConnectionId?: string): WsConnectionRecord | undefined {
+    return [...this.connections.values()].find(
+      (record) =>
+        record.context.actorId === actorId &&
+        record.context.connectionId !== exceptConnectionId &&
+        record.state !== 'closing' &&
+        record.state !== 'closed',
+    );
+  }
+
+  remove(connectionId: string): void {
+    const record = this.connections.get(connectionId);
+    if (record !== undefined) record.state = 'closed';
+    this.connections.delete(connectionId);
+  }
+
+  all(): readonly WsConnectionRecord[] {
+    return [...this.connections.values()];
+  }
+
+  closeAll(): void {
+    for (const record of this.connections.values()) {
+      record.state = 'closing';
+      record.socket.close(1001, 'server shutdown');
     }
-    playerSet.add(record.connectionId);
-    let ipSet = this.byIp.get(record.ip);
-    if (ipSet === undefined) {
-      ipSet = new Set();
-      this.byIp.set(record.ip, ipSet);
-    }
-    ipSet.add(record.connectionId);
-  }
-
-  remove(connectionId: ConnectionId): WsConnectionRecord | undefined {
-    const record = this.byId.get(connectionId);
-    if (record === undefined) return undefined;
-    this.byId.delete(connectionId);
-    const playerSet = this.byPlayer.get(record.playerId);
-    if (playerSet !== undefined) {
-      playerSet.delete(connectionId);
-      if (playerSet.size === 0) this.byPlayer.delete(record.playerId);
-    }
-    const ipSet = this.byIp.get(record.ip);
-    if (ipSet !== undefined) {
-      ipSet.delete(connectionId);
-      if (ipSet.size === 0) this.byIp.delete(record.ip);
-    }
-    return record;
-  }
-
-  get(connectionId: ConnectionId): WsConnectionRecord | undefined {
-    return this.byId.get(connectionId);
-  }
-
-  listByPlayer(playerId: PlayerId): WsConnectionRecord[] {
-    const ids = this.byPlayer.get(playerId);
-    if (ids === undefined) return [];
-    return [...ids].map((id) => this.byId.get(id)).filter((r): r is WsConnectionRecord => r !== undefined);
-  }
-
-  listBySession(sessionId: SessionId): WsConnectionRecord[] {
-    return [...this.byId.values()].filter((record) => record.sessionId === sessionId);
-  }
-
-  countByIp(ip: string): number {
-    return this.byIp.get(ip)?.size ?? 0;
-  }
-
-  countByPlayer(playerId: PlayerId): number {
-    return this.byPlayer.get(playerId)?.size ?? 0;
-  }
-
-  size(): number {
-    return this.byId.size;
-  }
-
-  listAll(): WsConnectionRecord[] {
-    return [...this.byId.values()];
-  }
-
-  /** Отметка активности: любой входящий кадр и protocol-pong продлевают жизнь. */
-  touch(connectionId: ConnectionId, now: number): void {
-    const record = this.byId.get(connectionId);
-    if (record !== undefined) record.lastPongAt = now;
-  }
-
-  /**
-   * presenceSweep (джоб из main.ts): убирает записи с мёртвыми сокетами —
-   * защита от утечки, если close-событие не доставлено (крах transport-слоя).
-   * Возвращает число удалённых записей.
-   */
-  sweepClosed(): WsConnectionRecord[] {
-    const removed: WsConnectionRecord[] = [];
-    for (const [connectionId, record] of this.byId) {
-      // readyState: 0 CONNECTING, 1 OPEN, 2 CLOSING, 3 CLOSED.
-      if (record.socket.readyState >= 2) {
-        const gone = this.remove(connectionId);
-        if (gone !== undefined) removed.push(gone);
-      }
-    }
-    return removed;
+    this.connections.clear();
   }
 }

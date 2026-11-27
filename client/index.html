@@ -4,10 +4,13 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>МНЕМОСИН</title>
-    <!-- Общий корень: две точки входа — /player/ и /gm/ (промпт 1.12, п.1). -->
-    <meta http-equiv="refresh" content="0; url=/player/" />
+    <!--
+      Единая точка входа клиента (v4 transitional): старая MPA (/player/ и /gm/)
+      удалена вместе с GM workflow; SPA-каркас заменится реалтайм-клиентом P05.
+    -->
   </head>
   <body>
-    <p><a href="/player/">Игрок</a> · <a href="/gm/">Ведущий (GM)</a></p>
+    <div id="app"></div>
+    <script type="module" src="/src/main.ts"></script>
   </body>
 </html>

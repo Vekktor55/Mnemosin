@@ -11,13 +11,18 @@ import { ItemStatus } from '../domain/resolution.js';
 import { RuleResultSchema } from '../dsl/rules.js';
 
 /**
- * Проекции (блокер B-02: в v3 девять view-типов использовались в HTTP/WS/сторах,
- * но не были определены; v2 §21 «Data Projections» был утерян при переносе).
+ * Проекции (P02: NETWORK_PROTOCOL.md §10).
  *
- * Правило (K11): три уровня видимости контента — Player / AI / GM.
+ * LEGACY (Stage 1): Player / AI / GM — сохранены для совместимости, будут удалены/мигрированы в P02/P05.
+ * v4: Player / Observer / Developer — новые проекции для v4 архитектуры.
  * Проекции — единственное место, где доменные данные превращаются в клиентские;
  * транспорт их только применяет (инвариант 14).
  */
+
+// ============================================================================
+// LEGACY PROJECTIONS (Stage 1: Player / AI / GM) — для обратной совместимости
+// Будет удалено/мигрировано в P02/P05
+// ============================================================================
 
 // ---------------------------------------------------------------- локации
 
@@ -233,3 +238,104 @@ export const ResolutionSummaryViewSchema = z.object({
   costUsd: z.number().nonnegative().nullable(),
 });
 export type ResolutionSummaryView = z.infer<typeof ResolutionSummaryViewSchema>;
+
+// ============================================================================
+// v4 PROJECTIONS (Player / Observer / Developer) — NETWORK_PROTOCOL.md §10
+// ============================================================================
+
+/** Player projection: только данные, доступные конкретному игроку. */
+export const LegacyPlayerProjectionSchema = z.object({
+  sessionId: SessionId,
+  version: z.number().int().nonnegative(),
+  playerId: PlayerId,
+  // Публичное состояние локации (без скрытых выходов/объектов)
+  currentLocation: PublicLocationViewSchema.nullable(),
+  timeOfDay: TimeOfDay,
+  weather: z.string().max(60).nullable(),
+  storyFlags: z.record(z.string().max(80), z.union([z.boolean(), z.number(), z.string().max(500)])),
+  // Только видимые объекты
+  objectStates: z.array(z.object({ objectId: ObjectId, visible: z.boolean(), taken: z.boolean() })),
+  players: z.array(PublicPlayerViewSchema),
+  // Знания ТОЛЬКО этого игрока
+  knowledge: z.array(KnowledgeEntrySchema),
+  endingId: z.string().max(80).nullable(),
+  updatedAt: IsoDateTime,
+});
+export type LegacyPlayerProjection = z.infer<typeof LegacyPlayerProjectionSchema>;
+
+/** Observer projection: полная видимость скрытого игрового состояния (NETWORK_PROTOCOL.md §10.3). */
+export const LegacyObserverProjectionSchema = z.object({
+  sessionId: SessionId,
+  version: z.number().int().nonnegative(),
+  // Полное состояние включая скрытые поля
+  currentLocation: GmLocationViewSchema.nullable(), // GM view = полная видимость локации
+  timeOfDay: TimeOfDay,
+  weather: z.string().max(60).nullable(),
+  storyFlags: z.record(z.string().max(80), z.union([z.boolean(), z.number(), z.string().max(500)])),
+  // Все объекты с видимостью
+  objectStates: z.array(
+    z.object({
+      objectId: ObjectId,
+      visible: z.boolean(),
+      taken: z.boolean(),
+      state: z.record(z.string().max(60), z.unknown()).optional(),
+    }),
+  ),
+  players: z.array(
+    PublicPlayerViewSchema.extend({
+      // Observer видит скрытые роли/статусы
+      trueRole: z.string().max(40).optional(),
+      infectionStatus: z.enum(['CLEAN', 'INFECTED', 'UNKNOWN']).optional(),
+    }),
+  ),
+  // Знания всех игроков
+  knowledgeByPlayer: z.record(z.string().uuid(), z.array(KnowledgeEntrySchema)),
+  // Детали флагов
+  flagsDetail: z.array(
+    z.object({
+      key: z.string().max(80),
+      value: z.union([z.boolean(), z.number(), z.string().max(500)]),
+      setBy: z.enum(['AI_APPROVED', 'GM', 'ENGINE']),
+      setAtTurnId: TurnId.nullable(),
+    }),
+  ),
+  // Все заметки
+  notes: z.array(
+    z.object({ noteId: z.string().uuid(), visibility: z.string(), text: z.string().max(4000), createdAt: IsoDateTime }),
+  ),
+  // Состояние кукол (hidden internal state)
+  dollStates: z.array(z.unknown()).optional(),
+  // Андрей: фактические beliefs/trust
+  andreyBeliefs: z.unknown().optional(),
+  // Состояние дверей/света/газа/укрытий
+  environmentState: z.unknown().optional(),
+  updatedAt: IsoDateTime,
+});
+export type LegacyObserverProjection = z.infer<typeof LegacyObserverProjectionSchema>;
+
+/** Developer projection: диагностическая информация (NETWORK_PROTOCOL.md §10.4). */
+export const DeveloperProjectionSchema = z.object({
+  sessionId: SessionId,
+  // Техническая диагностика
+  tickMetrics: z
+    .object({
+      tickDurationMs: z.number(),
+      tickOverrun: z.boolean(),
+      activeEntities: z.number().int(),
+      queueDepth: z.number().int(),
+    })
+    .optional(),
+  // Doll AI decisions trace
+  dollAiTrace: z.array(z.unknown()).optional(),
+  // Andrew request traces
+  andrewTraces: z.array(z.unknown()).optional(),
+  // Replay fixtures
+  replayFixtures: z.unknown().optional(),
+  // Schema validation failures
+  validationFailures: z.array(z.unknown()).optional(),
+  // GM Review test artifacts
+  gmReviewArtifacts: z.unknown().optional(),
+  // Raw provider output (redacted)
+  rawProviderOutput: z.unknown().optional(),
+});
+export type DeveloperProjection = z.infer<typeof DeveloperProjectionSchema>;

@@ -1,0 +1,13 @@
+title = "Mnemosin gitleaks config"
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Allow test JWT secret in historical commit"
+commits = [
+  "beaa66f271c15488cc5f87c072d181cea2d98ace",
+]
+paths = [
+  '''^tests/integration/ws-helpers\.ts$''',
+]

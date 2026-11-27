@@ -8,15 +8,11 @@ import {
   EVENT_NAMES,
   EVENT_SUBSCRIBERS,
   EventPayloadSchemas,
-  FORBIDDEN_IN_BROADCAST,
   HTTP_ROUTES,
   ModuleIdSchema,
   routeKey,
   STAGE1_ROUTES,
   WS_CLIENT_TYPES,
-  WS_REQUIRES_IDEMPOTENCY_KEY,
-  WS_GM_ONLY,
-  WS_PRIVACY_POLICY,
   WS_SERVER_TYPES,
   WSServerPayloadSchemas,
   WSClientPayloadSchemas,
@@ -30,9 +26,14 @@ import {
 type Shape = Record<string, z.ZodTypeAny>;
 
 function shapeOf(schema: z.ZodTypeAny): Shape | null {
-  const maybe = schema as unknown as { _def?: { shape?: () => Shape; typeName?: string } };
-  if (typeof maybe._def?.shape === 'function') return maybe._def.shape();
-  return null;
+  const maybe = schema as unknown as {
+    shape?: Shape;
+    _def?: { shape?: Shape | (() => Shape) };
+  };
+  if (maybe.shape !== undefined) return maybe.shape;
+  const shape = maybe._def?.shape;
+  if (typeof shape === 'function') return shape();
+  return shape ?? null;
 }
 
 /** Ключи схемы payload на глубину 2 (достаточно для поиска запрещённых полей). */
@@ -47,69 +48,28 @@ function collectKeys(schema: z.ZodTypeAny, depth = 2): string[] {
   return keys;
 }
 
-describe('Каталог WS (F-6.3)', () => {
-  it('политика приватности задана для КАЖДОГО server-сообщения', () => {
-    for (const type of WS_SERVER_TYPES) {
-      expect(WS_PRIVACY_POLICY[type], type).toBeDefined();
-    }
-    expect(Object.keys(WS_PRIVACY_POLICY)).toHaveLength(WS_SERVER_TYPES.length);
+describe('Каталог WS v4 (P05-A)', () => {
+  it('содержит lifecycle, scene replication и durable events; Turn/GM handlers удалены', () => {
+    expect(WS_CLIENT_TYPES).toEqual(['connection:client-ready', 'connection:ping', 'scene:input', 'scene:resync']);
+    expect(WS_SERVER_TYPES).toEqual([
+      'connection:welcome',
+      'connection:ready',
+      'connection:pong',
+      'connection:error',
+      'scene:keyframe',
+      'scene:delta',
+      'scene:input-ack',
+      'scene:resync-required',
+      'scene:durable-event',
+    ]);
+    expect(WS_CLIENT_TYPES.some((type) => type.startsWith('GM_') || type.startsWith('TURN_'))).toBe(false);
+    expect(WS_SERVER_TYPES.some((type) => type.startsWith('GM_') || type.startsWith('TURN_'))).toBe(false);
   });
 
-  it('в BROADCAST-сообщениях нет запрещённых per-player полей (блокер B-10)', () => {
-    const violations: string[] = [];
-    for (const type of WS_SERVER_TYPES) {
-      if (WS_PRIVACY_POLICY[type] !== 'BROADCAST') continue;
-      const keys = collectKeys(WSServerPayloadSchemas[type]);
-      for (const key of keys) {
-        if (FORBIDDEN_IN_BROADCAST.includes(key)) violations.push(`${type}.${key}`);
-      }
-    }
-    expect(violations).toEqual([]);
-  });
-
-  it('GM_ONLY — все сообщения, содержащие черновик/состояние GM', () => {
-    for (const type of [
-      'TURN_DRAFT_READY',
-      'TURN_RESOLUTION_GM',
-      'GM_STATE',
-      'GM_AI_CONTEXT',
-      'CHAT_GM',
-      'BUDGET_WARNING',
-      'BUDGET_EXCEEDED',
-    ] as const) {
-      expect(WS_PRIVACY_POLICY[type], type).toBe('GM_ONLY');
-    }
-  });
-
-  it('TARGETED — приватные данные одного игрока', () => {
-    expect(WS_PRIVACY_POLICY.STATE_PROJECTION_PRIVATE).toBe('TARGETED');
-    expect(WS_PRIVACY_POLICY.TURN_PRIVATE_RESOLUTION).toBe('TARGETED');
-    expect(WS_PRIVACY_POLICY.CHAT_PRIVATE).toBe('TARGETED');
-  });
-
-  it('TURN_COMMITTED (broadcast) не содержит privateMessages и diagnostics', () => {
-    const keys = collectKeys(WSServerPayloadSchemas.TURN_COMMITTED);
-    expect(keys).not.toContain('privateMessages');
-    expect(keys).not.toContain('diagnostics');
-    expect(keys).toContain('publicSegments');
-  });
-
-  it('idempotencyKey обязателен ровно для тех client-типов, где он есть в схеме (B-08)', () => {
-    const withKey = WS_CLIENT_TYPES.filter((type) =>
-      collectKeys(WSClientPayloadSchemas[type], 1).includes('idempotencyKey'),
-    );
-    expect([...withKey].sort()).toEqual([...WS_REQUIRES_IDEMPOTENCY_KEY].sort());
-  });
-
-  it('все GM_* типы помечены как GM-only', () => {
-    const gmTypes = WS_CLIENT_TYPES.filter((t) => t.startsWith('GM_'));
-    expect([...gmTypes].sort()).toEqual([...WS_GM_ONLY].sort());
-    expect(gmTypes.length).toBeGreaterThan(10);
-  });
-
-  it('client-типов 28, server-типов 35 (сверка с docs/SPEC_STAGE1.md)', () => {
-    expect(WS_CLIENT_TYPES.length).toBe(28);
-    expect(WS_SERVER_TYPES.length).toBe(35);
+  it('использует новые строгие payload-схемы без legacy broadcast/GM policy', () => {
+    expect(Object.keys(WSClientPayloadSchemas)).toEqual(WS_CLIENT_TYPES);
+    expect(Object.keys(WSServerPayloadSchemas)).toEqual(WS_SERVER_TYPES);
+    expect(collectKeys(WSServerPayloadSchemas['scene:keyframe'])).not.toContain('privateMessages');
   });
 });
 

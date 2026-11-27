@@ -1,0 +1,236 @@
+import {
+  type HotGameplayEventEnvelope,
+  InputSequence,
+  MessageId,
+  SceneSequence,
+  SnapshotId,
+  type SceneDeltaPayload,
+  type SceneKeyframePayload,
+  type SceneProjection,
+  type WsServerEnvelope,
+} from '@mnemosin/contracts';
+
+import type { ConnectionRegistry, WsConnectionRecord } from './connection-registry.js';
+import type { WsGatewayDeps, WsHotTickResult } from './deps.js';
+import { buildProjection, ownActorState } from './projections.js';
+
+type EnvelopeType = WsServerEnvelope['type'];
+type PayloadOf<T extends EnvelopeType> = Extract<WsServerEnvelope, { type: T }>['payload'];
+
+export class SceneReplicationService {
+  constructor(
+    private readonly deps: WsGatewayDeps,
+    private readonly registry: ConnectionRegistry,
+  ) {}
+
+  readonly envelope = <T extends EnvelopeType>(
+    type: T,
+    payload: PayloadOf<T>,
+  ): Extract<WsServerEnvelope, { type: T }> =>
+    ({
+      protocolVersion: 'v1',
+      schemaVersion: 1,
+      messageId: MessageId.parse(this.deps.newId?.() ?? crypto.randomUUID()),
+      type,
+      payload,
+    }) as Extract<WsServerEnvelope, { type: T }>;
+
+  publish(result: WsHotTickResult): void {
+    for (const acknowledgement of result.acknowledgements) {
+      const recipient = this.registry.byInputStream(acknowledgement.inputStreamId);
+      if (recipient !== undefined) {
+        this.sendReliable(recipient, this.envelope('scene:input-ack', acknowledgement));
+      }
+    }
+    for (const connection of this.registry.all()) {
+      if (connection.state === 'ready') this.publishDelta(connection);
+    }
+    for (const connection of this.registry.all()) connection.delivery.flush();
+  }
+
+  /**
+   * Reliable durable gameplay event; bypasses delta coalescing entirely.
+   *
+   * Граница публикации — место, где известна привязка match↔connection, поэтому
+   * match-контекст события проверяется здесь (D300). COLD-процессор применяет
+   * событие к явно переданной сессии и не сравнивает matchId с sessionId:
+   * это разные идентификаторы.
+   */
+  publishDurableEvent(connection: WsConnectionRecord, event: HotGameplayEventEnvelope): boolean {
+    if (event.matchId !== connection.context.matchId) {
+      this.deps.logger?.warn(
+        {
+          event: 'durable_event_match_mismatch',
+          eventId: event.eventId,
+          eventMatchId: event.matchId,
+          connectionMatchId: connection.context.matchId,
+        },
+        'durable event rejected: match context differs from connection',
+      );
+      return false;
+    }
+    return this.sendReliable(connection, this.envelope('scene:durable-event', event));
+  }
+
+  async sendKeyframe(connection: WsConnectionRecord): Promise<boolean> {
+    const restoreReady = connection.state === 'ready';
+    if (restoreReady) connection.state = 'syncing'; // не запускать resync повторно каждый HOT tick
+    // COLD read разрешён только на lifecycle/reconnect границе, не в HOT tick.
+    const cold = await this.deps.loadColdScene?.(connection.context.matchId);
+    if (connection.state === 'closing' || connection.state === 'closed') return false;
+    if (cold !== undefined) {
+      connection.coldObjects = cold.objects;
+      connection.projectionRevision = cold.projectionRevision;
+    }
+    const projection = this.currentProjection(connection);
+    connection.delivery.discardDeltasForKeyframe();
+    const player = this.deps.hot.runtime
+      .getState()
+      .players.find((candidate) => candidate.participantId === connection.context.actorId);
+    const sequence = this.allocateSequence(connection);
+    const payload: SceneKeyframePayload = {
+      matchId: connection.context.matchId,
+      worldEpoch: this.deps.scene.worldEpoch,
+      snapshotId: SnapshotId.parse(this.deps.newId?.() ?? crypto.randomUUID()),
+      sceneSequence: sequence,
+      simulationTick: this.deps.hot.runtime.getState().simulationTick,
+      serverTimeMs: this.serverTimeMs(),
+      projectionRevision: connection.projectionRevision ?? this.deps.scene.projectionRevision,
+      worldPackVersion: this.deps.scene.worldPackVersion,
+      projection,
+      ...(connection.context.actorType === 'player'
+        ? { ownActorState: ownActorState(this.deps.hot.runtime.getState(), connection.context.actorId) }
+        : {}),
+      ...(player?.lastProcessedInputSequence !== null && player?.lastProcessedInputSequence !== undefined
+        ? { lastProcessedInputSequence: InputSequence.parse(player.lastProcessedInputSequence) }
+        : {}),
+      ...(connection.context.actorType === 'player' ? { inputStreamId: connection.inputStreamId } : {}),
+    };
+    if (!this.sendReliable(connection, this.envelope('scene:keyframe', payload))) return false;
+    connection.lastProjection = projection;
+    connection.lastGeneratedSceneSequence = sequence;
+    if (restoreReady) connection.state = 'ready';
+    return true;
+  }
+
+  async requestResync(connection: WsConnectionRecord): Promise<void> {
+    this.sendReliable(
+      connection,
+      this.envelope('scene:resync-required', {
+        reason: 'client_recovery',
+        ...(connection.lastGeneratedSceneSequence > 0
+          ? { lastValidSceneSequence: connection.lastGeneratedSceneSequence }
+          : {}),
+      }),
+    );
+    await this.sendKeyframe(connection);
+  }
+
+  private publishDelta(connection: WsConnectionRecord): void {
+    const projection = this.currentProjection(connection);
+    const previous = connection.lastProjection;
+    if (previous === null || previous.projectionKind !== projection.projectionKind) {
+      void this.requestResync(connection).catch((error: unknown) => this.recoveryFailed(connection, error));
+      return;
+    }
+    const sequence = this.allocateSequence(connection);
+    const baseSceneSequence = connection.lastGeneratedSceneSequence;
+    const changes = projectionChanges(previous, projection);
+    const player = this.deps.hot.runtime
+      .getState()
+      .players.find((candidate) => candidate.participantId === connection.context.actorId);
+    const payload: SceneDeltaPayload = {
+      matchId: connection.context.matchId,
+      worldEpoch: this.deps.scene.worldEpoch,
+      sceneSequence: sequence,
+      baseSceneSequence,
+      simulationTick: this.deps.hot.runtime.getState().simulationTick,
+      serverTimeMs: this.serverTimeMs(),
+      projectionRevision: connection.projectionRevision ?? this.deps.scene.projectionRevision,
+      projectionKind: projection.projectionKind,
+      ...changes,
+      ...(connection.context.actorType === 'player'
+        ? { ownActorState: ownActorState(this.deps.hot.runtime.getState(), connection.context.actorId) }
+        : {}),
+      ...(player?.lastProcessedInputSequence !== null && player?.lastProcessedInputSequence !== undefined
+        ? { lastProcessedInputSequence: InputSequence.parse(player.lastProcessedInputSequence) }
+        : {}),
+      ...(connection.context.actorType === 'player' ? { inputStreamId: connection.inputStreamId } : {}),
+    };
+    const result = connection.delivery.enqueueDelta(this.envelope('scene:delta', payload));
+    if (result === 'resync-required') {
+      this.sendReliable(
+        connection,
+        this.envelope('scene:resync-required', {
+          reason: 'projection_reset',
+          lastValidSceneSequence: baseSceneSequence,
+        }),
+      );
+      void this.sendKeyframe(connection).catch((error: unknown) => this.recoveryFailed(connection, error));
+      return;
+    }
+    connection.lastProjection = projection;
+    connection.lastGeneratedSceneSequence = sequence;
+  }
+
+  private currentProjection(connection: WsConnectionRecord): SceneProjection {
+    return buildProjection(
+      connection.context.projectionKind,
+      this.deps.hot.runtime.getState(),
+      { ...this.deps.scene, objects: connection.coldObjects ?? this.deps.scene.objects },
+      this.deps.hiddenFacts,
+    );
+  }
+
+  sendReliable(connection: WsConnectionRecord, envelope: WsServerEnvelope): boolean {
+    const sent = connection.delivery.enqueueReliable(envelope);
+    if (!sent) {
+      connection.state = 'closing';
+      connection.socket.close(4429, '{"code":"SERVER_BUSY"}');
+    }
+    return sent;
+  }
+
+  private recoveryFailed(connection: WsConnectionRecord, error: unknown): void {
+    this.deps.logger?.error(
+      { err: error, connectionId: connection.context.connectionId },
+      'cold keyframe recovery failed',
+    );
+    connection.state = 'closing';
+    connection.socket.close(4500, '{"code":"INTERNAL"}');
+  }
+
+  private serverTimeMs(): number {
+    return Math.max(0, Math.trunc((this.deps.now ?? Date.now)()));
+  }
+
+  private allocateSequence(connection: WsConnectionRecord): SceneSequence {
+    return SceneSequence.parse(connection.lastGeneratedSceneSequence + 1);
+  }
+}
+
+function projectionChanges(previous: SceneProjection, current: SceneProjection) {
+  const previousEntities = new Map(previous.entities.map((entity) => [entity.participantId, entity]));
+  const currentEntities = new Map(current.entities.map((entity) => [entity.participantId, entity]));
+  const entityUpserts = current.entities.filter((entity) => {
+    const before = previousEntities.get(entity.participantId);
+    return before === undefined || JSON.stringify(before) !== JSON.stringify(entity);
+  });
+  const entityRemovals = [...previousEntities.keys()].filter((id) => !currentEntities.has(id));
+  const previousObjects = new Map(previous.objects.map((object) => [object.objectId, object]));
+  const currentObjects = new Map(current.objects.map((object) => [object.objectId, object]));
+  const objectUpserts = current.objects.filter((object) => {
+    const before = previousObjects.get(object.objectId);
+    return before === undefined || JSON.stringify(before) !== JSON.stringify(object);
+  });
+  const objectRemovals = [...previousObjects.keys()].filter((id) => !currentObjects.has(id));
+  return {
+    entityUpserts,
+    entityRemovals,
+    objectUpserts,
+    objectRemovals,
+    ...(JSON.stringify(previous.environment) !== JSON.stringify(current.environment)
+      ? { environment: { ...current.environment } }
+      : {}),
+  };
+}

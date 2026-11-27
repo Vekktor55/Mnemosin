@@ -31,7 +31,7 @@
     "@mnemosin/core": "*",
     "@libsql/client": "^0.18.0",
     "drizzle-orm": "^0.45.4",
-    "zod": "^3.25.76",
+    "zod": "^4.6.7",
     "libsql": "^0.5.18"
   },
   "devDependencies": {

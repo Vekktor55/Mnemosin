@@ -54,7 +54,7 @@ export const ExitSchema = z
     hidden: z.boolean().default(false),
     via: ExitVia.nullable().default(null),
     locked: z.boolean().default(false),
-    lock: ExitLockSchema.default({ type: null, keyRequired: null, requiresFlag: null, reason: null }),
+    lock: ExitLockSchema.prefault({ type: null, keyRequired: null, requiresFlag: null, reason: null }),
   })
   .superRefine((exit, ctx) => {
     if (exit.kind === 'LOCATION' && exit.toLocationId === null) {
@@ -176,7 +176,7 @@ export const LocationTemplateSchema = z.object({
       hidden: z.boolean().default(false),
       via: ExitVia.nullable().default(null),
       locked: z.boolean().default(false),
-      lock: ExitLockSchema.default({ type: null, keyRequired: null, requiresFlag: null, reason: null }),
+      lock: ExitLockSchema.prefault({ type: null, keyRequired: null, requiresFlag: null, reason: null }),
     }),
   ),
   hazards: z.array(HazardSchema),

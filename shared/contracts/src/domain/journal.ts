@@ -35,13 +35,16 @@ export const JournalKind = z.enum([
   // в этапе 1 только журнал, endSession — этап 3 (промпт 1.8, п.4).
   'ending_reached',
   'snapshot_taken',
+  'hot_gameplay_committed',
+  // P06: COLD→HOT команда применена (несёт ревизию для восстановления по журналу).
+  'cold_to_hot_committed',
   'reconciled_on_boot',
 ]);
 export type JournalKind = z.infer<typeof JournalKind>;
 
 export const JournalEntrySchema = z.object({
   id: z.number().int().positive(),
-  turnId: TurnId,
+  turnId: TurnId.nullable(),
   sessionId: SessionId,
   traceId: z.string().max(64),
   kind: JournalKind,

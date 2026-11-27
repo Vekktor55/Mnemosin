@@ -171,14 +171,14 @@ Andrew Service не отвечает за:
 
 **СОГЛАСОВАНО как текущая сюжетная схема:**
 
-| Этаж | Состояние/раскрытие Андрея |
-|---|---|
-| Э1–Э2 | Тёплый голос, помогает группе |
-| Э3 | Первая ошибка карты становится заметна |
-| Э4 | Вскрывается подпись на разрешении №12; проводник связан с одним из убийц и молчит |
-| Э5 | Андрей признаётся сам |
-| Э6 | Неофрон использует канал Андрея |
-| Э7 | Андрей бессилен и слышит только тишину |
+| Этаж  | Состояние/раскрытие Андрея                                                        |
+| ----- | --------------------------------------------------------------------------------- |
+| Э1–Э2 | Тёплый голос, помогает группе                                                     |
+| Э3    | Первая ошибка карты становится заметна                                            |
+| Э4    | Вскрывается подпись на разрешении №12; проводник связан с одним из убийц и молчит |
+| Э5    | Андрей признаётся сам                                                             |
+| Э6    | Неофрон использует канал Андрея                                                   |
+| Э7    | Андрей бессилен и слышит только тишину                                            |
 
 Порядок и точные триггеры должны контролироваться сценарной системой, а не свободной генерацией модели.
 
@@ -213,18 +213,18 @@ Andrew Service не отвечает за:
 
 Предлагаемые ответственности:
 
-| Компонент | Ответственность |
-|---|---|
-| `AndrewService` | Оркестрация интеракции, проверка стадии, доступности и инициирование ответа |
-| `AndrewKnowledgeService` | Выбор разрешённых фактов/знаний и их статусов |
-| `AndrewBeliefService` | Хранение и обновление убеждений, доверия и происхождения |
-| `AndrewMemoryService` | История диалога, сводки и ограниченная память |
-| `AndrewPromptBuilder` | Сборка компактного контекста для одной реплики |
-| `AndrewResponseValidator` | Проверка формата, ссылок на факты и ограничений ответа |
-| `AndrewFallbackService` | Сценарные ответы без LLM |
-| `AIProviderPort` / `LLMGateway` | Очередь, провайдер, таймауты, лимиты и метрики |
-| `AndrewNarrativeController` | Управление аркой и заранее заданными сюжетными триггерами |
-| `AndrewInteractionRepository` | Чтение/запись взаимодействий через существующий COLD путь |
+| Компонент                       | Ответственность                                                             |
+| ------------------------------- | --------------------------------------------------------------------------- |
+| `AndrewService`                 | Оркестрация интеракции, проверка стадии, доступности и инициирование ответа |
+| `AndrewKnowledgeService`        | Выбор разрешённых фактов/знаний и их статусов                               |
+| `AndrewBeliefService`           | Хранение и обновление убеждений, доверия и происхождения                    |
+| `AndrewMemoryService`           | История диалога, сводки и ограниченная память                               |
+| `AndrewPromptBuilder`           | Сборка компактного контекста для одной реплики                              |
+| `AndrewResponseValidator`       | Проверка формата, ссылок на факты и ограничений ответа                      |
+| `AndrewFallbackService`         | Сценарные ответы без LLM                                                    |
+| `AIProviderPort` / `LLMGateway` | Очередь, провайдер, таймауты, лимиты и метрики                              |
+| `AndrewNarrativeController`     | Управление аркой и заранее заданными сюжетными триггерами                   |
+| `AndrewInteractionRepository`   | Чтение/запись взаимодействий через существующий COLD путь                   |
 
 Названия — **ПРЕДЛАГАЕТСЯ**. Если в репозитории уже существуют совместимые модули/порты, использовать их вместо дублирования.
 
@@ -288,12 +288,12 @@ COLD Andrew Use Case
 
 ## 5.1. Четыре слоя информации
 
-| Слой | Содержание | Владелец |
-|---|---|---|
-| World Truth | Объективное состояние мира: что реально произошло | COLD/game systems |
-| Andrew Knowledge | Факты, которые Андрей действительно знает или знал из старых циклов | Andrew domain |
-| Andrew Beliefs | То, во что Андрей верит сейчас, включая ошибочные убеждения | Andrew domain |
-| Player Utterances | То, что игроки фактически сказали Андрею | COLD Journal / conversation history |
+| Слой              | Содержание                                                          | Владелец                            |
+| ----------------- | ------------------------------------------------------------------- | ----------------------------------- |
+| World Truth       | Объективное состояние мира: что реально произошло                   | COLD/game systems                   |
+| Andrew Knowledge  | Факты, которые Андрей действительно знает или знал из старых циклов | Andrew domain                       |
+| Andrew Beliefs    | То, во что Андрей верит сейчас, включая ошибочные убеждения         | Andrew domain                       |
+| Player Utterances | То, что игроки фактически сказали Андрею                            | COLD Journal / conversation history |
 
 Не объединять эти слои в один список `facts`.
 
@@ -334,20 +334,20 @@ interface AndrewBelief {
   object?: string;
   propositionText?: string;
 
-  status: "believed" | "uncertain" | "disputed" | "retracted";
-  confidenceBand: "low" | "medium" | "high";
+  status: 'believed' | 'uncertain' | 'disputed' | 'retracted';
+  confidenceBand: 'low' | 'medium' | 'high';
 
   sourceType:
-    | "legacy_memory"
-    | "player_report"
-    | "document"
-    | "terminal"
-    | "direct_interaction"
-    | "scripted_revelation";
+    | 'legacy_memory'
+    | 'player_report'
+    | 'document'
+    | 'terminal'
+    | 'direct_interaction'
+    | 'scripted_revelation';
   sourceRef: string;
   speakerPlayerId?: string;
 
-  verification: "verified" | "unverified" | "outdated" | "contradicted";
+  verification: 'verified' | 'unverified' | 'outdated' | 'contradicted';
   createdAtEventId: string;
   lastUpdatedAtEventId: string;
 }
@@ -396,7 +396,7 @@ interface AndrewBelief {
 interface AndrewRelationship {
   playerId: string;
   inWorldIdentityTag?: string;
-  trustState: "trusted" | "neutral" | "distrustful" | "unknown";
+  trustState: 'trusted' | 'neutral' | 'distrustful' | 'unknown';
   trustSources: string[];
   lastInteractionEventId?: string;
   notesForPrompt?: string[];
@@ -749,18 +749,13 @@ LLM должна возвращать структурированный отв�
 interface AndrewModelResponse {
   schemaVersion: number;
   utterance: string;
-  speechIntent:
-    | "answer"
-    | "deflect"
-    | "refuse"
-    | "uncertain"
-    | "silence";
+  speechIntent: 'answer' | 'deflect' | 'refuse' | 'uncertain' | 'silence';
 
   claims: Array<{
     text: string;
-    basis: "knowledge_ref" | "belief_ref" | "explicit_uncertainty";
+    basis: 'knowledge_ref' | 'belief_ref' | 'explicit_uncertainty';
     sourceRef?: string;
-    verification: "verified" | "unverified" | "outdated" | "disputed";
+    verification: 'verified' | 'unverified' | 'outdated' | 'disputed';
   }>;
 
   proposedBeliefUpdates?: Array<{
@@ -875,14 +870,14 @@ HOT receives runtime update if needed
 
 ## 13.2. Стадии
 
-| Стадия | Каноническое содержание | Роль Andrew Service |
-|---|---|---|
-| Э1–Э2 | Тёплый голос | Доступная помощь/диалог в рамках ранней стадии |
-| Э3 | Первая ошибка карты | Допускается ответ, основанный на устаревшем знании; точный trigger не задан |
-| Э4 | Подпись на разрешении №12 раскрывает связь проводника с убийством | Сценарный reveal, не импровизируется как новый факт |
-| Э5 | Андрей признаётся сам | Срабатывает сценарный переход/разрешённый dialogue intent |
-| Э6 | Неофрон использует канал Андрея | Смена владельца/происхождения сообщения задаётся сценарием; не маскируется случайной ошибкой модели |
-| Э7 | Андрей бессилен, слышит тишину | Реплика может быть недоступна; точное поведение — согласно сценарию |
+| Стадия | Каноническое содержание                                           | Роль Andrew Service                                                                                 |
+| ------ | ----------------------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
+| Э1–Э2  | Тёплый голос                                                      | Доступная помощь/диалог в рамках ранней стадии                                                      |
+| Э3     | Первая ошибка карты                                               | Допускается ответ, основанный на устаревшем знании; точный trigger не задан                         |
+| Э4     | Подпись на разрешении №12 раскрывает связь проводника с убийством | Сценарный reveal, не импровизируется как новый факт                                                 |
+| Э5     | Андрей признаётся сам                                             | Срабатывает сценарный переход/разрешённый dialogue intent                                           |
+| Э6     | Неофрон использует канал Андрея                                   | Смена владельца/происхождения сообщения задаётся сценарием; не маскируется случайной ошибкой модели |
+| Э7     | Андрей бессилен, слышит тишину                                    | Реплика может быть недоступна; точное поведение — согласно сценарию                                 |
 
 ## 13.3. Хранение стадии
 
@@ -896,7 +891,7 @@ interface AndrewNarrativeState {
   currentFloorId: string;
   completedRevealIds: string[];
   blockedChannel: boolean;
-  channelIntegrity: "normal" | "distorted" | "muted" | "silent";
+  channelIntegrity: 'normal' | 'distorted' | 'muted' | 'silent';
   revision: number;
 }
 ```
@@ -1012,10 +1007,10 @@ interface ProviderRequest {
   requestId: string;
   model?: string;
   systemPrompt: string;
-  messages: Array<{ role: "user" | "assistant"; content: string }>;
+  messages: Array<{ role: 'user' | 'assistant'; content: string }>;
   maxOutputTokens: number;
   temperature?: number;
-  responseFormat?: "json";
+  responseFormat?: 'json';
   timeoutMs: number;
 }
 
@@ -1220,18 +1215,18 @@ Andrew Service не пишет напрямую в Drizzle и не хранит 
 
 События ниже являются концептуальными именами; их нужно согласовать с существующим event naming convention.
 
-| Event | Когда возникает | Долговременная запись |
-|---|---|---|
-| `andrew.interaction.requested` | Валидное обращение игрока | Да, как часть истории взаимодействия |
-| `andrew.utterance.received` | Сохранено сообщение игрока | Да |
-| `andrew.response.completed` | Реплика создана/выбрана fallback | Да |
-| `andrew.belief.created` | Принято новое убеждение | Да |
-| `andrew.belief.updated` | Изменилось убеждение/verification status | Да |
-| `andrew.relationship.updated` | Изменилось доверие | Да, если механика утверждена |
-| `andrew.help.provided` | Андрей оказал игровую помощь | Да |
-| `andrew.help.escalation_triggered` | Сработал сценарный порог цены помощи | Да, если механизм утверждён |
-| `andrew.channel.changed` | Канал заглушён/искажён/отключён | Владелец канала — соответствующая подсистема |
-| `andrew.arc.stage_changed` | Сценарная стадия перешла | Да |
+| Event                              | Когда возникает                          | Долговременная запись                        |
+| ---------------------------------- | ---------------------------------------- | -------------------------------------------- |
+| `andrew.interaction.requested`     | Валидное обращение игрока                | Да, как часть истории взаимодействия         |
+| `andrew.utterance.received`        | Сохранено сообщение игрока               | Да                                           |
+| `andrew.response.completed`        | Реплика создана/выбрана fallback         | Да                                           |
+| `andrew.belief.created`            | Принято новое убеждение                  | Да                                           |
+| `andrew.belief.updated`            | Изменилось убеждение/verification status | Да                                           |
+| `andrew.relationship.updated`      | Изменилось доверие                       | Да, если механика утверждена                 |
+| `andrew.help.provided`             | Андрей оказал игровую помощь             | Да                                           |
+| `andrew.help.escalation_triggered` | Сработал сценарный порог цены помощи     | Да, если механизм утверждён                  |
+| `andrew.channel.changed`           | Канал заглушён/искажён/отключён          | Владелец канала — соответствующая подсистема |
+| `andrew.arc.stage_changed`         | Сценарная стадия перешла                 | Да                                           |
 
 Технические события вроде `llm.request.timeout`, `provider.rate_limited`, `response.parse_failed` могут идти в observability/diagnostic log и не обязаны становиться игровыми фактами.
 
@@ -1432,20 +1427,20 @@ GM Review существует как необязательный инстру�
 
 # 23. Отказоустойчивость
 
-| Ситуация | Требуемое поведение |
-|---|---|
-| LLM provider недоступен | Fallback; партия продолжается |
-| Timeout | Завершить запрос, fallback; не ждать бесконечно |
-| Provider rate limit | Не retry бесконечно; использовать fallback/очередь согласно budget policy |
-| Невалидный JSON | Отклонить, fallback, diagnostic record |
-| Ответ содержит неизвестный fact ref | Отклонить ответ или неподтверждённую часть по строгой policy |
-| Ответ опоздал после смены стадии | Revalidate; при устаревшем контексте не доставлять |
-| Повторная команда | Идемпотентно вернуть исходный request/result |
-| Restart server | Восстановить COLD memory/beliefs/history и доступные request states |
-| Потеря summary | Пересобрать из структурированной памяти/истории либо использовать нейтральный контекст |
-| Очередь переполнена | Отказать/сразу fallback; не блокировать игру |
-| Канал заглушён | Не вызывать LLM, использовать channel-specific game response |
-| Э7 silence state | Следовать narrative state; не позволять LLM самостоятельно восстановить канал |
+| Ситуация                            | Требуемое поведение                                                                    |
+| ----------------------------------- | -------------------------------------------------------------------------------------- |
+| LLM provider недоступен             | Fallback; партия продолжается                                                          |
+| Timeout                             | Завершить запрос, fallback; не ждать бесконечно                                        |
+| Provider rate limit                 | Не retry бесконечно; использовать fallback/очередь согласно budget policy              |
+| Невалидный JSON                     | Отклонить, fallback, diagnostic record                                                 |
+| Ответ содержит неизвестный fact ref | Отклонить ответ или неподтверждённую часть по строгой policy                           |
+| Ответ опоздал после смены стадии    | Revalidate; при устаревшем контексте не доставлять                                     |
+| Повторная команда                   | Идемпотентно вернуть исходный request/result                                           |
+| Restart server                      | Восстановить COLD memory/beliefs/history и доступные request states                    |
+| Потеря summary                      | Пересобрать из структурированной памяти/истории либо использовать нейтральный контекст |
+| Очередь переполнена                 | Отказать/сразу fallback; не блокировать игру                                           |
+| Канал заглушён                      | Не вызывать LLM, использовать channel-specific game response                           |
+| Э7 silence state                    | Следовать narrative state; не позволять LLM самостоятельно восстановить канал          |
 
 ---
 
@@ -1608,31 +1603,31 @@ GM Review существует как необязательный инстру�
 
 Вопросы ниже специально не решены в этом документе. Coding agent не должен самостоятельно закрывать их, если решение влияет на игровой канон или баланс.
 
-| ID | Вопрос | Влияние |
-|---|---|---|
+| ID          | Вопрос                                                                                                             | Влияние                             |
+| ----------- | ------------------------------------------------------------------------------------------------------------------ | ----------------------------------- |
 | AND-OPEN-01 | Как определяется «ребёнок/дети» в восприятии Андрея? Как это соотносится с реальными личностями и скрытыми ролями? | Trust/relationship и prompt context |
-| AND-OPEN-02 | Какие игроки и каким способом могут обращаться к Андрею на каждом этаже? | Interaction/channel permissions |
-| AND-OPEN-03 | Ответ Андрея слышит весь комплекс, этаж, комната или только адресат? | Audience/privacy rules |
-| AND-OPEN-04 | Как обрабатываются одновременные обращения нескольких игроков? | Очередь, fairness, concurrency |
-| AND-OPEN-05 | Какие конкретные данные/события Андрей может знать из каждого источника? | Knowledge policy |
-| AND-OPEN-06 | Какие утверждения Андрея считаются «сверенными» и кто/что выполняет проверку? | Verification model |
-| AND-OPEN-07 | Как моделируется доверие к каждому игроку? Нужен ли уровень доверия или достаточно качественного состояния? | Belief/relationship logic |
-| AND-OPEN-08 | Как именно фиксируется ложь игрока, и когда Андрей принимает её за достоверную? | Deception mechanic |
-| AND-OPEN-09 | Что считается помощью Андрея для механики «комплекс замечает его чаще»? | Escalation/attention |
-| AND-OPEN-10 | Какие пороги/этапы и последствия имеет цена помощи? | Scenario configuration |
-| AND-OPEN-11 | Какие кэши, терминалы и шлюзы доступны Андрею и на каких условиях? | COLD use cases |
-| AND-OPEN-12 | Как именно реализуется список 47 групп на Э6 и что Андрей знает о нём? | Authored data/reveal |
-| AND-OPEN-13 | Каковы точные триггеры арки Э3, Э4, Э5, Э6, Э7? | Narrative controller |
-| AND-OPEN-14 | В каком смысле Неофрон использует канал Андрея на Э6? Кто является источником реплики? | Channel identity and story |
-| AND-OPEN-15 | Что именно происходит на Э7: полный запрет ответа, только шум/тишина или ограниченный финальный отклик? | Final scene UX |
-| AND-OPEN-16 | Каковы timeout, retries, output length, token budget и per-player rate limits? | Provider cost/UX |
-| AND-OPEN-17 | Какой provider/model выбран для production и какие у него структурированные output capabilities? | Adapter configuration |
-| AND-OPEN-18 | Сколько истории диалогов хранить и какой retention нужен после завершения партии? | Persistence/privacy |
-| AND-OPEN-19 | Какие authored fallback lines нужны для каждого канала/этапа/ошибки? | Content production |
-| AND-OPEN-20 | Должны ли belief summaries генерироваться LLM, алгоритмом или быть ручными? | Memory pipeline/cost |
-| AND-OPEN-21 | Что из скрытых убеждений Андрея показывает Observer и какие изменения ему разрешено делать? | Observer permissions |
-| AND-OPEN-22 | Какие данные prompt/provider diagnostics доступны разработчику и как долго хранятся? | Dev diagnostics/privacy |
-| AND-OPEN-23 | Может ли игрок повторно задать вопрос во время генерации и как обрабатывается отмена? | UX/concurrency |
+| AND-OPEN-02 | Какие игроки и каким способом могут обращаться к Андрею на каждом этаже?                                           | Interaction/channel permissions     |
+| AND-OPEN-03 | Ответ Андрея слышит весь комплекс, этаж, комната или только адресат?                                               | Audience/privacy rules              |
+| AND-OPEN-04 | Как обрабатываются одновременные обращения нескольких игроков?                                                     | Очередь, fairness, concurrency      |
+| AND-OPEN-05 | Какие конкретные данные/события Андрей может знать из каждого источника?                                           | Knowledge policy                    |
+| AND-OPEN-06 | Какие утверждения Андрея считаются «сверенными» и кто/что выполняет проверку?                                      | Verification model                  |
+| AND-OPEN-07 | Как моделируется доверие к каждому игроку? Нужен ли уровень доверия или достаточно качественного состояния?        | Belief/relationship logic           |
+| AND-OPEN-08 | Как именно фиксируется ложь игрока, и когда Андрей принимает её за достоверную?                                    | Deception mechanic                  |
+| AND-OPEN-09 | Что считается помощью Андрея для механики «комплекс замечает его чаще»?                                            | Escalation/attention                |
+| AND-OPEN-10 | Какие пороги/этапы и последствия имеет цена помощи?                                                                | Scenario configuration              |
+| AND-OPEN-11 | Какие кэши, терминалы и шлюзы доступны Андрею и на каких условиях?                                                 | COLD use cases                      |
+| AND-OPEN-12 | Как именно реализуется список 47 групп на Э6 и что Андрей знает о нём?                                             | Authored data/reveal                |
+| AND-OPEN-13 | Каковы точные триггеры арки Э3, Э4, Э5, Э6, Э7?                                                                    | Narrative controller                |
+| AND-OPEN-14 | В каком смысле Неофрон использует канал Андрея на Э6? Кто является источником реплики?                             | Channel identity and story          |
+| AND-OPEN-15 | Что именно происходит на Э7: полный запрет ответа, только шум/тишина или ограниченный финальный отклик?            | Final scene UX                      |
+| AND-OPEN-16 | Каковы timeout, retries, output length, token budget и per-player rate limits?                                     | Provider cost/UX                    |
+| AND-OPEN-17 | Какой provider/model выбран для production и какие у него структурированные output capabilities?                   | Adapter configuration               |
+| AND-OPEN-18 | Сколько истории диалогов хранить и какой retention нужен после завершения партии?                                  | Persistence/privacy                 |
+| AND-OPEN-19 | Какие authored fallback lines нужны для каждого канала/этапа/ошибки?                                               | Content production                  |
+| AND-OPEN-20 | Должны ли belief summaries генерироваться LLM, алгоритмом или быть ручными?                                        | Memory pipeline/cost                |
+| AND-OPEN-21 | Что из скрытых убеждений Андрея показывает Observer и какие изменения ему разрешено делать?                        | Observer permissions                |
+| AND-OPEN-22 | Какие данные prompt/provider diagnostics доступны разработчику и как долго хранятся?                               | Dev diagnostics/privacy             |
+| AND-OPEN-23 | Может ли игрок повторно задать вопрос во время генерации и как обрабатывается отмена?                              | UX/concurrency                      |
 
 ---
 

@@ -4,20 +4,17 @@
  * не запускал сервер).
  */
 export { buildApp, type BuildAppOptions } from './app.js';
-export { buildAIStack, type AIStack, type BuildAIStackDeps } from './ai.js';
-export { buildModules, type ModuleStack, type BuildModulesDeps } from './modules.js';
-export {
-  attachModulesRegistry,
-  buildStage1Registrations,
-  mediaDirectorContract,
-  validateModulesRegistry,
-  type ModuleRegistration,
-  type ModuleEventHandler,
-  type RegistryLog,
-  type Stage1Services,
-} from './modules-registry.js';
 export { resolveProjectRoot } from './project-root.js';
-export { buildProjectionProvider, type ProjectionProviderImpl } from './projections.js';
+export {
+  createPrototypeWsGateway,
+  prototypeStaticScene,
+  prototypeColdScene,
+  prototypeRealtimeLimits,
+  PrototypeHotMatch,
+  PROTOTYPE_HOT_RUNTIME_CONFIG,
+  type PrototypeHotPlayer,
+  type PrototypeWsOptions,
+} from './hot-wiring.js';
 export {
   buildHealthPayload,
   buildVersionPayload,
@@ -25,3 +22,12 @@ export {
   type HealthExtras,
   type VersionPayload,
 } from './health.js';
+export {
+  registerDevQuickJoinRoute,
+  type DevQuickJoinContext,
+  type DevQuickJoinOptions,
+  type DevQuickJoinPlayer,
+  type DevQuickJoinPlayerPayload,
+  type DevQuickJoinResponse,
+  type DevAccessTokenIssuer,
+} from './dev-quick-join.js';
