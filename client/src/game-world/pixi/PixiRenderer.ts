@@ -156,21 +156,21 @@ export class PixiRenderer {
   }
 
   private async drawBakedRoom(): Promise<void> {
-  	const world = this.world;
-  	if (world === null) return;
-  	const texture = await Assets.load(OBLIQUE_ROOM.image);
-  	texture.source.scaleMode = 'nearest'; // pixel-art без размытия
-  	texture.source.update();
-  	const room = new Sprite(texture);
-  	room.anchor.set(0.5);                 // центр картинки = точка позиционирования
-  	room.scale.x = -1;                    // зеркало под screenX = +x·tileWidth
-  	const center = this.projection.worldToScreen({
-  	  x: OBLIQUE_ROOM.anchor.cx,
-  	  y: OBLIQUE_ROOM.anchor.cy,
-  	});
- 	room.position.set(center.x, center.y);
-  	room.zIndex = -1000;                  // подложка ниже игроков (sortableChildren уже включён)
- 	world.addChild(room);
+    const world = this.world;
+    if (world === null) return;
+    const texture = await Assets.load(OBLIQUE_ROOM.image);
+    texture.source.scaleMode = 'nearest'; // pixel-art без размытия
+    texture.source.update();
+    const room = new Sprite(texture);
+    room.anchor.set(0.5); // центр картинки = точка позиционирования
+    room.scale.x = -1; // зеркало под screenX = +x·tileWidth
+    const center = this.projection.worldToScreen({
+      x: OBLIQUE_ROOM.anchor.cx,
+      y: OBLIQUE_ROOM.anchor.cy,
+    });
+    room.position.set(center.x, center.y);
+    room.zIndex = -1000; // подложка ниже игроков (sortableChildren уже включён)
+    world.addChild(room);
   }
 
   private drawStaticRoom(): void {
