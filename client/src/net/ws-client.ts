@@ -19,6 +19,7 @@ import {
   WsServerEnvelopeSchema,
   type SceneKeyframePayload,
   type SceneDeltaPayload,
+  type SceneResyncMessage,
   type WsClientEnvelope,
   type WsClientMessageType,
   type WsServerEnvelope,
@@ -83,6 +84,17 @@ export interface ConnectionInfo {
 
 type ServerHandler = (message: WsServerEnvelope) => void;
 
+/**
+ * Именованные alias'ы типов сообщений.
+ *
+ * Нужны, чтобы структурный порт `game-world/ports.ts` и сам WSClient
+ * использовали ОДИН и тот же тип: при инлайновом `Extract<..., { type: T }>`
+ * TypeScript разворачивает отложенный conditional по-разному в source и
+ * target-позициях и считает сигнатуры несовместимыми.
+ */
+export type WsServerMessage<TType extends WsServerMessageType> = Extract<WsServerEnvelope, { type: TType }>;
+export type WsClientPayload<TType extends WsClientMessageType> = Extract<WsClientEnvelope, { type: TType }>['payload'];
+
 /** Субпротокол handshake (D123): `mnemosin.v1.<jwt>`; токен никогда не в URL. */
 export function wsSubprotocol(token: string): string {
   return `mnemosin.v1.${token}`;
@@ -108,6 +120,8 @@ export class WSClient {
 
   private connectionInfo: ConnectionInfo | null = null;
   private ready = false;
+  /** §4.2: `connection:client-ready` отправляется один раз на connection lifecycle. */
+  private clientReadySent = false;
   private manualClose = false;
   private retryTimer: ReturnType<typeof setTimeout> | null = null;
   private heartbeatTimer: ReturnType<typeof setInterval> | null = null;
@@ -154,12 +168,9 @@ export class WSClient {
     this.setStatus({ ...this.snapshot, status: 'CLOSED', nextRetryAt: null });
   }
 
-  on<T extends WsServerMessageType>(
-    type: T,
-    handler: (message: Extract<WsServerEnvelope, { type: T }>) => void,
-  ): () => void {
+  on<T extends WsServerMessageType>(type: T, handler: (message: WsServerMessage<T>) => void): () => void {
     const set = this.handlers.get(type) ?? new Set<ServerHandler>();
-    const wrapped: ServerHandler = (message) => handler(message as Extract<WsServerEnvelope, { type: T }>);
+    const wrapped: ServerHandler = (message) => handler(message as WsServerMessage<T>);
     set.add(wrapped);
     this.handlers.set(type, set);
     return () => {
@@ -167,7 +178,7 @@ export class WSClient {
     };
   }
 
-  send<T extends WsClientMessageType>(type: T, payload: Extract<WsClientEnvelope, { type: T }>['payload']): void {
+  send<T extends WsClientMessageType>(type: T, payload: WsClientPayload<T>): void {
     const envelope: WsClientEnvelope = {
       protocolVersion: 'v1',
       schemaVersion: 1,
@@ -190,13 +201,37 @@ export class WSClient {
     return this.snapshot;
   }
 
-  /** Явный запрос resync (sequence gap / смена worldEpoch). */
-  requestResync(reason: 'sequence_gap' | 'invalid_delta' | 'projection_reset' | 'client_recovery'): void {
+  /**
+   * §4.2 шаг 7: `connection:client-ready` — клиент зарегистрировал handlers и
+   * готов принять `scene:keyframe`.
+   *
+   * Отправляется ЯВНО, а не автоматически в обработчике `connection:welcome`:
+   * сервер отвечает keyframe немедленно, поэтому ранняя отправка приводила к
+   * потере первого keyframe (клиент ещё не подписался на события сцены).
+   * Возвращает false, если сокет ещё не открыт.
+   */
+  sendClientReady(): boolean {
+    const socket = this.socket;
+    if (socket === null || socket.readyState !== WebSocket.OPEN) return false;
+    if (this.clientReadySent) return true;
+    this.clientReadySent = true;
+    this.send('connection:client-ready', {});
+    return true;
+  }
+
+  /**
+   * §17.4: запрос полного keyframe. `lastAppliedSceneSequence` — последняя
+   * ПРИМЕНЁННАЯ клиентом sequence; если не задана, берётся последняя полученная.
+   */
+  requestResync(
+    reason: SceneResyncMessage['reason'],
+    options?: { readonly lastAppliedSceneSequence?: number | null },
+  ): void {
     const info = this.connectionInfo;
+    const explicit = options?.lastAppliedSceneSequence;
+    const sequence = explicit !== null && explicit !== undefined ? explicit : (info?.lastSceneSequence ?? null);
     this.send('scene:resync', {
-      ...(info?.lastSceneSequence !== null && info?.lastSceneSequence !== undefined
-        ? { lastAppliedSceneSequence: SceneSequence.parse(info.lastSceneSequence) }
-        : {}),
+      ...(sequence !== null ? { lastAppliedSceneSequence: SceneSequence.parse(sequence) } : {}),
       ...(info?.worldEpoch !== null && info?.worldEpoch !== undefined
         ? { worldEpoch: WorldEpoch.parse(info.worldEpoch) }
         : {}),
@@ -335,7 +370,9 @@ export class WSClient {
         this.startHeartbeat();
         // Reconnect: сброс буферов/deltas происходит в GameWorld по welcome;
         // movement inputs никогда не replay (новый inputStreamId).
-        this.send('connection:client-ready', {});
+        // `connection:client-ready` уходит из sendClientReady() — только после
+        // регистрации handlers и готовности renderer (§4.2 шаг 7).
+        this.clientReadySent = false;
         break;
       }
       case 'scene:keyframe': {

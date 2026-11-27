@@ -402,4 +402,21 @@ describe('P05-A real WebSocket + HotTickScheduler', () => {
     }
     expect(delivered.some((message) => message.type === 'connection:pong')).toBe(true);
   }, 10_000);
+
+  it('§4.2: на connection:client-ready сервер сразу шлёт scene:keyframe и только затем connection:ready', async () => {
+    const client = await connect('player-one');
+    await client.waitFor('connection:welcome');
+    // До client-ready keyframe не отправляется.
+    expect(client.messages.some((message) => message.type === 'scene:keyframe')).toBe(false);
+
+    client.send('connection:client-ready', {});
+    await client.waitFor('scene:keyframe');
+    await client.waitFor('connection:ready');
+
+    const order = client.messages.map((message) => message.type);
+    const keyframeIndex = order.indexOf('scene:keyframe');
+    const readyIndex = order.indexOf('connection:ready');
+    expect(keyframeIndex).toBeGreaterThanOrEqual(0);
+    expect(readyIndex).toBeGreaterThan(keyframeIndex);
+  }, 10_000);
 });

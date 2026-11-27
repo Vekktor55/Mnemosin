@@ -7,6 +7,18 @@
  *
  * Авторитетная позиция принадлежит серверу: prediction/advance меняют только
  * отображаемую позицию; authoritative обновляется лишь из ACK/keyframe/delta.
+ *
+ * LIFECYCLE (NETWORK_PROTOCOL.md §4.2, шаг 7):
+ *   `attach()` — подписка на WS-события ДО `ws.connect()`; обработчики должны
+ *   быть зарегистрированы до того, как клиент сообщит `connection:client-ready`.
+ *   `start()`  — асинхронная инициализация renderer; keyframe, пришедший до её
+ *   завершения, буферизуется и применяется сразу после `renderer.init()`.
+ *
+ * Сервер присылает `scene:keyframe` строго перед `connection:ready`
+ * (gateways/ws/src/router.ts), поэтому единственный способ потерять keyframe —
+ * отправить `connection:client-ready` раньше, чем клиент готов его принять.
+ * Именно это и устранено: `connection:client-ready` уходит из `markClientReady()`
+ * после подписки и готовности renderer.
  */
 import {
   InputStreamId,
@@ -18,12 +30,17 @@ import {
   type SceneInputAckMessage,
 } from '@mnemosin/contracts';
 
-import { GridProjection } from './projection/GridProjection.js';
-import { PixiRenderer } from './pixi/PixiRenderer.js';
 import { KeyboardInputController } from './movement/input.js';
 import { ClientPrediction } from './movement/prediction.js';
 import { InterpolationBuffer } from './movement/interpolation.js';
-import type { WSClient } from '../net/ws-client.js';
+import type {
+  GameWorldCanvasHost,
+  GameWorldFrameScheduler,
+  GameWorldInputPort,
+  GameWorldRendererPort,
+  GameWorldResyncReason,
+  GameWorldWsPort,
+} from './ports.js';
 import { setGameHud } from '../stores/game.js';
 
 /** PROTOTYPE-ONLY: зеркало серверного HOT config (без импорта core/). */
@@ -35,10 +52,18 @@ const PROTOTYPE_INTERPOLATION_BUFFER_SIZE = 32;
 const INPUT_SEND_INTERVAL_MS = 50;
 const MAX_FRAME_DT_SECONDS = 0.1;
 const HUD_UPDATE_INTERVAL_MS = 250;
+/**
+ * PROTOTYPE-ONLY: cooldown между `scene:resync`-запросами (§9.3, §17.4).
+ * Не даёт спамить сокет, пока сервер готовит keyframe.
+ */
+const RESYNC_COOLDOWN_MS = 1_000;
 
 export interface GameWorldOptions {
-  readonly ws: WSClient;
-  readonly parent: HTMLElement;
+  readonly ws: GameWorldWsPort;
+  readonly parent: GameWorldCanvasHost;
+  readonly renderer: GameWorldRendererPort;
+  readonly frameScheduler?: GameWorldFrameScheduler;
+  readonly input?: GameWorldInputPort;
 }
 
 interface DebugMetrics {
@@ -58,11 +83,11 @@ interface DebugMetrics {
 }
 
 export class GameWorld {
-  private readonly ws: WSClient;
-  private readonly parent: HTMLElement;
-  private readonly projection: GridProjection;
-  private readonly renderer: PixiRenderer;
-  private readonly input: KeyboardInputController;
+  private readonly ws: GameWorldWsPort;
+  private readonly parent: GameWorldCanvasHost;
+  private readonly renderer: GameWorldRendererPort;
+  private readonly frameScheduler: GameWorldFrameScheduler;
+  private readonly input: GameWorldInputPort;
   private readonly interpolation: InterpolationBuffer;
   private prediction: ClientPrediction | null = null;
   private ownParticipantId: string | null = null;
@@ -77,18 +102,25 @@ export class GameWorld {
   private lastInputToVisualMs = 0;
   private lastHudAt = 0;
 
+  /** Unsubscribe-хэндлы всех ws.on(...): снимаются в destroy() (без утечек). */
+  private readonly unsubscribes: (() => void)[] = [];
+  private attached = false;
+  private rendererReady = false;
+  private hasAppliedKeyframe = false;
+  private pendingKeyframe: SceneKeyframePayload | null = null;
+  /** Последняя ПРИМЕНЁННАЯ клиентом scene sequence (§9.4). */
+  private lastAppliedSceneSequence: number | null = null;
+  private welcomeReceived = false;
+  private clientReadySent = false;
+  private resyncRequested = false;
+  private lastResyncRequestAt: number | null = null;
+
   constructor(options: GameWorldOptions) {
     this.ws = options.ws;
     this.parent = options.parent;
-    this.projection = new GridProjection({
-      tileWidth: 64,
-      tileDepth: 40,
-      originX: 0,
-      originY: 0,
-      elevationStep: 48,
-    });
-    this.renderer = new PixiRenderer(this.projection);
-    this.input = new KeyboardInputController();
+    this.renderer = options.renderer;
+    this.frameScheduler = options.frameScheduler ?? defaultFrameScheduler;
+    this.input = options.input ?? new KeyboardInputController();
     this.interpolation = new InterpolationBuffer({
       interpolationDelayMs: PROTOTYPE_INTERPOLATION_DELAY_MS,
       extrapolationLimitMs: PROTOTYPE_EXTRAPOLATION_LIMIT_MS,
@@ -96,19 +128,39 @@ export class GameWorld {
     });
   }
 
-  async start(): Promise<void> {
-    await this.renderer.init(this.parent);
-    this.input.attach(window, window, document);
+  /**
+   * Подписка на WS-события. Вызывается ДО `ws.connect()`: обработчики должны
+   * существовать раньше, чем клиент отправит `connection:client-ready`.
+   */
+  attach(): void {
+    if (this.attached) return;
+    this.attached = true;
+    this.unsubscribes.push(
+      this.ws.on('connection:welcome', (message) => this.onWelcome(message.payload)),
+      this.ws.on('scene:keyframe', (message) => this.onKeyframe(message.payload)),
+      this.ws.on('scene:delta', (message) => this.onDelta(message.payload)),
+      this.ws.on('connection:ready', () => this.onReady()),
+      this.ws.on('scene:resync-required', () => this.onResyncRequired()),
+      this.ws.on('scene:input-ack', (message) => this.onInputAck(message.payload)),
+    );
     this.input.setOnChange(() => this.onDirectionChange());
+    const targets = browserEventTargets();
+    if (targets !== null) {
+      this.input.attach(targets.target, targets.windowTarget, targets.visibilityTarget);
+    }
+  }
 
-    this.ws.on('scene:keyframe', (message) => this.onKeyframe(message.payload));
-    this.ws.on('scene:delta', (message) => this.onDelta(message.payload));
-    this.ws.on('connection:ready', () => this.onReady());
-    this.ws.on('scene:resync-required', () => {
-      this.interpolation.reset();
-      this.prediction?.reset(this.prediction.snapshot().authoritative);
-    });
-    this.ws.on('scene:input-ack', (message) => this.onInputAck(message.payload));
+  /**
+   * Асинхронная инициализация renderer. Keyframe, пришедший до её завершения,
+   * буферизуется и применяется сразу после `renderer.init()`.
+   */
+  async start(): Promise<void> {
+    // Идемпотентно: подписка должна существовать до любого входящего кадра.
+    this.attach();
+    await this.renderer.init(this.parent);
+    this.rendererReady = true;
+    this.flushPendingKeyframe();
+    this.markClientReady();
 
     this.inputSendTimer = setInterval(() => {
       const direction = this.input.current();
@@ -118,26 +170,60 @@ export class GameWorld {
     this.lastFrameAt = performance.now();
     this.lastHudAt = this.lastFrameAt;
     const loop = (now: number): void => {
-      this.frameHandle = requestAnimationFrame(loop);
+      this.frameHandle = this.frameScheduler.request(loop);
       const frameDt = Math.min((now - this.lastFrameAt) / 1000, MAX_FRAME_DT_SECONDS);
       this.lastFrameTimeMs = now - this.lastFrameAt;
       this.lastFrameAt = now;
       this.tick(frameDt, now);
     };
-    this.frameHandle = requestAnimationFrame(loop);
+    this.frameHandle = this.frameScheduler.request(loop);
   }
 
   destroy(): void {
-    if (this.frameHandle !== null) cancelAnimationFrame(this.frameHandle);
+    if (this.frameHandle !== null) this.frameScheduler.cancel(this.frameHandle);
+    this.frameHandle = null;
     if (this.inputSendTimer !== null) clearInterval(this.inputSendTimer);
+    this.inputSendTimer = null;
+    for (const unsubscribe of this.unsubscribes) unsubscribe();
+    this.unsubscribes.length = 0;
+    this.attached = false;
+    this.input.setOnChange(null);
     this.input.detach();
     this.renderer.destroy();
   }
 
   // ------------------------------------------------------------ ws handlers
 
+  /** Новый connection lifecycle: сбрасываем scene-состояние (§4.4, §12). */
+  private onWelcome(payload: { readonly connectionEpoch: number; readonly actorId: string }): void {
+    this.welcomeReceived = true;
+    this.clientReadySent = false;
+    this.hasAppliedKeyframe = false;
+    this.pendingKeyframe = null;
+    this.lastAppliedSceneSequence = null;
+    this.resyncRequested = false;
+    this.lastResyncRequestAt = null;
+    this.ownParticipantId = payload.actorId;
+    this.doorPortalState = null;
+    this.interpolation.reset();
+    this.lastRemotePositions.clear();
+    this.prediction = null;
+    this.renderer.clearPlayers();
+    // Если renderer уже готов (welcome пришёл после init) — client-ready уходит сразу.
+    this.markClientReady();
+  }
+
   private onKeyframe(keyframe: SceneKeyframePayload): void {
-    this.ownParticipantId = this.ws.getConnectionInfo()?.actorId ?? null;
+    if (!this.rendererReady) {
+      // Renderer ещё инициализируется: keyframe не теряем, а откладываем.
+      this.pendingKeyframe = keyframe;
+      return;
+    }
+    this.applyKeyframe(keyframe);
+  }
+
+  private applyKeyframe(keyframe: SceneKeyframePayload): void {
+    this.ownParticipantId = this.ws.getConnectionInfo()?.actorId ?? this.ownParticipantId;
     this.interpolation.reset();
     this.prediction = this.newPredictionFromKeyframe(keyframe);
     this.applyProjection(keyframe.projection.entities, keyframe.simulationTick, keyframe.serverTimeMs);
@@ -145,10 +231,26 @@ export class GameWorld {
     this.doorPortalState =
       keyframe.projection.objects.find((object) => object.portalState !== undefined)?.portalState ?? null;
     this.syncServerClock(keyframe.serverTimeMs);
+    this.lastAppliedSceneSequence = keyframe.sceneSequence;
+    this.hasAppliedKeyframe = true;
+    this.pendingKeyframe = null;
+    this.resyncRequested = false;
     this.setReady(keyframe.projection.entities.length);
   }
 
   private onDelta(delta: SceneDeltaPayload): void {
+    if (!this.hasAppliedKeyframe) {
+      // §9.3: клиент не пытается самостоятельно восстановить пропущенные
+      // изменения — запрашивает полный keyframe. Причина — client_recovery:
+      // локального состояния сцены ещё нет.
+      this.requestResync('client_recovery');
+      return;
+    }
+    if (delta.baseSceneSequence !== this.lastAppliedSceneSequence) {
+      // §9.3: разрыв цепочки baseSceneSequence — полный keyframe.
+      this.requestResync('sequence_gap');
+      return;
+    }
     this.applyProjection(delta.entityUpserts, delta.simulationTick, delta.serverTimeMs);
     for (const participantId of delta.entityRemovals) {
       this.interpolation.remove(participantId);
@@ -159,6 +261,7 @@ export class GameWorld {
       this.prediction.reset(delta.ownActorState.position);
     }
     this.syncServerClock(delta.serverTimeMs);
+    this.lastAppliedSceneSequence = delta.sceneSequence;
   }
 
   private onInputAck(ack: SceneInputAckMessage): void {
@@ -171,6 +274,44 @@ export class GameWorld {
 
   private onReady(): void {
     setGameHud({ ready: true });
+  }
+
+  private onResyncRequired(): void {
+    this.interpolation.reset();
+    this.prediction?.reset(this.prediction.snapshot().authoritative);
+    this.hasAppliedKeyframe = false;
+    this.resyncRequested = false;
+    this.lastResyncRequestAt = null;
+  }
+
+  // -------------------------------------------------------------- lifecycle
+
+  /** §4.2 шаг 7: `connection:client-ready` после подписки и готовности renderer. */
+  private markClientReady(): void {
+    if (!this.welcomeReceived || !this.rendererReady || this.clientReadySent) return;
+    // Флаг ставится только после успешной отправки: если сокет ещё не открыт,
+    // client-ready будет отправлен при следующей попытке.
+    if (this.ws.sendClientReady()) this.clientReadySent = true;
+  }
+
+  private flushPendingKeyframe(): void {
+    const keyframe = this.pendingKeyframe;
+    if (keyframe === null) return;
+    this.applyKeyframe(keyframe);
+  }
+
+  /** Типизированный `scene:resync` с валидным reason и cooldown (§9.3, §17.4). */
+  private requestResync(reason: GameWorldResyncReason): void {
+    const now = Date.now();
+    if (this.lastResyncRequestAt !== null && now - this.lastResyncRequestAt < RESYNC_COOLDOWN_MS) return;
+    this.lastResyncRequestAt = now;
+    this.resyncRequested = true;
+    this.ws.requestResync(reason, { lastAppliedSceneSequence: this.lastAppliedSceneSequence });
+  }
+
+  /** Для диагностики: был ли уже запрошен resync (cooldown активен). */
+  isResyncRequested(): boolean {
+    return this.resyncRequested;
   }
 
   // --------------------------------------------------------------- movement
@@ -295,6 +436,35 @@ export class GameWorld {
       })),
     };
     setGameHud(metrics);
-    (window as unknown as { __MNEMOSIN__?: DebugMetrics }).__MNEMOSIN__ = metrics;
+    publishDebugMetrics(metrics);
   }
+}
+
+const defaultFrameScheduler: GameWorldFrameScheduler = {
+  request: (callback) => requestAnimationFrame(callback),
+  cancel: (handle) => cancelAnimationFrame(handle),
+};
+
+function browserEventTargets(): {
+  target: Window;
+  windowTarget: Window;
+  visibilityTarget: Document;
+} | null {
+  if (typeof window === 'undefined' || typeof document === 'undefined') return null;
+  return { target: window, windowTarget: window, visibilityTarget: document };
+}
+
+/**
+ * Debug-хук для E2E/ручной диагностики. Без `as unknown as`: тип выводится из
+ * объявления глобального augment-контракта.
+ */
+declare global {
+  interface Window {
+    __MNEMOSIN__?: DebugMetrics;
+  }
+}
+
+function publishDebugMetrics(metrics: DebugMetrics): void {
+  if (typeof window === 'undefined') return;
+  window.__MNEMOSIN__ = metrics;
 }

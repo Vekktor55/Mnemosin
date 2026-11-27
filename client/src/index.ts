@@ -10,7 +10,14 @@ export const IMPLEMENTED_IN_PROMPT = 'P05-B';
 
 export * from './net/backoff.js';
 export { WSClient, wsSubprotocol, IDLE_SNAPSHOT } from './net/ws-client.js';
-export type { ConnectionSnapshot, ConnectionStatus, WSClientOptions, ConnectionInfo } from './net/ws-client.js';
+export type {
+  ConnectionSnapshot,
+  ConnectionStatus,
+  WSClientOptions,
+  ConnectionInfo,
+  WsClientPayload,
+  WsServerMessage,
+} from './net/ws-client.js';
 export { describeError, CLIENT_ACTION_HINT, ruleRejectReason } from './lib/errors.js';
 export { newIdempotencyKey, newRequestId, newMessageId } from './lib/ids.js';
 export {
@@ -43,3 +50,16 @@ export { InterpolationBuffer } from './game-world/movement/interpolation.js';
 export type { RemoteSnapshot, InterpolationConfig } from './game-world/movement/interpolation.js';
 export { parseNetworkProfile, oneWayDelayMs, shouldDrop } from './game-world/net/profile.js';
 export type { NetworkProfile } from './game-world/net/profile.js';
+
+// --- P05-B: оркестратор сцены и его порты (node-тестируемы, без PixiJS)
+export { GameWorld } from './game-world/GameWorld.js';
+export type { GameWorldOptions } from './game-world/GameWorld.js';
+export type {
+  GameWorldCanvasHost,
+  GameWorldConnectionInfo,
+  GameWorldFrameScheduler,
+  GameWorldInputPort,
+  GameWorldRendererPort,
+  GameWorldResyncReason,
+  GameWorldWsPort,
+} from './game-world/ports.js';

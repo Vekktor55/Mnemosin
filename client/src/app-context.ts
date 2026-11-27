@@ -8,6 +8,8 @@
 import { wsUrl } from './net/url.js';
 import { WSClient, IDLE_SNAPSHOT, type ConnectionSnapshot } from './net/ws-client.js';
 import { GameWorld } from './game-world/GameWorld.js';
+import { GridProjection } from './game-world/projection/GridProjection.js';
+import { PixiRenderer } from './game-world/pixi/PixiRenderer.js';
 import { parseNetworkProfile } from './game-world/net/profile.js';
 import { connectionStore } from './stores/connection.js';
 import { gameStore, EMPTY_GAME_HUD } from './stores/game.js';
@@ -33,8 +35,20 @@ export function startGame(options: StartGameOptions): () => void {
     onStatus: (snapshot: ConnectionSnapshot) => connectionStore.set(snapshot),
   });
   client = ws;
-  const gameWorld = new GameWorld({ ws, parent: options.parent });
+  // PROTOTYPE-ONLY: параметры клиентской проекции зеркалят серверный HOT config.
+  const projection = new GridProjection({
+    tileWidth: 64,
+    tileDepth: 40,
+    originX: 0,
+    originY: 0,
+    elevationStep: 48,
+  });
+  const gameWorld = new GameWorld({ ws, parent: options.parent, renderer: new PixiRenderer(projection) });
   world = gameWorld;
+  // §4.2 шаг 7: handlers регистрируются ДО connect — иначе первый
+  // `scene:keyframe` (сервер шлёт его сразу на `connection:client-ready`)
+  // пришёл бы в пустую подписку и потерялся.
+  gameWorld.attach();
   ws.connect();
   void gameWorld
     .start()

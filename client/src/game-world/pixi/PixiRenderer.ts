@@ -8,11 +8,12 @@
  * Рендер-цикл принадлежит GameWorld (независим от WebSocket); здесь только
  * отрисовка по мировым координатам через GridProjection.
  */
-import { Application, Container, Graphics } from 'pixi.js';
+import { Application, Assets, Container, Graphics, Sprite } from 'pixi.js';
 
 import { depthKey, depthTieBreak } from '../projection/GridProjection.js';
 import type { GridProjection, WorldPoint } from '../projection/GridProjection.js';
 import { P03_PROTOTYPE_ROOM } from '../room/p03.js';
+import { OBLIQUE_ROOM } from '../room/oblique-room.js';
 import type { SceneObject } from '@mnemosin/contracts';
 
 const FLOOR_COLOR = 0x181822;
@@ -56,7 +57,16 @@ export class PixiRenderer {
     this.world.sortableChildren = true;
     app.stage.addChild(this.world);
     parent.appendChild(app.canvas);
-    this.drawStaticRoom();
+    const USE_BAKED_ROOM = true; // PROTOTYPE-ONLY: переключатель для A/B сравнения
+    if (USE_BAKED_ROOM) {
+      await this.drawBakedRoom();
+    } else {
+      this.drawStaticRoom();
+    }
+    this.centerOn(
+      { x: OBLIQUE_ROOM.anchor.cx, y: OBLIQUE_ROOM.anchor.cy },
+      { width: parent.clientWidth, height: parent.clientHeight },
+    );
     this.render();
   }
 
@@ -143,6 +153,24 @@ export class PixiRenderer {
     const h = PLAYER_BODY_HEIGHT_FRACTION * tileDepth;
     // Тело растёт вверх от foot point (нижняя кромка = точка контакта с полом).
     sprite.rect(-w * 0.5, -h, w, h);
+  }
+
+  private async drawBakedRoom(): Promise<void> {
+  	const world = this.world;
+  	if (world === null) return;
+  	const texture = await Assets.load(OBLIQUE_ROOM.image);
+  	texture.source.scaleMode = 'nearest'; // pixel-art без размытия
+  	texture.source.update();
+  	const room = new Sprite(texture);
+  	room.anchor.set(0.5);                 // центр картинки = точка позиционирования
+  	room.scale.x = -1;                    // зеркало под screenX = +x·tileWidth
+  	const center = this.projection.worldToScreen({
+  	  x: OBLIQUE_ROOM.anchor.cx,
+  	  y: OBLIQUE_ROOM.anchor.cy,
+  	});
+ 	room.position.set(center.x, center.y);
+  	room.zIndex = -1000;                  // подложка ниже игроков (sortableChildren уже включён)
+ 	world.addChild(room);
   }
 
   private drawStaticRoom(): void {

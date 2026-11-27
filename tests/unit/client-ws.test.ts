@@ -192,7 +192,15 @@ describe('WSClient v4 lifecycle (fake WebSocket)', () => {
 
     fake?.emitOpen();
     fake?.emitMessage(welcome());
+    // §4.2 шаг 7: `connection:client-ready` уходит ЯВНО — только когда клиент
+    // зарегистрировал handlers и готов принять keyframe. Авто-отправка в
+    // обработчике welcome приводила к потере первого scene:keyframe.
+    expect(sentTypes(fake as FakeWebSocket)).not.toContain('connection:client-ready');
+    expect(client.sendClientReady()).toBe(true);
     expect(sentTypes(fake as FakeWebSocket)).toContain('connection:client-ready');
+    // Повторный вызов на том же lifecycle не дублирует сообщение.
+    expect(client.sendClientReady()).toBe(true);
+    expect(sentTypes(fake as FakeWebSocket).filter((type) => type === 'connection:client-ready')).toHaveLength(1);
 
     fake?.emitMessage(keyframe());
     fake?.emitMessage(envelope('connection:ready', {}));
